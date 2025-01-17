@@ -1,4 +1,4 @@
-basalt.egg-info/
+basalt*.egg-info/
 build/
 dist/
 __pycache__/

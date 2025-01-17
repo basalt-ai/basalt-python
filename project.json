@@ -6,8 +6,10 @@
 		"build": {
 			"executor": "nx:run-commands",
 			"options": {
+				"cwd": "packages/py-sdk",
 				"commands": [
-					"cd packages/py-sdk && python -m build"
+					"rm -rf ../../dist/packages/py-sdk",
+					"BUILD=production python3 -m build --outdir ../../dist/packages/py-sdk"
 				]
 			}
 		},
@@ -15,9 +17,8 @@
 		"publish": {
 			"executor": "nx:run-commands",
 			"options": {
-				"commands": [
-					"cd packages/py-sdk && twine upload dist/*"
-				]
+				"cwd": "dist/packages/py-sdk",
+				"command": "python3 -m twine upload ./*"
 			}
 		}
 	}
