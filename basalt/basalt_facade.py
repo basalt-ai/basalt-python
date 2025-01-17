@@ -1,11 +1,11 @@
-from api import Api
-from protocols import IPromptSDK, IBasaltSDK
-from promptsdk import PromptSDK
-from basaltsdk import BasaltSDK
-from memcache import MemoryCache
-from networker import Networker
-from config import config
-from logger import Logger
+from .api import Api
+from .protocols import IPromptSDK, IBasaltSDK
+from .promptsdk import PromptSDK
+from .basaltsdk import BasaltSDK
+from .memcache import MemoryCache
+from .networker import Networker
+from .config import config
+from .logger import Logger
 
 global_fallback_cache = MemoryCache()
 

@@ -1,4 +1,4 @@
-from protocols import ILogger
+from .protocols import ILogger
 
 class Logger(ILogger):
 	def __init__(self, log_level: str = 'all'):

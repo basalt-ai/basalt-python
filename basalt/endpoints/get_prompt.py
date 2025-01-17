@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
-from dtos import GetPromptDTO, PromptResponse
+from ..dtos import GetPromptDTO, PromptResponse
 
 @dataclass
 class GetPromptEndpointResponse:

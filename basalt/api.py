@@ -1,6 +1,6 @@
 from typing import Dict, TypeVar, Optional, Tuple
 
-from protocols import IEndpoint, INetworker
+from .protocols import IEndpoint, INetworker
 
 Input = TypeVar('Input')
 Output = TypeVar('Output')

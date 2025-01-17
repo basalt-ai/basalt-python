@@ -1,4 +1,4 @@
-from protocols import IPromptSDK, IBasaltSDK
+from .protocols import IPromptSDK, IBasaltSDK
 
 class BasaltSDK(IBasaltSDK):
     """

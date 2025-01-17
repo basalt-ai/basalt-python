@@ -1,10 +1,10 @@
 from typing import Optional, Tuple, Dict
 
-from dtos import GetPromptDTO, PromptResponse
-from protocols import ICache, IApi, ILogger
+from .dtos import GetPromptDTO, PromptResponse
+from .protocols import ICache, IApi, ILogger
 
-from endpoints.get_prompt import GetPromptEndpoint
-from utils import replace_variables
+from .endpoints.get_prompt import GetPromptEndpoint
+from .utils import replace_variables
 
 GetResult = Tuple[Optional[Exception], Optional[PromptResponse]]
 

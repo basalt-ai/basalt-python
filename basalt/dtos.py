@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 
-from utils import pick_typed
+from .utils import pick_typed
 
 @dataclass
 class PromptModelParameters:

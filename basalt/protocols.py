@@ -1,5 +1,5 @@
 from typing import Any, Optional, Protocol, Hashable, Tuple, TypeVar, Dict, Mapping
-from dtos import PromptResponse
+from .dtos import PromptResponse
 
 Input = TypeVar('Input')
 Output = TypeVar('Output')

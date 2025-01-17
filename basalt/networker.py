@@ -1,8 +1,8 @@
 import requests
 from typing import Any, Dict, Optional, Tuple
 
-from errors import BadRequest, FetchError, Forbidden, NetworkBaseError, NotFound, Unauthorized
-from protocols import INetworker
+from .errors import BadRequest, FetchError, Forbidden, NetworkBaseError, NotFound, Unauthorized
+from .protocols import INetworker
 
 class Networker(INetworker):
     """
