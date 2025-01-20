@@ -9,7 +9,7 @@
 				"cwd": "packages/py-sdk",
 				"commands": [
 					"rm -rf ../../dist/packages/py-sdk",
-					"BUILD=production python3 -m build --outdir ../../dist/packages/py-sdk"
+					"BASALT_BUILD=production python3 -m build --outdir ../../dist/packages/py-sdk"
 				]
 			}
 		},
