@@ -62,7 +62,7 @@ class PromptSDK:
         err, result = self._api.invoke(GetPromptEndpoint, dto)
 
         if err is None:
-            self._cache.put(dto, result.prompt, duration=self._cache_duration)
+            self._cache.put(dto, result.prompt, ttl=self._cache_duration)
             self._fallback_cache.put(dto, result.prompt)
 
             return self._replace_vars(result.prompt, variables)

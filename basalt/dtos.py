@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 
-from .utils import pick_typed
+from .utils import pick_typed, pick_number
 
 @dataclass
 class PromptModelParameters:
@@ -19,11 +19,11 @@ class PromptModelParameters:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         return cls(
-            temperature=pick_typed(data, "temperature", float),
-            frequency_penalty=pick_typed(data, 'frequencyPenalty', float) if data.get("frequencyPenalty") else None,
-            presence_penalty=pick_typed(data, "presencePenalty", float) if data.get("presencePenalty") else None,
-            top_p=pick_typed(data, "topP", int),
-            top_k=pick_typed(data, "topK", float) if data.get("topK") else None,
+            temperature=pick_number(data, "temperature"),
+            frequency_penalty=pick_number(data, 'frequencyPenalty') if data.get("frequencyPenalty") else None,
+            presence_penalty=pick_number(data, "presencePenalty") if data.get("presencePenalty") else None,
+            top_p=pick_number(data, "topP"),
+            top_k=pick_number(data, "topK") if data.get("topK") else None,
             max_length=data["maxLength"],
             response_format=pick_typed(data, "responseFormat", str),
             json_object=data.get("jsonObject"),
