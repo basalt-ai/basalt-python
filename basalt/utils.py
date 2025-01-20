@@ -24,3 +24,11 @@ def pick_typed(dict: Dict[str, Any], field_name: str, expected_type: Any) -> Any
         raise TypeError(f"Field '{field_name}' must be of type {expected_type.__name__}, got {type(value).__name__}.")
 
     return value
+
+def pick_number(dict: Dict[str, Any], field_name: str) -> float:
+    value = dict.get(field_name)
+    
+    if isinstance(value, float) or isinstance(value, int):
+        return float(value)
+    
+    raise TypeError(f"Field '{field_name}' must be a number (int or float), got {type(value).__name__}.")
