@@ -66,4 +66,4 @@ Your Basalt instance exposes a `prompt` property for interacting with your Basal
 
 ## License
 
-[TODO]
+MIT
