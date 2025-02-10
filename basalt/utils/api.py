@@ -34,22 +34,25 @@ class Api:
         self._network = networker
 
     def invoke(
-        self, 
+        self,
         endpoint: IEndpoint[Input, Output],
-        dto: Input
+        dto: Optional[Input] = None
     ) -> Tuple[Optional[Exception], Optional[Output]]:
         """
         Invoke an API endpoint with the given data transfer object (DTO).
-        
+
         Args:
             endpoint: The endpoint to be invoked.
             dto: The data transfer object to be sent to the endpoint.
-        
+
         Returns:
             A tuple containing an optional exception and an optional output.
         """
         # Prepare the request information using the endpoint and input data
-        request_info = endpoint.prepare_request(dto)
+        if dto is None:
+            request_info = endpoint.prepare_request()
+        else:
+            request_info = endpoint.prepare_request(dto)
 
         # Fetch the result from the network using the prepared request information
         error, result = self._network.fetch(

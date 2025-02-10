@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import patch, Mock
 from parameterized import parameterized
 
-from networker import Networker
-from errors import NetworkBaseError, FetchError
+from basalt.utils.networker import Networker
+from basalt.utils.errors import NetworkBaseError, FetchError
 
 class TestNetworker(unittest.TestCase):
 

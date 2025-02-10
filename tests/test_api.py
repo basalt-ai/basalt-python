@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 from parameterized import parameterized
 
-from api import Api
+from basalt.utils.api import Api
 
 class TestApi(unittest.TestCase):
 

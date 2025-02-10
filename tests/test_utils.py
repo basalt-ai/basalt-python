@@ -1,6 +1,6 @@
 import unittest
 from parameterized import parameterized
-from utils import replace_variables, pick_typed, pick_number
+from basalt.utils.utils import replace_variables, pick_typed, pick_number
 
 class TestUtils(unittest.TestCase):
 

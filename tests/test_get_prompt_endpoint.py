@@ -1,6 +1,6 @@
 import unittest
-from endpoints.get_prompt import GetPromptEndpoint
-from dtos import GetPromptDTO
+from basalt.endpoints.get_prompt import GetPromptEndpoint
+from basalt.utils.dtos import GetPromptDTO
 
 
 class TestGetPromptEndpoint(unittest.TestCase):
