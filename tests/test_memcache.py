@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from parameterized import parameterized
 from dataclasses import dataclass
-from memcache import MemoryCache
+from basalt.utils.memcache import MemoryCache
 
 time_mock = MagicMock()
 

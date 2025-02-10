@@ -1,11 +1,11 @@
-from .api import Api
-from .protocols import IPromptSDK, IBasaltSDK
-from .promptsdk import PromptSDK
+from .utils.api import Api
+from .utils.protocols import IPromptSDK, IBasaltSDK
+from .sdk.promptsdk import PromptSDK
 from .basaltsdk import BasaltSDK
-from .memcache import MemoryCache
-from .networker import Networker
+from .utils.memcache import MemoryCache
+from .utils.networker import Networker
 from .config import config
-from .logger import Logger
+from .utils.logger import Logger
 
 global_fallback_cache = MemoryCache()
 
@@ -30,13 +30,13 @@ class BasaltFacade(IBasaltSDK):
             sdk_version=config["sdk_version"],
             sdk_type=config["sdk_type"]
         )
-        
+
         logger = Logger(log_level=log_level)
 
         prompt = PromptSDK(api, cache, global_fallback_cache, logger)
 
         self._basalt = BasaltSDK(prompt)
-    
+
     @property
     def prompt(self) -> IPromptSDK:
         """

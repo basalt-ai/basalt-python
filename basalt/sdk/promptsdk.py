@@ -1,12 +1,12 @@
-from typing import Optional, Tuple, Dict
+from typing import Optional, Dict
 
-from .dtos import GetPromptDTO, PromptResponse
-from .protocols import ICache, IApi, ILogger
+from ..utils.dtos import GetPromptDTO, PromptResponse, DescribePromptResponse, DescribePromptDTO, GetResult, DescribeResult, ListResult, PromptListResponse
+from ..utils.protocols import ICache, IApi, ILogger
 
-from .endpoints.get_prompt import GetPromptEndpoint
-from .utils import replace_variables
-
-GetResult = Tuple[Optional[Exception], Optional[PromptResponse]]
+from ..endpoints.get_prompt import GetPromptEndpoint
+from ..endpoints.describe_prompt import DescribePromptEndpoint
+from ..endpoints.list_prompts import ListPromptsEndpoint
+from ..utils.utils import replace_variables
 
 class PromptSDK:
     """
@@ -22,14 +22,14 @@ class PromptSDK:
         self._api = api
         self._cache = cache
         self._fallback_cache = fallback_cache
-        
+
         # Cache responses for 5 minutes
         self._cache_duration = 5 * 60
         self._logger = logger
 
     def get(
-        self, 
-        slug: str, 
+        self,
+        slug: str,
         version: Optional[str] = None,
         tag: Optional[str] = None,
         variables: Dict[str, str] = {},
@@ -37,14 +37,14 @@ class PromptSDK:
     ) -> GetResult:
         """
         Retrieve a prompt by slug, optionally specifying version and tag.
-        
+
         Args:
             slug (str): The slug identifier for the prompt.
             version (Optional[str]): The version of the prompt.
             tag (Optional[str]): The tag associated with the prompt.
             variables (dict): A dictionnary of variables to replace in the prompt text.
             cache_enabled (bool): Enable or disable cache for this request.
-        
+
         Returns:
             GetResult: A tuple containing an optional exception and an optional PromptResponse.
         """
@@ -53,7 +53,7 @@ class PromptSDK:
             version=version,
             tag=tag
         )
-        
+
         cached = self._cache.get(dto) if cache_enabled else None
 
         if cached:
@@ -71,8 +71,64 @@ class PromptSDK:
 
         if fallback:
             return self._replace_vars(fallback, variables)
-        
+
         return err, None
+
+    def describe(
+        self,
+        slug: str,
+        version: Optional[str] = None,
+        tag: Optional[str] = None,
+    ) -> DescribeResult:
+        """
+        Get details about a prompt by slug, optionally specifying version and tag.
+
+        Args:
+            slug (str): The slug identifier for the prompt.
+            version (Optional[str]): The version of the prompt.
+            tag (Optional[str]): The tag associated with the prompt.
+            cache_enabled (bool): Enable or disable cache for this request.
+
+        Returns:
+            Tuple[Optional[Exception], Optional[DescribePromptResponse]]: A tuple containing an optional exception and an optional DescribePromptResponse.
+        """
+        dto = DescribePromptDTO(
+            slug=slug,
+            version=version,
+            tag=tag
+        )
+
+        err, result = self._api.invoke(DescribePromptEndpoint, dto)
+
+        prompt = result.prompt
+
+        if err is None:
+            return None, DescribePromptResponse(
+                slug=prompt.slug,
+                status=prompt.status,
+                name=prompt.name,
+                description=prompt.description,
+                available_versions=prompt.available_versions,
+                available_tags=prompt.available_tags,
+                variables=prompt.variables
+            )
+
+        return err, None
+
+    def list(self) -> ListResult:
+        err, result = self._api.invoke(ListPromptsEndpoint)
+
+        if err is not None:
+            return err, None
+
+        return None, [PromptListResponse(
+            slug=prompt.slug,
+            status=prompt.status,
+            name=prompt.name,
+            description=prompt.description,
+            available_versions=prompt.available_versions,
+            available_tags=prompt.available_tags
+        ) for prompt in result.prompts]
 
     def _replace_vars(self, prompt: PromptResponse, variables: Dict[str, str] = {}):
         missing_vars, replaced = replace_variables(prompt.text, variables)

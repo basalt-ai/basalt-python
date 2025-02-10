@@ -16,6 +16,7 @@
 
 		"publish": {
 			"executor": "nx:run-commands",
+			"dependsOn": ["build"],
 			"options": {
 				"cwd": "dist/packages/py-sdk",
 				"command": "python3 -m twine upload ./*"

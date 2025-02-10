@@ -2,10 +2,10 @@ import unittest
 from unittest.mock import MagicMock
 from parameterized import parameterized
 
-from promptsdk import PromptSDK
-from logger import Logger
-from dtos import PromptResponse, PromptModel, GetPromptDTO
-from endpoints.get_prompt import GetPromptEndpoint, GetPromptEndpointResponse
+from basalt.promptsdk import PromptSDK
+from basalt.utils.logger import Logger
+from basalt.utils.dtos import PromptResponse, PromptModel, GetPromptDTO
+from basalt.endpoints.get_prompt import GetPromptEndpoint, GetPromptEndpointResponse
 
 logger = Logger()
 mocked_api = MagicMock()
