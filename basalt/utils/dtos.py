@@ -80,7 +80,7 @@ class DescribePromptResponse:
 	@classmethod
 	def from_dict(cls, data: Dict[str, Any]):
 		return cls(
-			slug=pick_typed(data, "slug", str),
+			slug=pick_typed(data, "slug", str) if data.get("slug") else None,
 			status=pick_typed(data, "status", str),
 			name=pick_typed(data, "name", str),
 			description=pick_typed(data, "description", str) if data.get("description") else None,
@@ -110,7 +110,7 @@ class PromptListResponse:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         return cls(
-            slug=pick_typed(data, "slug", str),
+            slug=pick_typed(data, "slug", str) if data.get("slug") else None,
             status=pick_typed(data, "status", str),
             name=pick_typed(data, "name", str),
             description=pick_typed(data, "description", str) if data.get("description") else None,
