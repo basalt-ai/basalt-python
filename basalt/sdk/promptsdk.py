@@ -100,9 +100,9 @@ class PromptSDK:
 
         err, result = self._api.invoke(DescribePromptEndpoint, dto)
 
-        prompt = result.prompt
-
         if err is None:
+            prompt = result.prompt
+
             return None, DescribePromptResponse(
                 slug=prompt.slug,
                 status=prompt.status,
