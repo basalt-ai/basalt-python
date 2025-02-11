@@ -2,3 +2,4 @@ basalt*.egg-info/
 build/
 dist/
 __pycache__/
+test.py
