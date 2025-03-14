@@ -2,10 +2,11 @@ import unittest
 from unittest.mock import MagicMock
 from parameterized import parameterized
 
-from basalt.promptsdk import PromptSDK
+from basalt.sdk.promptsdk import PromptSDK
 from basalt.utils.logger import Logger
 from basalt.utils.dtos import PromptResponse, PromptModel, GetPromptDTO
 from basalt.endpoints.get_prompt import GetPromptEndpoint, GetPromptEndpointResponse
+from basalt.objects.generation import Generation
 
 logger = Logger()
 mocked_api = MagicMock()
@@ -43,7 +44,6 @@ class TestPromptSDK(unittest.TestCase):
 		)
 
 		prompt.get("slug")
-
 		endpoint = mocked_api.invoke.call_args[0][0]
 
 		self.assertEqual(endpoint, GetPromptEndpoint)
@@ -83,12 +83,13 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		err, res = prompt.get("slug")
+		err, res, generation = prompt.get("slug")
 
 		self.assertIsInstance(err, Exception)
 		self.assertIsNone(res)
+		self.assertIsNone(generation)
 
-	def test_replaces_variabels(self):
+	def test_replaces_variables(self):
 		mocked_api = MagicMock()
 		mocked_api.invoke.return_value = (None, GetPromptEndpointResponse(
 			warning=None,
@@ -115,9 +116,12 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		_, prompt = prompt.get("slug", variables={ "name": "Basalt" })
+		_, prompt_response, generation = prompt.get("slug", variables={ "name": "Basalt" })
 
-		self.assertEqual(prompt.text, "Say hello Basalt")
+		self.assertEqual(prompt_response.text, "Say hello Basalt")
+		self.assertIsInstance(generation, Generation)
+		self.assertEqual(generation.input, "Say hello {{name}}")
+		self.assertEqual(generation.prompt["slug"], "slug")
 
 	def test_saves_raw_prompt_to_cache(self):
 		mocked_api = MagicMock()
@@ -182,12 +186,14 @@ class TestPromptSDK(unittest.TestCase):
 			fallback_cache=fallback_cache,
 			logger=logger
 		)
-		err, res = prompt.get("slug", variables={ "name": "Cached" })
+		err, res, generation = prompt.get("slug", variables={ "name": "Cached" })
 
 		mocked_api.invoke.assert_not_called()
 
 		self.assertIsNone(err)
 		self.assertEqual(res.text, "Say hello Cached")
+		self.assertIsInstance(generation, Generation)
+		self.assertEqual(generation.input, "Say hello {{name}}")
   
 	def test_caches_in_fallback_forever(self):
 		mocked_api = MagicMock()
@@ -250,7 +256,25 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		_, res = prompt.get("slug", variables={ "name": "Cached" })
+		_, res, generation = prompt.get("slug", variables={ "name": "Cached" })
 
 		fallback_cache.get.assert_called_once()
 		self.assertEqual(res.text, "From fallback cache")
+		self.assertIsInstance(generation, Generation)
+		
+	def test_returns_generation_object(self):
+		prompt = PromptSDK(
+			mocked_api,
+			cache=mocked_cache,
+			fallback_cache=fallback_cache,
+			logger=logger
+		)
+
+		_, _, generation = prompt.get("test-slug", version="1.0", tag="prod", variables={"key": "value"})
+
+		self.assertIsInstance(generation, Generation)
+		self.assertEqual(generation.prompt["slug"], "test-slug")
+		self.assertEqual(generation.prompt["version"], "1.0")
+		self.assertEqual(generation.prompt["tag"], "prod")
+		self.assertEqual(generation.variables, {"key": "value"})
+		self.assertEqual(generation.options["type"], "single")

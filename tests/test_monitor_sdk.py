@@ -7,6 +7,7 @@ from typing import Dict, Any
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from basalt.sdk.monitorsdk import MonitorSDK
+from basalt.sdk.promptsdk import PromptSDK
 from basalt.utils.api import Api
 from basalt.utils.logger import Logger
 from basalt.utils.networker import Networker
@@ -69,6 +70,50 @@ class Basalt:
         )
         self.monitor = MonitorSDK(self.api, logger)
         self.prompt = MockPromptSDK()
+
+# def test_simple_monitor_sdk():
+#     """Test the monitor SDK implementation."""
+#     print("Starting Basalt monitoring test...")
+    
+#     # Initialize clients
+#     basalt = Basalt(api_key="sk-ba4df805e4cc25cbfedf2fc53d1168526888c00c9026ba3cfcb178bbb444eb16")
+#     openai = MockOpenAI()
+    
+#     # Create a user and content
+#     user = {"id": "user123", "name": "John Doe"}
+#     content = "Create a technical article about machine learning applications in healthcare"
+    
+#     # Create a main trace for the entire user request
+#     print(f'Creating trace for: {content[:50]}...')
+
+    
+#     try:
+#         # Get prompt from Basalt
+#         basalt_prompt = basalt.prompt.get("generate-test-cases",
+#             variables={"promptName": "translation", "promptVariables": "spanish"},
+#             version="0.8"
+#         )
+        
+#     except Exception as e:
+#         # Log any uncaught errors to the main trace
+#         main_trace.update({
+#             "metadata": {
+#                 **(main_trace.metadata or {}),
+#                 "error": {
+#                     "name": "ProcessingError",
+#                     "message": str(e),
+#                     "stack": getattr(e, "__traceback__", None)
+#                 }
+#             }
+#         })
+        
+#         print(f"Error processing user content: {e}")
+#     finally:
+#         # Complete the main trace
+#         main_trace.end()
+    
+#     print("Test completed successfully!")
+#     return main_trace
 
 def test_monitor_sdk():
     """Test the monitor SDK implementation."""

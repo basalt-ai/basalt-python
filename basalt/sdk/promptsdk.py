@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple, Any
 
 from ..utils.dtos import GetPromptDTO, PromptResponse, DescribePromptResponse, DescribePromptDTO, GetResult, DescribeResult, ListResult, PromptListResponse
 from ..utils.protocols import ICache, IApi, ILogger
@@ -7,6 +7,10 @@ from ..endpoints.get_prompt import GetPromptEndpoint
 from ..endpoints.describe_prompt import DescribePromptEndpoint
 from ..endpoints.list_prompts import ListPromptsEndpoint
 from ..utils.utils import replace_variables
+from ..objects.trace import Trace
+from ..objects.generation import Generation
+from ..utils.flusher import Flusher
+from datetime import datetime
 
 class PromptSDK:
     """
@@ -34,7 +38,7 @@ class PromptSDK:
         tag: Optional[str] = None,
         variables: Dict[str, str] = {},
         cache_enabled: bool = True
-    ) -> GetResult:
+    ) -> Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]:
         """
         Retrieve a prompt by slug, optionally specifying version and tag.
 
@@ -46,7 +50,8 @@ class PromptSDK:
             cache_enabled (bool): Enable or disable cache for this request.
 
         Returns:
-            GetResult: A tuple containing an optional exception and an optional PromptResponse.
+            Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]: 
+            A tuple containing an optional exception, an optional PromptResponse, and an optional Generation object.
         """
         dto = GetPromptDTO(
             slug=slug,
@@ -57,22 +62,79 @@ class PromptSDK:
         cached = self._cache.get(dto) if cache_enabled else None
 
         if cached:
-            return self._replace_vars(cached, variables)
+            original_prompt_text = cached.text
+            err, prompt_response = self._replace_vars(cached, variables)
+            generation = self._prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
+            return err, prompt_response, generation
 
         err, result = self._api.invoke(GetPromptEndpoint, dto)
 
         if err is None:
+            original_prompt_text = result.prompt.text
             self._cache.put(dto, result.prompt, ttl=self._cache_duration)
             self._fallback_cache.put(dto, result.prompt)
 
-            return self._replace_vars(result.prompt, variables)
+            err, prompt_response = self._replace_vars(result.prompt, variables)
+            generation = self._prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
+            return err, prompt_response, generation
 
         fallback = self._fallback_cache.get(dto) if cache_enabled else None
 
         if fallback:
-            return self._replace_vars(fallback, variables)
+            original_prompt_text = fallback.text
+            err, prompt_response = self._replace_vars(fallback, variables)
+            generation = self._prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
+            return err, prompt_response, generation
 
-        return err, None
+        return err, None, None
+
+    def _prepare_monitoring(
+        self, 
+        prompt: PromptResponse, 
+        slug: str, 
+        version: Optional[str] = None, 
+        tag: Optional[str] = None,
+        variables: Optional[Dict[str, Any]] = None,
+        original_prompt_text: Optional[str] = None
+    ) -> Generation:
+        """
+        Prepare monitoring by creating a trace and generation object.
+        
+        Args:
+            prompt (PromptResponse): The prompt response.
+            slug (str): The slug identifier for the prompt.
+            version (Optional[str]): The version of the prompt.
+            tag (Optional[str]): The tag associated with the prompt.
+            variables (Optional[Dict[str, Any]]): Variables used in the prompt.
+            original_prompt_text (Optional[str]): The original prompt text.
+            
+        Returns:
+            Generation: The generation object.
+        """
+        # Create a flusher
+        flusher = Flusher(self._api, self._logger)
+        
+        # Create a trace
+        trace = Trace(slug, {
+            "input": original_prompt_text or prompt.text,
+            "start_time": datetime.now()
+        }, flusher)
+        
+        # Create a generation
+        generation = Generation({
+            "name": slug,
+            "trace": trace,
+            "prompt": {
+                "slug": slug,
+                "version": version,
+                "tag": tag
+            },
+            "input": original_prompt_text or prompt.text,
+            "variables": variables,
+            "options": {"type": "single"}
+        })
+        
+        return generation
 
     def describe(
         self,
