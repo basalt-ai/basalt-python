@@ -67,19 +67,29 @@ class Log(BaseLog):
         Returns:
             Log: The log instance.
         """
-        # Remove child log from the list of its previous trace
-        generation.trace.logs = [log for log in generation.trace.logs if log.id != generation.id]
-        
-        # Add child to the new trace list
-        self.trace.logs.append(generation)
-        
-        # Set the trace of the generation to the current log's trace
-        generation.trace = self.trace
-        generation.options = {"type": "multi"}
-        
-        # Set the parent of the generation to the current log
         generation.parent = self
+        generation.trace = self.trace
         
+        return self
+
+    def update(self, params: Dict[str, Any]) -> 'Log':
+        """
+        Update the log with new parameters.
+        
+        Args:
+            params (Dict[str, Any]): Parameters to update.
+            
+        Returns:
+            Log: The log instance.
+        """
+        super().update(params)
+        
+        if "output" in params:
+            self._output = params["output"]
+            
+        if "input" in params:
+            self._input = params["input"]
+            
         return self
 
     def create_generation(self, params: Dict[str, Any]) -> 'Generation':
@@ -94,9 +104,9 @@ class Log(BaseLog):
         """
         from .generation import Generation
         
-        # Set the name to the prompt slug if available
+        # Set the name to the prompt slug only if name is not provided
         name = params.get("name")
-        if params.get("prompt") and params["prompt"].get("slug"):
+        if not name and params.get("prompt") and params["prompt"].get("slug"):
             name = params["prompt"]["slug"]
             
         generation = Generation({
