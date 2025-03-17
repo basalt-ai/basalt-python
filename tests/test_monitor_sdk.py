@@ -105,7 +105,7 @@ class TestMonitorSDK(unittest.TestCase):
             "name": "test-generation",
             "input": self.content,
             "prompt": {"slug": "test-prompt", "version": "1.0"},
-            "variables": {"var1": "value1"}
+            "variables": [{"label": "var1", "value": "value1"}]
         })
         
         # Assert generation was created correctly
@@ -114,7 +114,7 @@ class TestMonitorSDK(unittest.TestCase):
         self.assertEqual(generation.input, self.content)
         self.assertEqual(generation.name, "test-generation")
         self.assertEqual(generation.prompt, {"slug": "test-prompt", "version": "1.0"})
-        self.assertEqual(generation.variables, {"var1": "value1"})
+        self.assertEqual(generation.variables, [{"label": "var1", "value": "value1"}])
         self.assertEqual(generation.trace, trace)
     
     def test_update_log(self):
@@ -339,7 +339,10 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         self.assertEqual(generation.prompt["slug"], "ml-best-practices")
         self.assertEqual(generation.prompt["version"], "1.0")
         self.assertEqual(generation.input, "Answer the following question about {{topic}}: {{question}}")
-        self.assertEqual(generation.variables, {"topic": "machine learning", "question": self.query})
+        self.assertEqual(generation.variables, [
+            {"label": "topic", "value": "machine learning"}, 
+            {"label": "question", "value": self.query}
+        ])
         self.assertEqual(generation.options["type"], "single")
         
         # End the prompt span
@@ -435,7 +438,7 @@ class TestMonitorSDKIntegration(unittest.TestCase):
             "name": "text-generation",
             "input": self.query,
             "prompt": {"slug": "generate-content", "version": "1.0"},
-            "variables": {"query": self.query}
+            "variables": [{"label": "query", "value": self.query}]
         })
         
         # Generate text
@@ -490,7 +493,7 @@ class TestMonitorSDKIntegration(unittest.TestCase):
             "name": "content-classification",
             "input": generated_text,
             "prompt": {"slug": "classify-content", "version": "1.0"},
-            "variables": {"content": generated_text}
+            "variables": [{"label": "content", "value": generated_text}]
         })
         
         # Classify content

@@ -34,7 +34,7 @@ class TestSendTraceEndpoint(unittest.TestCase):
                     "input": {"log": "input"},
                     "output": {"log": "output"},
                     "prompt": "test prompt",
-                    "variables": {"var1": "value1"}
+                    "variables": [{"label": "var1", "value": "value1"}]
                 }
             ]
         }

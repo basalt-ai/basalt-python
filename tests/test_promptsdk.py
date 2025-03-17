@@ -276,5 +276,5 @@ class TestPromptSDK(unittest.TestCase):
 		self.assertEqual(generation.prompt["slug"], "test-slug")
 		self.assertEqual(generation.prompt["version"], "1.0")
 		self.assertEqual(generation.prompt["tag"], "prod")
-		self.assertEqual(generation.variables, {"key": "value"})
+		self.assertEqual(generation.variables, [{"label": "key", "value": "value"}])
 		self.assertEqual(generation.options["type"], "single")
