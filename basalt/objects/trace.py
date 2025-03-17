@@ -157,10 +157,12 @@ class Trace:
             Trace: The trace instance.
         """
         # Remove child log from the list of its previous trace
-        generation.trace.logs = [log for log in generation.trace.logs if log.id != generation.id]
+        if generation.trace:
+            generation.trace.logs = [log for log in generation.trace.logs if log.id != generation.id]
         
         # Add child to the new trace list
         self._logs.append(generation)
+        generation.trace = self
         
         return self
 
@@ -226,3 +228,18 @@ class Trace:
             self._flusher.flush_trace(self)
             
         return self 
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the trace to a dictionary for API serialization."""
+        return {
+            "chain_slug": self._chain_slug,
+            "input": self._input,
+            "output": self._output,
+            "name": self._name,
+            "start_time": self._start_time,
+            "end_time": self._end_time,
+            "user": self._user,
+            "organization": self._organization,
+            "metadata": self._metadata,
+            "logs": self._logs
+        }

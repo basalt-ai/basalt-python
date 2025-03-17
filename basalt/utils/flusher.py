@@ -65,7 +65,8 @@ class Flusher:
             "output": output,
             "start_time": log.start_time.isoformat() if hasattr(log, 'start_time') and log.start_time else None,
             "end_time": log.end_time.isoformat() if hasattr(log, 'end_time') and log.end_time else None,
-            "metadata": log.metadata if hasattr(log, 'metadata') else None
+            "metadata": log.metadata if hasattr(log, 'metadata') else None,
+            "parent": {"id": log.parent.id} if hasattr(log, 'parent') and log.parent else None
         }
 
         # Add generation-specific fields if it's a generation

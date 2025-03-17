@@ -20,6 +20,7 @@ class BaseLog:
         self._trace = params.get("trace")
         self._parent = params.get("parent")
 
+        # Add to trace's logs list if trace exists
         if self._trace:
             self._trace.logs.append(self)
 
@@ -99,4 +100,16 @@ class BaseLog:
     def end(self) -> 'BaseLog':
         """End the log."""
         self._end_time = datetime.now()
-        return self 
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the log to a dictionary for API serialization."""
+        return {
+            "id": self._id,
+            "type": self._type,
+            "name": self._name,
+            "start_time": self._start_time,
+            "end_time": self._end_time,
+            "metadata": self._metadata,
+            "parent": {"id": self._parent.id} if self._parent else None,
+        }
