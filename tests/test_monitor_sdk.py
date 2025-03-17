@@ -1,6 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
-from typing import Dict, Any
+from unittest.mock import MagicMock
 
 from basalt.sdk.monitorsdk import MonitorSDK
 from basalt.sdk.promptsdk import PromptSDK

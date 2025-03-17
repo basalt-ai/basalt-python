@@ -33,41 +33,41 @@ class SendTraceEndpoint:
         
         # Convert logs to a format suitable for the API
         logs = []
-        for log in trace.logs:
+        for log in trace["logs"]:
             log_data = {
-                "id": log.id,
-                "type": log.type,
-                "name": log.name,
-                "startTime": log.start_time.isoformat() if isinstance(log.start_time, datetime) else log.start_time,
-                "endTime": log.end_time.isoformat() if isinstance(log.end_time, datetime) and log.end_time else None,
-                "metadata": log.metadata,
-                "parentId": log.parent.id if log.parent else None,
+                "id": log["id"],
+                "type": log["type"],
+                "name": log["name"],
+                "startTime": log["start_time"].isoformat() if isinstance(log["start_time"], datetime) else log["start_time"],
+                "endTime": log["end_time"].isoformat() if isinstance(log["end_time"], datetime) and log["end_time"] else None,
+                "metadata": log["metadata"],
+                "parentId": log["parent"]["id"] if "parent" in log and log["parent"] else None,
             }
             
             # Add input and output if they exist
-            if hasattr(log, "input"):
-                log_data["input"] = log.input
-            if hasattr(log, "output"):
-                log_data["output"] = log.output
+            if "input" in log:
+                log_data["input"] = log["input"]
+            if "output" in log:
+                log_data["output"] = log["output"]
                 
             # Add prompt and variables if it's a generation
-            if hasattr(log, "prompt"):
-                log_data["prompt"] = log.prompt
-            if hasattr(log, "variables") and log.variables:
-                log_data["variables"] = [{"label": key, "value": value} for key, value in log.variables.items()]
+            if "prompt" in log:
+                log_data["prompt"] = log["prompt"]
+            if "variables" in log and log["variables"]:
+                log_data["variables"] = [{"label": key, "value": value} for key, value in log["variables"].items()]
                 
             logs.append(log_data)
             
         # Create the request body
         body = {
-            "chainSlug": trace.chain_slug,
-            "input": trace.input,
-            "output": trace.output,
-            "metadata": trace.metadata,
-            "organization": trace.organization,
-            "user": trace.user,
-            "startTime": trace.start_time.isoformat() if isinstance(trace.start_time, datetime) else trace.start_time,
-            "endTime": trace.end_time.isoformat() if isinstance(trace.end_time, datetime) and trace.end_time else None,
+            "chainSlug": trace["chain_slug"],
+            "input": trace["input"],
+            "output": trace["output"],
+            "metadata": trace["metadata"],
+            "organization": trace["organization"],
+            "user": trace["user"],
+            "startTime": trace["start_time"].isoformat() if isinstance(trace["start_time"], datetime) else trace["start_time"],
+            "endTime": trace["end_time"].isoformat() if isinstance(trace["end_time"], datetime) and trace["end_time"] else None,
             "logs": logs
         }
         

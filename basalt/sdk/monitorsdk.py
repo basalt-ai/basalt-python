@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Any
 
 from ..utils.protocols import IApi, ILogger
-from ..utils.dtos import MonitorResult, TraceParams, GenerationParams, LogParams
+from ..utils.dtos import TraceParams, GenerationParams, LogParams
 
 from ..objects.trace import Trace
 from ..objects.generation import Generation

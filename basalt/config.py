@@ -9,4 +9,3 @@ config = {
     'sdk_version': __version__,
     'sdk_type': 'python',
 }
-

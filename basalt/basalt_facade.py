@@ -1,6 +1,7 @@
 from .utils.api import Api
-from .utils.protocols import IPromptSDK, IBasaltSDK
+from .utils.protocols import IPromptSDK, IBasaltSDK, IMonitorSDK
 from .sdk.promptsdk import PromptSDK
+from .sdk.monitorsdk import MonitorSDK
 from .basaltsdk import BasaltSDK
 from .utils.memcache import MemoryCache
 from .utils.networker import Networker
@@ -20,22 +21,25 @@ class BasaltFacade(IBasaltSDK):
 
         Args:
             api_key (str): The API key for authenticating with the Basalt SDK.
-            log_level (str, optional): The log level for the logger. Defaults to 'all'. (all, warn, error, none)
+            log_level (str, optional): The log level for the logger. Defaults to 'all'. (all, warn, error, debug, none)
         """
         cache = MemoryCache()
+        logger = Logger(log_level=log_level)
+        networker = Networker(logger=logger)
+        
         api = Api(
-            networker=Networker(),
+            networker=networker,
             root_url=config["api_url"],
             api_key=api_key,
             sdk_version=config["sdk_version"],
-            sdk_type=config["sdk_type"]
+            sdk_type=config["sdk_type"],
+            logger=logger
         )
 
-        logger = Logger(log_level=log_level)
-
         prompt = PromptSDK(api, cache, global_fallback_cache, logger)
+        monitor = MonitorSDK(api, logger)
 
-        self._basalt = BasaltSDK(prompt)
+        self._basalt = BasaltSDK(prompt, monitor)
 
     @property
     def prompt(self) -> IPromptSDK:
@@ -43,3 +47,10 @@ class BasaltFacade(IBasaltSDK):
         Read-only access to the PromptSDK instance.
         """
         return self._basalt.prompt
+
+    @property
+    def monitor(self) -> IMonitorSDK:
+        """
+        Read-only access to the MonitorSDK instance.
+        """
+        return self._basalt.monitor

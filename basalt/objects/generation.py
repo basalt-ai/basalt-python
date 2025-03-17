@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List, Union
 
 from .base_log import BaseLog
 
@@ -16,7 +16,19 @@ class Generation(BaseLog):
         self._prompt = params.get("prompt")
         self._input = params.get("input")
         self._output = params.get("output")
-        self._variables = params.get("variables")
+        
+        # Convert variables to array format if needed
+        variables = params.get("variables")
+        if variables is not None:
+            if isinstance(variables, dict):
+                self._variables = [{"label": str(k), "value": str(v)} for k, v in variables.items()]
+            elif isinstance(variables, list):
+                self._variables = [{"label": str(v.get("label")), "value": str(v.get("value"))} for v in variables if v.get("label")]
+            else:
+                self._variables = []
+        else:
+            self._variables = []
+            
         self._options = params.get("options")
 
     @property
@@ -35,7 +47,7 @@ class Generation(BaseLog):
         return self._output
 
     @property
-    def variables(self) -> Optional[Dict[str, Any]]:
+    def variables(self) -> List[Dict[str, str]]:
         """Get the generation variables."""
         return self._variables
 
@@ -100,5 +112,15 @@ class Generation(BaseLog):
         self._output = params.get("output", self._output)
         self._prompt = params.get("prompt", self._prompt)
         
+        # Update variables if provided
+        variables = params.get("variables")
+        if variables is not None:
+            if isinstance(variables, dict):
+                self._variables = [{"label": str(k), "value": str(v)} for k, v in variables.items()]
+            elif isinstance(variables, list):
+                self._variables = [{"label": str(v.get("label")), "value": str(v.get("value"))} for v in variables if v.get("label")]
+            else:
+                self._variables = []
+        
         super().update(params)
-        return self 
+        return self
