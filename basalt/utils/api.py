@@ -1,6 +1,7 @@
 from typing import Dict, TypeVar, Optional, Tuple
 
-from .protocols import IEndpoint, INetworker
+from .protocols import IEndpoint, INetworker, ILogger
+from .networker import Networker
 
 Input = TypeVar('Input')
 Output = TypeVar('Output')
@@ -16,7 +17,7 @@ class Api:
         sdk_type (str): The SDK type (ex: py-pip)
         networker (INetworker): The networker instance to handle network requests.
     """
-    def __init__(self, root_url: str, networker: INetworker, api_key: str, sdk_version: str, sdk_type: str):
+    def __init__(self, root_url: str, networker: INetworker, api_key: str, sdk_version: str, sdk_type: str, logger: Optional[ILogger] = None):
         """
         Initialize the Api class with the given parameters.
         
@@ -26,12 +27,16 @@ class Api:
             api_key (str): The API key for authentication.
             sdk_version (str): The version of the SDK.
             sdk_type (str): The SDK type (ex: py-pip)
+            logger (Optional[ILogger]): The logger instance for debug messages.
         """
         self._root = root_url
         self._api_key = api_key
         self._sdk_version = sdk_version
         self._sdk_type = sdk_type
+        self._logger = logger
         self._network = networker
+        if isinstance(networker, Networker):
+            networker._logger = logger
 
     def invoke(
         self,
