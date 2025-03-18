@@ -16,4 +16,4 @@ class Logger(ILogger):
         return self._log_level in ['all', 'warning', 'debug']
 
     def _can_debug(self):
-        return self._log_level in ['all', 'debug']
+        return self._log_level in ['debug']
