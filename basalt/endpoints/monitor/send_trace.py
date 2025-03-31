@@ -61,6 +61,12 @@ class SendTraceEndpoint:
                     log_data["prompt"] = log.prompt
                 if hasattr(log, "variables") and log.variables:
                     log_data["variables"] = [{"label": key, "value": value} for key, value in log.variables.items()]
+                if hasattr(log, "inputTokens"):
+                    log_data["inputTokens"] = log.inputTokens
+                if hasattr(log, "outputTokens"):
+                    log_data["outputTokens"] = log.outputTokens
+                if hasattr(log, "cost"):
+                    log_data["cost"] = log.cost
                     
                 # Extract parent ID
                 if log_data["parent"]:
