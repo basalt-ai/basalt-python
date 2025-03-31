@@ -50,12 +50,16 @@ class PromptModel:
 class PromptResponse:
     text: str
     model: PromptModel
+    systemText: str
+    version: str
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         return cls(
             text=pick_typed(data, "text", str),
             model=PromptModel.from_dict(data.get("model")),
+            systemText=pick_typed(data, "systemText", str),
+            version=pick_typed(data, "version", str),
         )
 
 @dataclass(frozen=True)
