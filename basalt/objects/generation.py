@@ -16,6 +16,9 @@ class Generation(BaseLog):
         self._prompt = params.get("prompt")
         self._input = params.get("input")
         self._output = params.get("output")
+        self._inputTokens = params.get("inputTokens")
+        self._outputTokens = params.get("outputTokens")
+        self._cost = params.get("cost")
         
         # Convert variables to array format if needed
         variables = params.get("variables")
@@ -45,6 +48,21 @@ class Generation(BaseLog):
     def output(self) -> Optional[str]:
         """Get the generation output."""
         return self._output
+
+    @property
+    def inputTokens(self) -> Optional[int]:
+        """Get the generation input tokens."""
+        return self._inputTokens
+
+    @property
+    def outputTokens(self) -> Optional[int]:
+        """Get the generation output tokens."""
+        return self._outputTokens
+
+    @property
+    def cost(self) -> Optional[float]:
+        """Get the generation cost."""
+        return self._cost
 
     @property
     def variables(self) -> List[Dict[str, str]]:
@@ -77,25 +95,28 @@ class Generation(BaseLog):
         super().start()
         return self
 
-    def end(self, output: Optional[str] = None) -> 'Generation':
+    def end(self, output: Optional[Union[str, Dict[str, Any]]] = None) -> 'Generation':
         """
-        End the generation with an optional output.
+        End the generation with an optional output or update parameters.
         
         Args:
-            output (Optional[str]): The output of the generation.
+            output (Optional[Union[str, Dict[str, Any]]]): The output of the generation
+                or a dictionary of parameters to update.
             
         Returns:
             Generation: The generation instance.
         """
         super().end()
         
-        if output:
+        if isinstance(output, dict):
+            self.update(output)
+        elif isinstance(output, str):
             self._output = output
-            
+        
         # If this is a single generation, end the trace as well
         if self._options and self._options.get("type") == "single":
-            self.trace.end(output)
-            
+            self.trace.end(self._output)
+        
         return self
 
     def update(self, params: Dict[str, Any]) -> 'Generation':
@@ -111,6 +132,9 @@ class Generation(BaseLog):
         self._input = params.get("input", self._input)
         self._output = params.get("output", self._output)
         self._prompt = params.get("prompt", self._prompt)
+        self._inputTokens = params.get("inputTokens", self._inputTokens)
+        self._outputTokens = params.get("outputTokens", self._outputTokens)
+        self._cost = params.get("cost", self._cost)
         
         # Update variables if provided
         variables = params.get("variables")

@@ -288,6 +288,8 @@ class TestMonitorSDKIntegration(unittest.TestCase):
             warning=None,
             prompt=PromptResponse(
                 text="Answer the following question about {{topic}}: {{question}}",
+                systemText="Some system prompt",
+                version="0.1",
                 model=PromptModel(
                     provider="open-ai",
                     model="gpt-4o",
@@ -399,6 +401,8 @@ class TestMonitorSDKIntegration(unittest.TestCase):
             warning=None,
             prompt=PromptResponse(
                 text="Generate content about: {{query}}",
+                systemText="Some system prompt",
+                version="0.1",
                 model=PromptModel(
                     provider="open-ai",
                     model="gpt-4o",
@@ -464,6 +468,8 @@ class TestMonitorSDKIntegration(unittest.TestCase):
             warning=None,
             prompt=PromptResponse(
                 text="Classify the following content: {{content}}",
+                systemText="Some system prompt",
+                version="0.1",
                 model=PromptModel(
                     provider="open-ai",
                     model="gpt-4o",

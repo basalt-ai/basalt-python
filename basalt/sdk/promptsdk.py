@@ -201,5 +201,7 @@ class PromptSDK:
 
         return None, PromptResponse(
             text=replaced,
+            systemText=prompt.systemText,
+            version=prompt.version,
             model=prompt.model
         )
