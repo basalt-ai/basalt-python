@@ -14,6 +14,8 @@ mocked_api.invoke.return_value = (None, GetPromptEndpointResponse(
 	warning=None,
 	prompt=PromptResponse(
 		text="Some prompt",
+		systemText="Some system prompt",
+		version="0.1",
 		model=PromptModel(
 			provider="open-ai",
 			model="gpt-4o",
@@ -95,6 +97,8 @@ class TestPromptSDK(unittest.TestCase):
 			warning=None,
 			prompt=PromptResponse(
 				text="Say hello {{name}}",
+				systemText="Some system prompt",
+				version="0.1",
 				model=PromptModel(
 					provider="open-ai",
 					model="gpt-4o",
@@ -129,6 +133,8 @@ class TestPromptSDK(unittest.TestCase):
 			warning=None,
 			prompt=PromptResponse(
 				text="Say hello {{name}}",
+				systemText="Some system prompt",
+				version="0.1",
 				model=PromptModel(
 					provider="open-ai",
 					model="gpt-4o",
@@ -167,6 +173,8 @@ class TestPromptSDK(unittest.TestCase):
 		mocked_cache = MagicMock()
 		mocked_cache.get.return_value = PromptResponse(
 			text="Say hello {{name}}",
+			systemText="Some system prompt",
+			version="0.1",
 			model=PromptModel(
 				provider="open-ai",
 				model="gpt-4o",
@@ -201,6 +209,8 @@ class TestPromptSDK(unittest.TestCase):
 			warning=None,
 			prompt=PromptResponse(
 				text="Say hello {{name}}",
+				systemText="Some system prompt",
+				version="0.1",
 				model=PromptModel(
 					provider="open-ai",
 					model="gpt-4o",
@@ -235,12 +245,14 @@ class TestPromptSDK(unittest.TestCase):
   
 		fallback_cache = MagicMock()
 		fallback_cache.get.return_value = PromptResponse(
-				text="From fallback cache",
-				model=PromptModel(
-					provider="open-ai",
-					model="gpt-4o",
-					version="latest",
-					parameters={
+			text="From fallback cache",
+			systemText="Some system prompt",
+			version="0.1",
+			model=PromptModel(
+				provider="open-ai",
+				model="gpt-4o",
+				version="latest",
+				parameters={
 						"temperature": 0.7,
 						"topP": 1,
 						"maxLength": 4096,

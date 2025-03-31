@@ -25,6 +25,8 @@ class TestGetPromptEndpoint(unittest.TestCase):
 			"warning": "This is a warning",
 			"prompt": {
 				"text": "Valid prompt text",
+				"systemText": "Some system prompt",
+				"version": "0.1",
 				"model": {
 					"provider": "open-ai",
             		"model": "gpt-4o",
@@ -44,5 +46,7 @@ class TestGetPromptEndpoint(unittest.TestCase):
 		self.assertIsNone(exception)
 		self.assertEqual(decoded.warning, "This is a warning")
 		self.assertEqual(decoded.prompt.text, "Valid prompt text")
+		self.assertEqual(decoded.prompt.systemText, "Some system prompt")
+		self.assertEqual(decoded.prompt.version, "0.1")
 		self.assertEqual(decoded.prompt.model.model, "gpt-4o")
 		self.assertEqual(decoded.prompt.model.provider, "open-ai")
