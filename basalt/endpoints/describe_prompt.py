@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from ..utils.dtos import DescribePromptDTO, DescribePromptResponse
 
+
 @dataclass
 class DescribePromptEndpointResponse:
     warning: Optional[str]
@@ -24,10 +25,12 @@ class DescribePromptEndpointResponse:
             prompt=DescribePromptResponse.from_dict(data["prompt"]),
         )
 
+
 class DescribePromptEndpoint:
     """
     Endpoint class for fetching a prompt.
     """
+
     @staticmethod
     def prepare_request(dto: DescribePromptDTO) -> Dict[str, Any]:
         """
@@ -37,19 +40,18 @@ class DescribePromptEndpoint:
             dto (DescribePromptDTO): The data transfer object containing the request parameters.
 
         Returns:
-        	The path, method, and query parameters for describing a prompt on the API.
+                The path, method, and query parameters for describing a prompt on the API.
         """
         return {
             "path": f"/prompts/{dto.slug}/describe",
             "method": "GET",
-            "query": {
-                "version": dto.version,
-                "tag": dto.tag
-            }
+            "query": {"version": dto.version, "tag": dto.tag},
         }
 
     @staticmethod
-    def decode_response(response: dict) -> Tuple[Optional[Exception], Optional[DescribePromptEndpointResponse]]:
+    def decode_response(
+        response: dict,
+    ) -> Tuple[Optional[Exception], Optional[DescribePromptEndpointResponse]]:
         """
         Decode the response returned from the API
 
@@ -57,7 +59,7 @@ class DescribePromptEndpoint:
             response (dict): The JSON response to encode into a DescribePromptEndpointResponse
 
         Returns:
-        	A tuple containing an optional exception and an optional DescribePromptEndpointResponse.
+                A tuple containing an optional exception and an optional DescribePromptEndpointResponse.
         """
         try:
             return None, DescribePromptEndpointResponse.from_dict(response)

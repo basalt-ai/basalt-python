@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from ..utils.dtos import GetPromptDTO, PromptResponse
 
+
 @dataclass
 class GetPromptEndpointResponse:
     warning: Optional[str]
@@ -24,10 +25,12 @@ class GetPromptEndpointResponse:
             prompt=PromptResponse.from_dict(data["prompt"]),
         )
 
+
 class GetPromptEndpoint:
     """
     Endpoint class for fetching a prompt.
     """
+
     @staticmethod
     def prepare_request(dto: GetPromptDTO) -> Dict[str, Any]:
         """
@@ -37,19 +40,18 @@ class GetPromptEndpoint:
             dto (GetPromptDTO): The data transfer object containing the request parameters.
 
         Returns:
-        	The path, method, and query parameters for getting a prompt on the API.
+                The path, method, and query parameters for getting a prompt on the API.
         """
         return {
             "path": f"/prompts/{dto.slug}",
             "method": "GET",
-            "query": {
-                "version": dto.version,
-                "tag": dto.tag
-            }
+            "query": {"version": dto.version, "tag": dto.tag},
         }
 
     @staticmethod
-    def decode_response(response: dict) -> Tuple[Optional[Exception], Optional[GetPromptEndpointResponse]]:
+    def decode_response(
+        response: dict,
+    ) -> Tuple[Optional[Exception], Optional[GetPromptEndpointResponse]]:
         """
         Decode the response returned from the API
 
@@ -57,7 +59,7 @@ class GetPromptEndpoint:
             response (dict): The JSON response to encode into a GetPromptEndpointResponse
 
         Returns:
-        	A tuple containing an optional exception and an optional GetPromptEndpointResponse.
+                A tuple containing an optional exception and an optional GetPromptEndpointResponse.
         """
         try:
             return None, GetPromptEndpointResponse.from_dict(response)

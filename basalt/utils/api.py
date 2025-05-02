@@ -3,13 +3,14 @@ from typing import Dict, TypeVar, Optional, Tuple
 from .protocols import IEndpoint, INetworker, ILogger
 from .networker import Networker
 
-Input = TypeVar('Input')
-Output = TypeVar('Output')
+Input = TypeVar("Input")
+Output = TypeVar("Output")
+
 
 class Api:
     """
     A class to interact with the Basalt API.
-    
+
     Attributes:
         root_url (str): The root URL of the API.
         api_key (str): The API key for authentication.
@@ -17,10 +18,19 @@ class Api:
         sdk_type (str): The SDK type (ex: py-pip)
         networker (INetworker): The networker instance to handle network requests.
     """
-    def __init__(self, root_url: str, networker: INetworker, api_key: str, sdk_version: str, sdk_type: str, logger: Optional[ILogger] = None):
+
+    def __init__(
+        self,
+        root_url: str,
+        networker: INetworker,
+        api_key: str,
+        sdk_version: str,
+        sdk_type: str,
+        logger: Optional[ILogger] = None,
+    ):
         """
         Initialize the Api class with the given parameters.
-        
+
         Args:
             root_url (str): The root URL of the API.
             networker (INetworker): The networker instance to handle network requests.
@@ -39,9 +49,7 @@ class Api:
             networker._logger = logger
 
     def invoke(
-        self,
-        endpoint: IEndpoint[Input, Output],
-        dto: Optional[Input] = None
+        self, endpoint: IEndpoint[Input, Output], dto: Optional[Input] = None
     ) -> Tuple[Optional[Exception], Optional[Output]]:
         """
         Invoke an API endpoint with the given data transfer object (DTO).
@@ -61,10 +69,10 @@ class Api:
 
         # Fetch the result from the network using the prepared request information
         error, result = self._network.fetch(
-            self._root + request_info['path'],
-            request_info['method'],
-            request_info.get('body'),
-            params=request_info.get('query', {}),
+            self._root + request_info["path"],
+            request_info["method"],
+            request_info.get("body"),
+            params=request_info.get("query", {}),
             headers=self._headers(),
         )
 
@@ -78,8 +86,8 @@ class Api:
         Generate headers for the request including authorization and SDK information.
         """
         return {
-            'Authorization': f'Bearer {self._api_key}',
-            'X-BASALT-SDK-VERSION': self._sdk_version,
-            'X-BASALT-SDK-TYPE': self._sdk_type,
-            'Content-Type': 'application/json'
+            "Authorization": f"Bearer {self._api_key}",
+            "X-BASALT-SDK-VERSION": self._sdk_version,
+            "X-BASALT-SDK-TYPE": self._sdk_type,
+            "Content-Type": "application/json",
         }

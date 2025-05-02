@@ -1,5 +1,6 @@
 from .utils.protocols import IPromptSDK, IBasaltSDK, IMonitorSDK
 
+
 class BasaltSDK(IBasaltSDK):
     """
     The BasaltSDK class implements the IBasaltSDK interface.
@@ -9,7 +10,7 @@ class BasaltSDK(IBasaltSDK):
     def __init__(self, prompt_sdk: IPromptSDK, monitor_sdk: IMonitorSDK):
         self._prompt = prompt_sdk
         self._monitor = monitor_sdk
-    
+
     @property
     def prompt(self) -> IPromptSDK:
         """Read-only access to the PromptSDK instance"""

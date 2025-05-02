@@ -10,12 +10,13 @@ from .utils.logger import Logger
 
 global_fallback_cache = MemoryCache()
 
+
 class BasaltFacade(IBasaltSDK):
     """
     The Basalt client.
     """
 
-    def __init__(self, api_key: str, log_level: str = 'all'):
+    def __init__(self, api_key: str, log_level: str = "all"):
         """
         Initializes the Basalt client with the given API key and log level.
 
@@ -26,14 +27,14 @@ class BasaltFacade(IBasaltSDK):
         cache = MemoryCache()
         logger = Logger(log_level=log_level)
         networker = Networker(logger=logger)
-        
+
         api = Api(
             networker=networker,
             root_url=config["api_url"],
             api_key=api_key,
             sdk_version=config["sdk_version"],
             sdk_type=config["sdk_type"],
-            logger=logger
+            logger=logger,
         )
 
         prompt = PromptSDK(api, cache, global_fallback_cache, logger)

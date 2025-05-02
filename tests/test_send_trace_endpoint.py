@@ -34,9 +34,9 @@ class TestSendTraceEndpoint(unittest.TestCase):
                     "input": {"log": "input"},
                     "output": {"log": "output"},
                     "prompt": "test prompt",
-                    "variables": [{"label": "var1", "value": "value1"}]
+                    "variables": [{"label": "var1", "value": "value1"}],
                 }
-            ]
+            ],
         }
 
         result = SendTraceEndpoint().prepare_request({"trace": trace})
@@ -44,7 +44,7 @@ class TestSendTraceEndpoint(unittest.TestCase):
         # Verify the basic request structure
         self.assertEqual(result["method"], "post")
         self.assertEqual(result["path"], "/monitor/trace")
-        
+
         # Verify the body contains all required fields
         body = result["body"]
         self.assertEqual(body["chainSlug"], "test-chain")
@@ -72,12 +72,7 @@ class TestSendTraceEndpoint(unittest.TestCase):
         self.assertEqual(log["variables"], [{"label": "var1", "value": "value1"}])
 
     def test_decode_valid_response(self):
-        response = {
-            "trace": {
-                "id": "trace-123",
-                "status": "success"
-            }
-        }
+        response = {"trace": {"id": "trace-123", "status": "success"}}
 
         exception, decoded = SendTraceEndpoint().decode_response(response)
 
@@ -89,4 +84,6 @@ class TestSendTraceEndpoint(unittest.TestCase):
 
         self.assertIsNotNone(exception)
         self.assertIsNone(decoded)
-        self.assertEqual(str(exception), "Failed to decode response (invalid body format)")
+        self.assertEqual(
+            str(exception), "Failed to decode response (invalid body format)"
+        )

@@ -1,15 +1,17 @@
-from datetime import datetime
-from typing import Dict, Optional, Any, TYPE_CHECKING
 import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
     from .log import Log
     from .trace import Trace
 
+
 class BaseLog:
     """
     Base class for logs and generations.
     """
+
     def __init__(self, params: Dict[str, Any]):
         self._id = f"log-{uuid.uuid4().hex[:8]}"
         self._type = params.get("type")
@@ -30,12 +32,12 @@ class BaseLog:
         return self._id
 
     @property
-    def parent(self) -> Optional['Log']:
+    def parent(self) -> Optional["Log"]:
         """Get the parent log."""
         return self._parent
 
     @parent.setter
-    def parent(self, parent: 'Log'):
+    def parent(self, parent: "Log"):
         """Set the parent log."""
         self._parent = parent
 
@@ -65,39 +67,39 @@ class BaseLog:
         return self._metadata
 
     @property
-    def trace(self) -> 'Trace':
+    def trace(self) -> "Trace":
         """Get the trace."""
         return self._trace
 
     @trace.setter
-    def trace(self, trace: 'Trace'):
+    def trace(self, trace: "Trace"):
         """Set the trace."""
         self._trace = trace
 
-    def start(self) -> 'BaseLog':
+    def start(self) -> "BaseLog":
         """Start the log."""
         self._start_time = datetime.now()
         return self
 
-    def set_metadata(self, metadata: Dict[str, Any]) -> 'BaseLog':
+    def set_metadata(self, metadata: Dict[str, Any]) -> "BaseLog":
         """Set the metadata."""
         self._metadata = metadata
         return self
 
-    def update(self, params: Dict[str, Any]) -> 'BaseLog':
+    def update(self, params: Dict[str, Any]) -> "BaseLog":
         """Update the log."""
         self._name = params.get("name", self._name)
         self._metadata = params.get("metadata", self._metadata)
-        
+
         if params.get("start_time"):
             self._start_time = params.get("start_time")
-            
+
         if params.get("end_time"):
             self._end_time = params.get("end_time")
-            
+
         return self
 
-    def end(self) -> 'BaseLog':
+    def end(self) -> "BaseLog":
         """End the log."""
         self._end_time = datetime.now()
         return self

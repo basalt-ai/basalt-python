@@ -1,7 +1,8 @@
 from .protocols import ILogger
 
+
 class Logger(ILogger):
-    def __init__(self, log_level: str = 'all'):
+    def __init__(self, log_level: str = "all"):
         self._log_level = log_level
 
     def warn(self, *args):
@@ -13,7 +14,7 @@ class Logger(ILogger):
             print(*args)
 
     def _can_warn(self):
-        return self._log_level in ['all', 'warning', 'debug']
+        return self._log_level in ["all", "warning", "debug"]
 
     def _can_debug(self):
-        return self._log_level in ['debug']
+        return self._log_level in ["debug"]
