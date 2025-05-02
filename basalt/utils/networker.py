@@ -1,25 +1,29 @@
 import requests
 from typing import Any, Dict, Optional, Tuple
 
-from .errors import BadRequest, FetchError, Forbidden, NetworkBaseError, NotFound, Unauthorized
+from .errors import (
+    BadRequest,
+    FetchError,
+    Forbidden,
+    NetworkBaseError,
+    NotFound,
+    Unauthorized,
+)
 from .protocols import INetworker, ILogger
+
 
 class Networker(INetworker):
     """
     Networker class that implements the INetworker protocol.
     Provides a method to fetch data from a given URL using HTTP methods.
     """
+
     def __init__(self, logger: Optional[ILogger] = None):
         self._logger = logger
 
     def fetch(
-            self,
-            url: str,
-            method: str,
-            body = None,
-            headers = None,
-            params = None
-        ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
+        self, url: str, method: str, body=None, headers=None, params=None
+    ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
         """
         Fetch data from a given URL using the specified HTTP method. This method should never throw.
 
@@ -43,11 +47,7 @@ class Networker(INetworker):
                 self._logger.debug(f"[DEBUG] Body: {body}")
 
             response = requests.request(
-                method,
-                url,
-                params=params,
-                json=body,
-                headers=headers
+                method, url, params=params, json=body, headers=headers
             )
 
             if self._logger:
@@ -60,17 +60,17 @@ class Networker(INetworker):
                 self._logger.debug(f"[DEBUG] Response body: {json_response}")
 
             if response.status_code == 400:
-                return BadRequest(json_response.get('error', 'Bad Request')), None
+                return BadRequest(json_response.get("error", "Bad Request")), None
 
             if response.status_code == 401:
-                return Unauthorized(json_response.get('error', 'Unauthorized')), None
+                return Unauthorized(json_response.get("error", "Unauthorized")), None
 
             if response.status_code == 403:
-                return Forbidden(json_response.get('error', 'Forbidden')), None
+                return Forbidden(json_response.get("error", "Forbidden")), None
 
             if response.status_code == 404:
-                return NotFound(json_response.get('error', 'Not Found')), None
-            
+                return NotFound(json_response.get("error", "Not Found")), None
+
             response.raise_for_status()
 
             return None, json_response

@@ -8,23 +8,17 @@ from ..objects.generation import Generation
 from ..objects.log import Log
 from ..utils.flusher import Flusher
 
+
 class MonitorSDK:
     """
     SDK for monitoring and tracing in Basalt.
     """
-    def __init__(
-            self,
-            api: IApi,
-            logger: ILogger
-        ):
+
+    def __init__(self, api: IApi, logger: ILogger):
         self._api = api
         self._logger = logger
 
-    def create_trace(
-        self,
-        slug: str,
-        params: Optional[Dict[str, Any]] = None
-    ) -> Trace:
+    def create_trace(self, slug: str, params: Optional[Dict[str, Any]] = None) -> Trace:
         """
         Creates a new trace for monitoring.
 
@@ -37,14 +31,11 @@ class MonitorSDK:
         """
         if params is None:
             params = {}
-            
+
         trace_params = TraceParams(**params)
         return self._create_trace(slug, trace_params)
 
-    def create_generation(
-        self,
-        params: Dict[str, Any]
-    ) -> Generation:
+    def create_generation(self, params: Dict[str, Any]) -> Generation:
         """
         Creates a new generation for monitoring.
 
@@ -57,10 +48,7 @@ class MonitorSDK:
         generation_params = GenerationParams(**params)
         return self._create_generation(generation_params)
 
-    def create_log(
-        self,
-        params: Dict[str, Any]
-    ) -> Log:
+    def create_log(self, params: Dict[str, Any]) -> Log:
         """
         Creates a new log for monitoring.
 
@@ -73,11 +61,7 @@ class MonitorSDK:
         log_params = LogParams(**params)
         return self._create_log(log_params)
 
-    def _create_trace(
-        self,
-        slug: str,
-        params: TraceParams
-    ) -> Trace:
+    def _create_trace(self, slug: str, params: TraceParams) -> Trace:
         """
         Internal implementation for creating a trace.
 
@@ -98,15 +82,12 @@ class MonitorSDK:
             "end_time": params.end_time,
             "user": params.user,
             "organization": params.organization,
-            "metadata": params.metadata
+            "metadata": params.metadata,
         }
         trace = Trace(slug, params_dict, flusher)
         return trace
 
-    def _create_generation(
-        self,
-        params: GenerationParams
-    ) -> Generation:
+    def _create_generation(self, params: GenerationParams) -> Generation:
         """
         Internal implementation for creating a generation.
 
@@ -128,14 +109,11 @@ class MonitorSDK:
             "metadata": params.metadata,
             "start_time": params.start_time,
             "end_time": params.end_time,
-            "options": params.options
+            "options": params.options,
         }
         return Generation(params_dict)
 
-    def _create_log(
-        self,
-        params: LogParams
-    ) -> Log:
+    def _create_log(self, params: LogParams) -> Log:
         """
         Internal implementation for creating a log.
 
@@ -154,6 +132,6 @@ class MonitorSDK:
             "parent": params.parent,
             "metadata": params.metadata,
             "start_time": params.start_time,
-            "end_time": params.end_time
+            "end_time": params.end_time,
         }
-        return Log(params_dict) 
+        return Log(params_dict)
