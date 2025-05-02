@@ -36,10 +36,28 @@ jobs:
       - name: Run tests
         working-directory: ./
         run: |
-          pytest tests/ --cov=basalt --cov-report=term --cov-report=xml
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_OUTPUT
-          echo "COVERAGE_PCT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(f'{float(root.attrib[\"line-rate\"]) * 100:.2f}')")" >> $GITHUB_OUTPUT
-          echo "TEST_COUNT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.find('.//metrics').attrib['tests'])")" >> $GITHUB_OUTPUT
+          pytest tests/ \
+            --cov=basalt --cov-report=term --cov-report=xml \
+            --junitxml=pytest-report.xml
+
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> "$GITHUB_OUTPUT"
+
+          echo "COVERAGE_PCT=$(python - <<'PY'
+          import xml.etree.ElementTree as ET
+          rate = float(ET.parse('coverage.xml').getroot().attrib['line-rate']) * 100
+          print(f'{rate:.2f}')
+          PY
+          )" >> "$GITHUB_OUTPUT"
+
+          echo "TEST_COUNT=$(python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse('pytest-report.xml').getroot()
+          if root.tag == 'testsuite':
+              print(root.attrib['tests'])
+          else:
+              print(sum(int(s.attrib['tests']) for s in root.findall('testsuite')))
+          PY
+          )" >> "$GITHUB_OUTPUT"
         id: test_results
 
       - name: Create result file
