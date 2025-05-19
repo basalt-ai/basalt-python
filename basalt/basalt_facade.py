@@ -1,5 +1,5 @@
 from .utils.api import Api
-from .utils.protocols import IPromptSDK, IBasaltSDK, IMonitorSDK
+from .utils.protocols import IPromptSDK, IBasaltSDK, LogLevel
 from .sdk.promptsdk import PromptSDK
 from .sdk.monitorsdk import MonitorSDK
 from .basaltsdk import BasaltSDK
@@ -8,6 +8,8 @@ from .utils.networker import Networker
 from .config import config
 from .utils.logger import Logger
 
+from .ressources.monitor.monitorsdk_types import IMonitorSDK
+
 global_fallback_cache = MemoryCache()
 
 class BasaltFacade(IBasaltSDK):
@@ -15,7 +17,7 @@ class BasaltFacade(IBasaltSDK):
     The Basalt client.
     """
 
-    def __init__(self, api_key: str, log_level: str = 'all'):
+    def __init__(self, api_key: str, log_level: LogLevel = 'all'):
         """
         Initializes the Basalt client with the given API key and log level.
 
@@ -25,8 +27,8 @@ class BasaltFacade(IBasaltSDK):
         """
         cache = MemoryCache()
         logger = Logger(log_level=log_level)
-        networker = Networker(logger=logger)
-        
+        networker = Networker()
+
         api = Api(
             networker=networker,
             root_url=config["api_url"],

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, Tuple
 
+from ..ressources.monitor.generation_types import Generation
+
 from .utils import pick_typed, pick_number
 
 # ------------------------------ Get Prompt ----------------------------- #
@@ -68,7 +70,7 @@ class GetPromptDTO:
     tag: Optional[str] = None
     version: Optional[str] = None
 
-GetResult = Tuple[Optional[Exception], Optional[PromptResponse]]
+GetResult = Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]
 
 # ------------------------------ Describe Prompt ----------------------------- #
 @dataclass(frozen=True)
@@ -122,46 +124,10 @@ class PromptListResponse:
             available_tags=pick_typed(data, "availableTags", list),
         )
 
+@dataclass(frozen=True)
+class PromptListDTO:
+    featureSlug: Optional[str] = None
+
+
+
 ListResult = Tuple[Optional[Exception], Optional[List[PromptListResponse]]]
-
-# ------------------------------ Monitor ----------------------------- #
-@dataclass
-class TraceParams:
-    """Parameters for creating a trace."""
-    input: Optional[str] = None
-    output: Optional[str] = None
-    name: Optional[str] = None
-    start_time: Optional[Any] = None
-    end_time: Optional[Any] = None
-    user: Optional[Dict[str, Any]] = None
-    organization: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
-
-@dataclass
-class GenerationParams:
-    """Parameters for creating a generation."""
-    name: str
-    trace: Any
-    prompt: Optional[Dict[str, Any]] = None
-    input: Optional[str] = None
-    output: Optional[str] = None
-    variables: Optional[Dict[str, Any]] = None
-    parent: Optional[Any] = None
-    metadata: Optional[Dict[str, Any]] = None
-    start_time: Optional[Any] = None
-    end_time: Optional[Any] = None
-    options: Optional[Dict[str, Any]] = None
-
-@dataclass
-class LogParams:
-    """Parameters for creating a log."""
-    name: str
-    trace: Any
-    input: Optional[str] = None
-    output: Optional[str] = None
-    parent: Optional[Any] = None
-    metadata: Optional[Dict[str, Any]] = None
-    start_time: Optional[Any] = None
-    end_time: Optional[Any] = None
-
-MonitorResult = Tuple[Optional[Exception], Optional[Any]]

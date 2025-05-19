@@ -14,7 +14,7 @@ class TestSendTraceEndpoint(unittest.TestCase):
     def test_prepare_request_with_full_trace(self):
         # Create a mock trace with all required fields
         trace = {
-            "chain_slug": "test-chain",
+            "feature_slug": "test-feature",
             "input": {"query": "test"},
             "output": {"response": "test-response"},
             "metadata": {"test": "metadata"},
@@ -47,7 +47,7 @@ class TestSendTraceEndpoint(unittest.TestCase):
         
         # Verify the body contains all required fields
         body = result["body"]
-        self.assertEqual(body["chainSlug"], "test-chain")
+        self.assertEqual(body["featureSlug"], "test-feature")
         self.assertEqual(body["input"], {"query": "test"})
         self.assertEqual(body["output"], {"response": "test-response"})
         self.assertEqual(body["metadata"], {"test": "metadata"})

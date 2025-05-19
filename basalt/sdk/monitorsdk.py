@@ -1,12 +1,16 @@
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Tuple
 
 from ..utils.protocols import IApi, ILogger
-from ..utils.dtos import TraceParams, GenerationParams, LogParams
-
+from ..ressources.monitor.trace_types import TraceParams
+from ..ressources.monitor.experiment_types import ExperimentParams
+from ..ressources.monitor.generation_types import GenerationParams, Generation
+from ..ressources.monitor.log_types import LogParams, Log
 from ..objects.trace import Trace
 from ..objects.generation import Generation
 from ..objects.log import Log
+from ..objects.experiment import Experiment
 from ..utils.flusher import Flusher
+from ..endpoints.monitor.create_experiment import CreateExperimentEndpoint, CreateExperimentDTO
 
 class MonitorSDK:
     """
@@ -20,25 +24,44 @@ class MonitorSDK:
         self._api = api
         self._logger = logger
 
+    def create_experiment(
+        self,
+        feature_slug: str,
+        params: ExperimentParams
+    ) -> Experiment:
+        """
+        Creates a new experiment for monitoring.
+
+        Args:
+            feature_slug (str): The feature slug for the experiment.
+            params (Dict[str, Any]): Parameters for the experiment.
+
+        Returns:
+            Experiment: A new Experiment instance.
+        """
+        return self._create_experiment(feature_slug, params)
+
+
     def create_trace(
         self,
         slug: str,
-        params: Optional[Dict[str, Any]] = None
+        params: Optional[TraceParams] = None
     ) -> Trace:
         """
         Creates a new trace for monitoring.
 
         Args:
             slug (str): The unique identifier for the trace.
-            params (Optional[Dict[str, Any]]): Optional parameters for the trace.
+            params (TraceParams): Parameters for the trace.
 
         Returns:
             Trace: A new Trace instance.
         """
         if params is None:
             params = {}
-            
+
         trace_params = TraceParams(**params)
+
         return self._create_trace(slug, trace_params)
 
     def create_generation(
@@ -73,6 +96,35 @@ class MonitorSDK:
         log_params = LogParams(**params)
         return self._create_log(log_params)
 
+    def _create_experiment(
+        self,
+        feature_slug: str,
+        params: ExperimentParams
+    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
+        """
+        Internal implementation for creating an experiment.
+
+        Args:
+            feature_slug (str): The feature slug for the experiment.
+            params (ExperimentParams): Parameters for the experiment.
+
+        Returns:
+            Experiment: A new Experiment instance.
+        """
+        dto = CreateExperimentDTO(
+            feature_slug=feature_slug,
+            name=params.get("name"),
+        )
+
+        # Call the API endpoint
+        err, result = self._api.invoke(CreateExperimentEndpoint, dto)
+
+        if err is None:
+            return None, Experiment(result.experiment)
+
+        return err, None
+
+
     def _create_trace(
         self,
         slug: str,
@@ -98,9 +150,12 @@ class MonitorSDK:
             "end_time": params.end_time,
             "user": params.user,
             "organization": params.organization,
-            "metadata": params.metadata
+            "metadata": params.metadata,
+            "experiment": params.experiment,
+            "evaluators": params.evaluators,
+            "evaluationConfig": params.evaluation_config
         }
-        trace = Trace(slug, params_dict, flusher)
+        trace = Trace(slug, params_dict, flusher, self._logger)
         return trace
 
     def _create_generation(
@@ -156,4 +211,4 @@ class MonitorSDK:
             "start_time": params.start_time,
             "end_time": params.end_time
         }
-        return Log(params_dict) 
+        return Log(params_dict)

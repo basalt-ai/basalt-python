@@ -1,18 +1,21 @@
 from datetime import datetime
-from typing import Dict, Optional, Any, List, TYPE_CHECKING
+from typing import Dict, Optional, Any, List
 
-if TYPE_CHECKING:
-    from .base_log import BaseLog
-    from .generation import Generation
-    from ..utils.flusher import Flusher
+
+from ..ressources.monitor.trace_types import TraceParams
+from .base_log import BaseLog
+from .generation import Generation
+from ..utils.flusher import Flusher
+from .experiment import Experiment
+from ..utils.logger import Logger
 
 class Trace:
     """
     Class representing a trace in the monitoring system.
     """
-    def __init__(self, slug: str, params: Dict[str, Any], flusher: 'Flusher'):
-        self._chain_slug = slug
-        
+    def __init__(self, feature_slug: str, params: TraceParams, flusher: 'Flusher', logger: 'Logger'):
+        self._feature_slug = feature_slug
+
         self._input = params.get("input")
         self._output = params.get("output")
         self._name = params.get("name")
@@ -21,11 +24,27 @@ class Trace:
         self._user = params.get("user")
         self._organization = params.get("organization")
         self._metadata = params.get("metadata")
-        
+
         self._logs: List['BaseLog'] = []
-        
+
         self._flusher = flusher
-        self._flushed_promise = None
+        self._is_ended = False
+
+        self._evaluators = params.get("evaluators")
+        self._evaluation_config = params.get("evaluationConfig")
+        self._logger = logger
+
+        if "experiment" in params:
+            experiment = params["experiment"]
+            if experiment.feature_slug != self._feature_slug:
+                logger.warn("Warning: Experiment feature slug does not match trace feature slug. This experiment will be ignored.")
+            else:
+                self._experiment = experiment
+
+    @property
+    def name(self) -> Optional[str]:
+        """Get the trace name."""
+        return self._name
 
     @property
     def input(self) -> Optional[str]:
@@ -68,38 +87,53 @@ class Trace:
         self._logs = logs
 
     @property
-    def chain_slug(self) -> str:
-        """Get the chain slug."""
-        return self._chain_slug
+    def feature_slug(self) -> str:
+        """Get the feature slug."""
+        return self._feature_slug
 
     @property
     def end_time(self) -> Optional[datetime]:
         """Get the end time."""
         return self._end_time
 
+    @property
+    def experiment(self) -> Optional['Experiment']:
+        """Get the experiment."""
+        return self._experiment
+
+    @property
+    def evaluation_config(self) -> Optional[Dict[str, Any]]:
+        """Get the evaluation configuration."""
+        return self._evaluation_config
+
+    @property
+    def evaluators(self) -> Optional[List[Dict[str, Any]]]:
+        """Get the evaluators."""
+        return self._evaluators
+
     def start(self, input: Optional[str] = None) -> 'Trace':
         """
         Start the trace with an optional input.
-        
+
         Args:
             input (Optional[str]): The input to the trace.
-            
+
         Returns:
             Trace: The trace instance.
         """
         if input:
             self._input = input
-            
+
         self._start_time = datetime.now()
         return self
 
     def identify(self, params: Dict[str, Any]) -> 'Trace':
         """
         Set identification information for the trace.
-        
+
         Args:
             params (Dict[str, Any]): Identification parameters.
-            
+
         Returns:
             Trace: The trace instance.
         """
@@ -110,23 +144,65 @@ class Trace:
     def set_metadata(self, metadata: Dict[str, Any]) -> 'Trace':
         """
         Set metadata for the trace.
-        
+
         Args:
             metadata (Dict[str, Any]): The metadata to set.
-            
+
         Returns:
             Trace: The trace instance.
         """
         self._metadata = metadata
         return self
 
+    def set_evaluation_config(self, config: Dict[str, Any]) -> 'Trace':
+        """
+        Set the evaluation configuration for the trace.
+
+        Args:
+            config (Dict[str, Any]): The evaluation configuration to set.
+
+        Returns:
+            Trace: The trace instance.
+        """
+        self._evaluation_config = config
+        return self
+
+    def set_experiment(self, experiment: Dict[str, Any]) -> 'Trace':
+        """
+        Set the experiment for the trace.
+
+        Args:
+            experiment (Dict[str, Any]): The experiment to set.
+
+        Returns:
+            Trace: The trace instance.
+        """
+        self._experiment = experiment
+        return self
+
+    def add_evaluator(self, evaluator: Dict[str, Any]) -> 'Trace':
+        """
+        Add an evaluator to the trace.
+
+        Args:
+            evaluator (Dict[str, Any]): The evaluator to add.
+
+        Returns:
+            Trace: The trace instance.
+        """
+        if self._evaluators is None:
+            self._evaluators = []
+
+        self._evaluators.append(evaluator)
+        return self
+
     def update(self, params: Dict[str, Any]) -> 'Trace':
         """
         Update the trace.
-        
+
         Args:
             params (Dict[str, Any]): Parameters to update.
-            
+
         Returns:
             Trace: The trace instance.
         """
@@ -135,15 +211,17 @@ class Trace:
         self._output = params.get("output", self._output)
         self._organization = params.get("organization", self._organization)
         self._user = params.get("user", self._user)
-        
+
         if params.get("start_time"):
             self._start_time = params.get("start_time")
-            
+
         if params.get("end_time"):
             self._end_time = params.get("end_time")
-            
+
         self._name = params.get("name", self._name)
-        
+        self._evaluators = params.get("evaluators", self._evaluators)
+        self._evaluation_config = params.get("evaluationConfig", self._evaluation_config)
+
         return self
 
     def append(self, generation: 'Generation') -> 'Trace':
@@ -207,32 +285,33 @@ class Trace:
             **params,
             "trace": self
         })
-        
+
         return log
 
     def end(self, output: Optional[str] = None) -> 'Trace':
         """
         End the trace with an optional output.
-        
+
         Args:
             output (Optional[str]): The output of the trace.
-            
+
         Returns:
             Trace: The trace instance.
         """
         self._output = output if output is not None else self._output
-        self._end_time = datetime.now()
-        
+
         # Send to the API using the flusher
-        if not self._flushed_promise:
+        if self._can_flush():
+            self._end_time = datetime.now()
+            self._is_ended = True
             self._flusher.flush_trace(self)
-            
-        return self 
+
+        return self
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the trace to a dictionary for API serialization."""
         return {
-            "chain_slug": self._chain_slug,
+            "feature_slug": self._feature_slug,
             "input": self._input,
             "output": self._output,
             "name": self._name,
@@ -241,5 +320,20 @@ class Trace:
             "user": self._user,
             "organization": self._organization,
             "metadata": self._metadata,
-            "logs": self._logs
+            "logs": self._logs,
+            "experiment": self._experiment,
+            "evaluators": self._evaluators,
+            "evaluation_config": self._evaluation_config
         }
+
+    def _can_flush(self) -> bool:
+        """
+        Check if the trace can be flushed.
+
+        Returns:
+            bool: True if the trace can be flushed, False otherwise.
+        """
+        if self._is_ended:
+            self._logger.warn('Trace already ended. This operation will be ignored.')
+
+        return not self._is_ended

@@ -67,7 +67,7 @@ class TestMonitorSDK(unittest.TestCase):
         self.assertEqual(trace.user, self.user)
         self.assertEqual(trace.organization, {"id": "org-123", "name": "Basalt"})
         self.assertEqual(trace.metadata, {"property1": "value1", "property2": "value2"})
-        self.assertEqual(trace.chain_slug, "test-slug")
+        self.assertEqual(trace.feature_slug, "test-slug")
     
     def test_create_log(self):
         """Test creating a log within a trace."""
