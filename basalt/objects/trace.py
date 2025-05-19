@@ -7,6 +7,7 @@ from .base_log import BaseLog
 from .generation import Generation
 from ..utils.flusher import Flusher
 from .experiment import Experiment
+from ..ressources.monitor.evaluator_types import Evaluator
 from ..utils.logger import Logger
 
 class Trace:
