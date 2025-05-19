@@ -28,7 +28,7 @@ class MonitorSDK:
         self,
         feature_slug: str,
         params: ExperimentParams
-    ) -> Experiment:
+    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
         """
         Creates a new experiment for monitoring.
 
