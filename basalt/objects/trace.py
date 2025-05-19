@@ -36,8 +36,10 @@ class Trace:
 
         if "experiment" in params:
             experiment = params["experiment"]
-            if experiment.feature_slug != self._feature_slug:
-                logger.warn("Warning: Experiment feature slug does not match trace feature slug. This experiment will be ignored.")
+            if experiment is None:
+                self._logger.warn("Warning: Experiment is None. This experiment will be ignored.")
+            elif experiment.feature_slug != self._feature_slug:
+                self._logger.warn("Warning: Experiment feature slug does not match trace feature slug. This experiment will be ignored.")
             else:
                 self._experiment = experiment
 
