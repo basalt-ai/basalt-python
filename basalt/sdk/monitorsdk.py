@@ -3,8 +3,8 @@ from typing import Dict, Optional, Any, Tuple
 from ..utils.protocols import IApi, ILogger
 from ..ressources.monitor.trace_types import TraceParams
 from ..ressources.monitor.experiment_types import ExperimentParams
-from ..ressources.monitor.generation_types import GenerationParams, Generation
-from ..ressources.monitor.log_types import LogParams, Log
+from ..ressources.monitor.generation_types import GenerationParams
+from ..ressources.monitor.log_types import LogParams
 from ..objects.trace import Trace
 from ..objects.generation import Generation
 from ..objects.log import Log
