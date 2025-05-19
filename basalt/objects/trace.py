@@ -182,7 +182,7 @@ class Trace:
         self._experiment = experiment
         return self
 
-    def add_evaluator(self, evaluator: Dict[str, Any]) -> 'Trace':
+    def add_evaluator(self, evaluator: Evaluator) -> 'Trace':
         """
         Add an evaluator to the trace.
 

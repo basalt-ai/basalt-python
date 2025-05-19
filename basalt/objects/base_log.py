@@ -91,7 +91,7 @@ class BaseLog:
         self._metadata = metadata
         return self
 
-    def add_evaluator(self, evaluator: Dict[str, Any]) -> 'BaseLog':
+    def add_evaluator(self, evaluator: Evaluator) -> 'BaseLog':
         if self._evaluators is None:
             self._evaluators = []
 
