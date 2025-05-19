@@ -15,10 +15,10 @@ class SendTraceEndpoint:
     def prepare_request(self, dto: Optional[Input] = None) -> Dict[str, Any]:
         """
         Prepares the request for sending a trace.
-        
+
         Args:
             dto (Optional[Dict[str, Any]]): The data transfer object containing the trace.
-            
+
         Returns:
             Dict[str, Any]: The request information.
         """
@@ -28,57 +28,40 @@ class SendTraceEndpoint:
                 "path": "/monitor/trace",
                 "body": {}
             }
-            
+
         trace = dto["trace"]
-        
+
         # Check if trace is already a dictionary or an object
         if isinstance(trace, dict):
             trace_data = trace
-            logs = trace_data.get("logs", [])
+            logs = trace.get("logs", [])
         else:
             trace_data = trace.to_dict()
             # Convert logs to a format suitable for the API
             logs = []
             for log in trace_data["logs"]:
-                log_data = log.to_dict()
-                
-                # Convert dates to ISO format
-                log_data["startTime"] = log_data["start_time"].isoformat() if isinstance(log_data["start_time"], datetime) else log_data["start_time"]
-                log_data["endTime"] = log_data["end_time"].isoformat() if isinstance(log_data["end_time"], datetime) and log_data["end_time"] else None
-                
-                # Remove old format keys
-                del log_data["start_time"]
-                del log_data["end_time"]
+                dict_log = log.to_dict()
 
-                # Add input and output if they exist
-                if hasattr(log, "input"):
-                    log_data["input"] = log.input
-                if hasattr(log, "output"):
-                    log_data["output"] = log.output
-                    
-                # Add prompt and variables if it's a generation
-                if hasattr(log, "prompt"):
-                    log_data["prompt"] = log.prompt
-                if hasattr(log, "variables") and log.variables:
-                    log_data["variables"] = [{"label": key, "value": value} for key, value in log.variables.items()]
-                if hasattr(log, "inputTokens"):
-                    log_data["inputTokens"] = log.inputTokens
-                if hasattr(log, "outputTokens"):
-                    log_data["outputTokens"] = log.outputTokens
-                if hasattr(log, "cost"):
-                    log_data["cost"] = log.cost
-                    
-                # Extract parent ID
-                if log_data["parent"]:
-                    log_data["parentId"] = log_data["parent"]["id"]
-                    del log_data["parent"]
-                else:
-                    log_data["parentId"] = None
-                    
+                # Convert dates and handle parent ID
+                log_data = {
+                    "startTime": dict_log["start_time"].isoformat() if isinstance(dict_log["start_time"], datetime) else dict_log["start_time"],
+                    "endTime": dict_log["end_time"].isoformat() if isinstance(dict_log["end_time"], datetime) and dict_log["end_time"] else None,
+                    "parentId": dict_log["parent"]["id"] if dict_log["parent"] else None,
+                    "inputTokens": dict_log["input_tokens"] if "input_tokens" in dict_log else None,
+                    "outputTokens": dict_log["output_tokens"] if "output_tokens" in dict_log else None,
+                    "cost": dict_log["cost"] if "cost" in dict_log else None,
+                    "variables": [{"label": k, "value": v} for k, v in dict_log["variables"].items()] if "variables" in dict_log else None,
+                    "input": dict_log["input"] if "input" in dict_log else None,
+                    "output": dict_log["output"] if "output" in dict_log else None,
+                    "prompt": dict_log["prompt"] if "prompt" in dict_log else None,
+                    "evaluators": dict_log["evaluators"] if "evaluators" in dict_log else None
+                }
+
                 logs.append(log_data)
-        
+
         # Process logs if they're already in dictionary format
         processed_logs = []
+
         for log_data in logs:
             # If log_data is already processed by the flusher, it will have these keys
             if "startTime" in log_data and "endTime" in log_data:
@@ -96,19 +79,21 @@ class SendTraceEndpoint:
                 if "end_time" in processed_log:
                     processed_log["endTime"] = processed_log["end_time"].isoformat() if isinstance(processed_log["end_time"], datetime) and processed_log["end_time"] else None
                     del processed_log["end_time"]
-                
+
                 # Extract parent ID
                 if "parent" in processed_log and processed_log["parent"]:
                     processed_log["parentId"] = processed_log["parent"]["id"]
                     del processed_log["parent"]
                 else:
                     processed_log["parentId"] = None
-                
+
                 processed_logs.append(processed_log)
-            
+
         # Create the request body
         body = {
-            "chainSlug": trace_data.get("chain_slug", trace_data.get("chainSlug")),
+            "featureSlug": trace_data.get("feature_slug", trace_data.get("featureSlug")),
+            "name": trace_data.get("name", trace_data.get("name")),
+            "experiment": {"id": trace_data.get("experiment", {}).id} if trace_data.get("experiment") else None,
             "input": trace_data.get("input"),
             "output": trace_data.get("output"),
             "metadata": trace_data.get("metadata"),
@@ -116,15 +101,17 @@ class SendTraceEndpoint:
             "user": trace_data.get("user"),
             "startTime": trace_data.get("start_time", trace_data.get("startTime")),
             "endTime": trace_data.get("end_time", trace_data.get("endTime")),
-            "logs": processed_logs
+            "logs": processed_logs,
+            "evaluators": trace_data.get("evaluators"),
+            "evaluationConfig": trace_data.get("evaluationConfig")
         }
-        
+
         # Convert dates to ISO format if they're datetime objects
         if isinstance(body["startTime"], datetime):
             body["startTime"] = body["startTime"].isoformat()
         if isinstance(body["endTime"], datetime):
             body["endTime"] = body["endTime"].isoformat()
-        
+
         return {
             "method": "post",
             "path": "/monitor/trace",

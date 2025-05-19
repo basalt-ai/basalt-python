@@ -1,16 +1,17 @@
 from datetime import datetime
-from typing import Dict, Optional, Any, TYPE_CHECKING
+from typing import Dict, Optional, Any, List
 import uuid
 
-if TYPE_CHECKING:
-    from .log import Log
-    from .trace import Trace
+from ..ressources.monitor.base_log_types import BaseLogParams
+from ..ressources.monitor.evaluator_types import Evaluator
+from ..ressources.monitor.trace_types import Trace
+from ..ressources.monitor.log_types import Log
 
 class BaseLog:
     """
     Base class for logs and generations.
     """
-    def __init__(self, params: Dict[str, Any]):
+    def __init__(self, params: BaseLogParams):
         self._id = f"log-{uuid.uuid4().hex[:8]}"
         self._type = params.get("type")
         self._name = params.get("name")
@@ -19,6 +20,7 @@ class BaseLog:
         self._metadata = params.get("metadata")
         self._trace = params.get("trace")
         self._parent = params.get("parent")
+        self._evaluators = params.get("evaluators")
 
         # Add to trace's logs list if trace exists
         if self._trace:
@@ -68,6 +70,11 @@ class BaseLog:
     def trace(self) -> 'Trace':
         """Get the trace."""
         return self._trace
+    
+    @property
+    def evaluators(self) -> List[Evaluator]:
+        """Get the evaluators."""
+        return self._evaluators
 
     @trace.setter
     def trace(self, trace: 'Trace'):
@@ -82,6 +89,13 @@ class BaseLog:
     def set_metadata(self, metadata: Dict[str, Any]) -> 'BaseLog':
         """Set the metadata."""
         self._metadata = metadata
+        return self
+
+    def add_evaluator(self, evaluator: Evaluator) -> 'BaseLog':
+        if self._evaluators is None:
+            self._evaluators = []
+
+        self._evaluators.append(evaluator)
         return self
 
     def update(self, params: Dict[str, Any]) -> 'BaseLog':

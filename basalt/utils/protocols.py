@@ -1,5 +1,7 @@
-from typing import Any, Optional, Protocol, Hashable, Tuple, TypeVar, Dict, Mapping
-from .dtos import GetResult, DescribeResult, ListResult, MonitorResult
+from typing import Any, Optional, Protocol, Hashable, Tuple, TypeVar, Dict, Mapping, Literal
+from .dtos import GetResult, DescribeResult, ListResult
+
+from ..ressources.monitor.monitorsdk_types import IMonitorSDK
 
 Input = TypeVar('Input')
 Output = TypeVar('Output')
@@ -27,12 +29,7 @@ class INetworker(Protocol):
 class IPromptSDK(Protocol):
     def get(self, slug: str, tag: Optional[str] = None, version: Optional[str] = None, variables: Dict[str, str] = {}, cache_enabled: bool = True) -> GetResult: ...
     def describe(self, slug: str, tag: Optional[str] = None, version: Optional[str] = None) -> DescribeResult: ...
-    def list(self) -> ListResult: ...
-
-class IMonitorSDK(Protocol):
-    def create_trace(self, slug: str, params: Optional[Dict[str, Any]] = None) -> Any: ...
-    def create_generation(self, params: Dict[str, Any]) -> Any: ...
-    def create_log(self, params: Dict[str, Any]) -> Any: ...
+    def list(self, feature_slug: Optional[str] = None) -> ListResult: ...
 
 class IBasaltSDK(Protocol):
     @property
@@ -42,3 +39,9 @@ class IBasaltSDK(Protocol):
 
 class ILogger:
     def warn(self, message: str): ...
+    def info(self, message: str): ...
+    def error(self, message: str): ...
+
+
+LogLevel = Literal["all", "warning", "none"]
+

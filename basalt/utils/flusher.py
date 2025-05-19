@@ -30,7 +30,7 @@ class Flusher:
         if output is not None and not isinstance(output, str):
             output = json.dumps(output)
         return {
-            "chain_slug": trace.chain_slug,
+            "feature_slug": trace.feature_slug,
             "input": trace.input,
             "output": output,
             "name": trace._name,
@@ -39,7 +39,10 @@ class Flusher:
             "user": trace.user,
             "organization": trace.organization,
             "metadata": trace.metadata,
-            "logs": [self._log_to_dict(log) for log in trace.logs] if trace.logs else []
+            "logs": [self._log_to_dict(log) for log in trace.logs] if trace.logs else [],
+            "experiment": trace.experiment,
+            "evaluators": trace.evaluators,
+            "evaluationConfig": trace.evaluation_config
         }
 
     def _log_to_dict(self, log: Any) -> Dict[str, Any]:
@@ -88,26 +91,24 @@ class Flusher:
         """
         try:
             if not self._api:
-                self._logger.warn("Cannot flush trace: no API instance available")
+                self._logger.error("Cannot flush trace: no API instance available")
                 return
-                
+
             # Create an endpoint instance
             endpoint = SendTraceEndpoint()
-            
+
             # Convert trace to dictionary
             trace_dict = self._trace_to_dict(trace)
-            
+
             # Create the DTO with the trace dictionary
             dto = {"trace": trace_dict}
-            
+
             # Invoke the API with the endpoint and DTO
             error, result = self._api.invoke(endpoint, dto)
-            
+
             if error:
-                self._logger.warn(f"Failed to flush trace: {error}")
+                self._logger.error(f"Failed to flush trace {trace.feature_slug}: {error}")
                 return
-                
-            self._logger.warn(f"Successfully flushed trace {trace.chain_slug} to the API")
-            
+
         except Exception as e:
-            self._logger.warn(f"Exception while flushing trace: {str(e)}")
+            self._logger.error(f"Exception while flushing trace: {str(e)}")

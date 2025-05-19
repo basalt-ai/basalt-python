@@ -1,15 +1,13 @@
-from typing import Dict, Optional, Any, TYPE_CHECKING
-
+from typing import Dict, Optional, Any
+from ..ressources.monitor.log_types import LogParams
 from .base_log import BaseLog
-
-if TYPE_CHECKING:
-    from .generation import Generation
+from .generation import Generation
 
 class Log(BaseLog):
     """
     Class representing a log in the monitoring system.
     """
-    def __init__(self, params: Dict[str, Any]):
+    def __init__(self, params: LogParams):
         super().__init__(params)
         self._input = params.get("input")
         self._output = None
@@ -67,8 +65,18 @@ class Log(BaseLog):
         Returns:
             Log: The log instance.
         """
-        generation.parent = self
+        # Remove child log from the list of its previous trace
+        generation.trace.logs = [log for log in generation.trace.logs if log.id != generation.id]
+
+        # Add child to the new trace list
+        self.trace.logs.append(generation)
+
+        # Set the trace of the generation to the current log
         generation.trace = self.trace
+        generation.options = {"type": "multi"}
+
+        # Set the parent of the generation to the current log
+        generation.parent = self
         
         return self
 

@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Tuple, Any
 
-from ..utils.dtos import GetPromptDTO, PromptResponse, DescribePromptResponse, DescribePromptDTO, GetResult, DescribeResult, ListResult, PromptListResponse
+from ..utils.dtos import GetPromptDTO, PromptResponse, DescribePromptResponse, DescribePromptDTO, GetResult, DescribeResult, ListResult, PromptListResponse, PromptListDTO
 from ..utils.protocols import ICache, IApi, ILogger
 
 from ..endpoints.get_prompt import GetPromptEndpoint
@@ -118,7 +118,7 @@ class PromptSDK:
         trace = Trace(slug, {
             "input": original_prompt_text or prompt.text,
             "start_time": datetime.now()
-        }, flusher)
+        }, flusher, self._logger)
         
         # Create a generation
         generation = Generation({
@@ -177,8 +177,10 @@ class PromptSDK:
 
         return err, None
 
-    def list(self) -> ListResult:
-        err, result = self._api.invoke(ListPromptsEndpoint)
+    def list(self, feature_slug: Optional[str] = None) -> ListResult:
+        dto = PromptListDTO(featureSlug=feature_slug)
+
+        err, result = self._api.invoke(ListPromptsEndpoint, dto)
 
         if err is not None:
             return err, None
@@ -194,14 +196,19 @@ class PromptSDK:
 
     def _replace_vars(self, prompt: PromptResponse, variables: Dict[str, str] = {}):
         missing_vars, replaced = replace_variables(prompt.text, variables)
+        missing_system_vars, replaced_system = replace_variables(prompt.systemText or "", variables)
 
         if missing_vars:
             self._logger.warn(f"""Basalt Warning: Some variables are missing in the prompt text:
     {", ".join(map(str, missing_vars))}""")
 
+        if missing_system_vars:
+            self._logger.warn(f"""Basalt Warning: Some variables are missing in the prompt systemText:
+    {", ".join(map(str, missing_system_vars))}""")
+
         return None, PromptResponse(
             text=replaced,
-            systemText=prompt.systemText,
+            systemText=replaced_system,
             version=prompt.version,
             model=prompt.model
         )

@@ -1,12 +1,13 @@
 from typing import Dict, Optional, Any, List, Union
 
 from .base_log import BaseLog
+from ..ressources.monitor.generation_types import GenerationParams
 
 class Generation(BaseLog):
     """
     Class representing a generation in the monitoring system.
     """
-    def __init__(self, params: Dict[str, Any]):
+    def __init__(self, params: GenerationParams):
         params_with_type = {
             "type": "generation",
             **params
@@ -16,8 +17,8 @@ class Generation(BaseLog):
         self._prompt = params.get("prompt")
         self._input = params.get("input")
         self._output = params.get("output")
-        self._inputTokens = params.get("inputTokens")
-        self._outputTokens = params.get("outputTokens")
+        self._input_tokens = params.get("input_tokens")
+        self._output_tokens = params.get("output_tokens")
         self._cost = params.get("cost")
         
         # Convert variables to array format if needed
@@ -50,14 +51,14 @@ class Generation(BaseLog):
         return self._output
 
     @property
-    def inputTokens(self) -> Optional[int]:
+    def input_tokens(self) -> Optional[int]:
         """Get the generation input tokens."""
-        return self._inputTokens
+        return self._input_tokens
 
     @property
-    def outputTokens(self) -> Optional[int]:
+    def output_tokens(self) -> Optional[int]:
         """Get the generation output tokens."""
-        return self._outputTokens
+        return self._output_tokens
 
     @property
     def cost(self) -> Optional[float]:
@@ -132,8 +133,8 @@ class Generation(BaseLog):
         self._input = params.get("input", self._input)
         self._output = params.get("output", self._output)
         self._prompt = params.get("prompt", self._prompt)
-        self._inputTokens = params.get("inputTokens", self._inputTokens)
-        self._outputTokens = params.get("outputTokens", self._outputTokens)
+        self._input_tokens = params.get("input_tokens", self._input_tokens)
+        self._output_tokens = params.get("output_tokens", self._output_tokens)
         self._cost = params.get("cost", self._cost)
         
         # Update variables if provided

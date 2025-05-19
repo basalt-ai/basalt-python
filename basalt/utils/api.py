@@ -20,7 +20,7 @@ class Api:
     def __init__(self, root_url: str, networker: INetworker, api_key: str, sdk_version: str, sdk_type: str, logger: Optional[ILogger] = None):
         """
         Initialize the Api class with the given parameters.
-        
+
         Args:
             root_url (str): The root URL of the API.
             networker (INetworker): The networker instance to handle network requests.
