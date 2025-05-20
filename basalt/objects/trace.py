@@ -15,6 +15,11 @@ class Trace:
     Class representing a trace in the monitoring system.
     """
     def __init__(self, feature_slug: str, params: TraceParams, flusher: 'Flusher', logger: 'Logger'):
+        """
+        Initializes a Trace instance with input, output, metadata, timing, user, organization, evaluators, evaluation config, and experiment.
+        
+        Validates experiment consistency with the feature slug and logs warnings if the experiment is None or mismatched. Sets up internal state for logs, flushing, and logging.
+        """
         self._feature_slug = feature_slug
 
         self._input = params.get("input")

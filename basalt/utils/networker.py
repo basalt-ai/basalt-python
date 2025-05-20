@@ -21,20 +21,22 @@ class Networker(INetworker):
             params = None
         ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
         """
-        Fetch data from a given URL using the specified HTTP method. This method should never throw.
-
-        Args:
-            url (str): The URL to fetch data from.
-            method (str): The HTTP method to use (e.g., 'GET', 'POST').
-            body (Optional[Any]): The request payload to send (default is None).
-            headers (Optional[Dict[str, str]]): The request headers to send (default is None).
-            params (Optional[Dict[str, str]]): The query parameters to send (default is None).
-
-        Returns:
-            A result tuple (err, json_response), possible responses:
-            - (None, json_response)
-            - (FetchError, None)
-        """
+            Performs an HTTP request and returns either a parsed JSON response or a FetchError.
+            
+            Sends a request to the specified URL using the given HTTP method, with optional body, headers, and query parameters. Returns a tuple where the first element is a FetchError instance on failure (with the second element as None), or None on success (with the second element as the parsed JSON response). This method never raises exceptions.
+             
+            Args:
+                url: The endpoint to send the request to.
+                method: The HTTP method to use (e.g., 'GET', 'POST').
+                body: Optional request payload.
+                headers: Optional dictionary of request headers.
+                params: Optional dictionary of query parameters.
+            
+            Returns:
+                A tuple (error, json_response):
+                    - (None, json_response) on success.
+                    - (FetchError, None) on failure.
+            """
         try:
             response = requests.request(
                 method,
