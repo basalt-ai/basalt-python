@@ -47,7 +47,7 @@ class Networker(INetworker):
             json_response = response.json()
 
             if response.status_code == 400:
-                return BadRequest(json_response.get('error', 'Bad Request')), None
+                return BadRequest(json_response.get('error', json_response.get('errors', 'Bad Request'))), None
 
             if response.status_code == 401:
                 return Unauthorized(json_response.get('error', 'Unauthorized')), None
