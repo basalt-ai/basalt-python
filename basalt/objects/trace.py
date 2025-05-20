@@ -35,6 +35,8 @@ class Trace:
         self._evaluation_config = params.get("evaluationConfig")
         self._logger = logger
 
+        self._experiment = None
+
         if "experiment" in params:
             experiment = params["experiment"]
             if experiment is None:
