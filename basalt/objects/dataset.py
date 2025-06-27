@@ -20,16 +20,14 @@ class DatasetRow:
         """Convert the DatasetRow to a dictionary for API requests"""
         result = {
             "values": self.values,
-            "metadata": self.metadata,
-						"name": self.name,
-						"idealOutput": self.ideal_output
+            "metadata": self.metadata
         }
         
-        # if self.name:
-        #     result["name"] = self.name
+        if self.name:
+            result["name"] = self.name
             
-        # if self.ideal_output:
-        #     result["idealOutput"] = self.ideal_output
+        if self.ideal_output:
+            result["idealOutput"] = self.ideal_output
             
         return result
     
