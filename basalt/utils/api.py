@@ -1,6 +1,7 @@
 from typing import Dict, TypeVar, Optional, Tuple
 
 from .protocols import IEndpoint, INetworker, ILogger
+import asyncio
 from .networker import Networker
 
 Input = TypeVar('Input')
@@ -83,3 +84,38 @@ class Api:
             'X-BASALT-SDK-TYPE': self._sdk_type,
             'Content-Type': 'application/json'
         }
+        
+    async def async_invoke(
+        self,
+        endpoint: IEndpoint[Input, Output],
+        dto: Optional[Input] = None
+    ) -> Tuple[Optional[Exception], Optional[Output]]:
+        """
+        Asynchronously invoke an API endpoint with the given data transfer object (DTO).
+
+        Args:
+            endpoint: The endpoint to be invoked.
+            dto: The data transfer object to be sent to the endpoint.
+
+        Returns:
+            A tuple containing an optional exception and an optional output.
+        """
+        # Prepare the request information using the endpoint and input data
+        if dto is None:
+            request_info = endpoint.prepare_request()
+        else:
+            request_info = endpoint.prepare_request(dto)
+
+        # Fetch the result from the network using the prepared request information
+        error, result = await self._network.async_fetch(
+            self._root + request_info['path'],
+            request_info['method'],
+            request_info.get('body'),
+            params=request_info.get('query', {}),
+            headers=self._headers(),
+        )
+
+        if error:
+            return error, None
+
+        return endpoint.decode_response(result)
