@@ -1,7 +1,8 @@
 from .utils.api import Api
-from .utils.protocols import IPromptSDK, IBasaltSDK, LogLevel
+from .utils.protocols import IPromptSDK, IBasaltSDK, LogLevel, IDatasetSDK
 from .sdk.promptsdk import PromptSDK
 from .sdk.monitorsdk import MonitorSDK
+from .sdk.datasetsdk import DatasetSDK
 from .basaltsdk import BasaltSDK
 from .utils.memcache import MemoryCache
 from .utils.networker import Networker
@@ -40,8 +41,9 @@ class BasaltFacade(IBasaltSDK):
 
         prompt = PromptSDK(api, cache, global_fallback_cache, logger)
         monitor = MonitorSDK(api, logger)
+        datasets = DatasetSDK(api, logger)
 
-        self._basalt = BasaltSDK(prompt, monitor)
+        self._basalt = BasaltSDK(prompt, monitor, datasets)
 
     @property
     def prompt(self) -> IPromptSDK:
@@ -56,3 +58,10 @@ class BasaltFacade(IBasaltSDK):
         Read-only access to the MonitorSDK instance.
         """
         return self._basalt.monitor
+        
+    @property
+    def datasets(self) -> IDatasetSDK:
+        """
+        Read-only access to the DatasetSDK instance.
+        """
+        return self._basalt.datasets

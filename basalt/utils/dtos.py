@@ -131,3 +131,67 @@ class PromptListDTO:
 
 
 ListResult = Tuple[Optional[Exception], Optional[List[PromptListResponse]]]
+
+# ------------------------------ Datasets ----------------------------- #
+@dataclass
+class DatasetDTO:
+    """Dataset data transfer object"""
+    slug: str
+    name: str
+    columns: List[str]
+    rows: List[Dict[str, Any]] = None
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DatasetDTO":
+        return cls(
+            slug=data["slug"],
+            name=data["name"],
+            columns=data["columns"],
+            rows=data.get("rows", [])
+        )
+
+
+@dataclass
+class DatasetRowDTO:
+    """Dataset row data transfer object"""
+    values: Dict[str, str]
+    name: Optional[str] = None
+    idealOutput: Optional[str] = None
+    metadata: Dict[str, Any] = None
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DatasetRowDTO":
+        return cls(
+            values=data["values"],
+            name=data.get("name"),
+            idealOutput=data.get("idealOutput"),
+            metadata=data.get("metadata", {})
+        )
+    
+
+@dataclass
+class ListDatasetsDTO:
+    """DTO for listing datasets"""
+    pass
+
+
+@dataclass
+class GetDatasetDTO:
+    """DTO for getting a specific dataset"""
+    slug: str
+
+
+@dataclass
+class CreateDatasetItemDTO:
+    """DTO for creating a dataset item"""
+    slug: str
+    values: Dict[str, str]
+    name: Optional[str] = None
+    idealOutput: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+# Result types for dataset operations
+ListDatasetsResult = Tuple[Optional[Exception], Optional[List[DatasetDTO]]]
+GetDatasetResult = Tuple[Optional[Exception], Optional[DatasetDTO]]
+CreateDatasetItemResult = Tuple[Optional[Exception], Optional[DatasetRowDTO], Optional[str]]
