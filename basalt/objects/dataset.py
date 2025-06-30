@@ -20,14 +20,16 @@ class DatasetRow:
         """Convert the DatasetRow to a dictionary for API requests"""
         result = {
             "values": self.values,
-            "metadata": self.metadata
+            "metadata": self.metadata,
+						"name": self.name,
+						"idealOutput": self.ideal_output
         }
         
-        if self.name:
-            result["name"] = self.name
+        # if self.name:
+        #     result["name"] = self.name
             
-        if self.ideal_output:
-            result["idealOutput"] = self.ideal_output
+        # if self.ideal_output:
+        #     result["idealOutput"] = self.ideal_output
             
         return result
     
@@ -44,8 +46,8 @@ class DatasetRow:
         """
         return cls(
             values=data.get("values", {}),
-            name=data.get("name"),
-            ideal_output=data.get("idealOutput"),
+            name=data.get("name", None),
+            ideal_output=data.get("idealOutput", None),
             metadata=data.get("metadata", {})
         )
 

@@ -37,8 +37,8 @@ class DatasetRow:
                 
         return cls(
             values=values_list,
-            name=data.get("name"),
-            idealOutput=data.get("idealOutput"),
+            name=data.get("name", None),
+            idealOutput=data.get("idealOutput", None),
             metadata=data.get("metadata", {})
         )
 

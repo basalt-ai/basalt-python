@@ -139,7 +139,7 @@ class DatasetDTO:
     slug: str
     name: str
     columns: List[str]
-    rows: List[Dict[str, Any]] = None
+    rows: List['DatasetRowDTO'] = None
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DatasetDTO":
@@ -147,7 +147,7 @@ class DatasetDTO:
             slug=data["slug"],
             name=data["name"],
             columns=data["columns"],
-            rows=data.get("rows", [])
+            rows=[DatasetRowDTO.from_dict(row) for row in data.get("rows", [])]
         )
 
 
@@ -163,8 +163,8 @@ class DatasetRowDTO:
     def from_dict(cls, data: Dict[str, Any]) -> "DatasetRowDTO":
         return cls(
             values=data["values"],
-            name=data.get("name"),
-            idealOutput=data.get("idealOutput"),
+            name=data.get("name", None),
+            idealOutput=data.get("idealOutput", None),
             metadata=data.get("metadata", {})
         )
     
