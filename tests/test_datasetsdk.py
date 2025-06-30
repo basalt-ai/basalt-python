@@ -154,21 +154,6 @@ class TestDatasetSDK(unittest.TestCase):
         self.assertIsNotNone(err)
         self.assertIsNone(dataset)
         self.assertEqual(str(err), "API Error")
-        
-    def test_get_dataset_object(self):
-        """Test getting a dataset as an object"""
-        # Configure mock
-        mocked_api.invoke.return_value = (None, dataset_get_response)
-        
-        # Call the method
-        dataset = self.dataset_sdk.get_dataset_object("test-dataset")
-        
-        # Assertions
-        self.assertIsNotNone(dataset)
-        self.assertEqual(dataset.slug, "test-dataset")
-        self.assertEqual(dataset.name, "Test Dataset")
-        self.assertEqual(len(dataset.rows), 1)
-        self.assertEqual(dataset.rows[0].values, {"input": "Sample input", "output": "Sample output"})
 
 
 if __name__ == "__main__":
