@@ -5,6 +5,7 @@ class BasaltSDK(IBasaltSDK):
     """
     The BasaltSDK class implements the IBasaltSDK interface.
     It serves as the main entry point for interacting with the Basalt SDK.
+    
     """
 
     def __init__(self, prompt_sdk: IPromptSDK, monitor_sdk: IMonitorSDK, dataset_sdk: IDatasetSDK):

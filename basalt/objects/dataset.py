@@ -21,15 +21,9 @@ class DatasetRow:
         result = {
             "values": self.values,
             "metadata": self.metadata,
-						"name": self.name,
-						"idealOutput": self.ideal_output
+			"name": self.name,
+			"idealOutput": self.ideal_output
         }
-        
-        # if self.name:
-        #     result["name"] = self.name
-            
-        # if self.ideal_output:
-        #     result["idealOutput"] = self.ideal_output
             
         return result
     
