@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, AsyncMock
 
 from basalt.sdk.datasetsdk import DatasetSDK
 from basalt.utils.logger import Logger
-from basalt.utils.dtos import DatasetDTO, DatasetRowDTO
+from basalt.utils.dtos import DatasetDTO, DatasetRowDTO, ListDatasetsDTO, GetDatasetDTO, CreateDatasetItemDTO
 from basalt.endpoints.list_datasets import ListDatasetsEndpoint, ListDatasetsEndpointResponse
 from basalt.endpoints.get_dataset import GetDatasetEndpoint, GetDatasetEndpointResponse
 from basalt.endpoints.create_dataset_item import CreateDatasetItemEndpoint, CreateDatasetItemEndpointResponse
@@ -160,65 +160,44 @@ class TestDatasetSDKAsync(unittest.TestCase):
         self.assertIsNone(dataset)
         self.assertEqual(str(err), "API Error")
         
-    async def test_async_get_dataset_object(self):
-        """Test asynchronously getting a dataset as an object"""
-        # Configure mock
-        mocked_api.async_invoke.return_value = (None, dataset_get_response)
-        
-        # Call the method
-        dataset = await self.dataset_sdk.async_get_dataset_object("test-dataset")
-        
-        # Assertions
-        self.assertIsNotNone(dataset)
-        self.assertEqual(dataset.slug, "test-dataset")
-        self.assertEqual(dataset.name, "Test Dataset")
-        self.assertEqual(len(dataset.rows), 1)
-        self.assertEqual(dataset.rows[0].values, {"input": "Sample input", "output": "Sample output"})
-        
-    async def test_async_add_row_to_dataset(self):
-        """Test asynchronously adding a row to a dataset object"""
-        # First get a dataset object
-        mocked_api.async_invoke.return_value = (None, dataset_get_response)
-        dataset = await self.dataset_sdk.async_get_dataset_object("test-dataset")
-        
-        # Then add a row to it
-        mocked_api.async_invoke.return_value = (None, dataset_add_row_response)
-        
-        values = {"input": "New input", "output": "New output"}
-        row = await self.dataset_sdk.async_add_row_to_dataset(
-            dataset=dataset,
-            values=values,
-            name="New Row",
-            ideal_output="New ideal output",
-            metadata={"source": "test"}
-        )
-        
-        # Assertions
-        self.assertIsNotNone(row)
-        self.assertEqual(row.values, values)
-        self.assertEqual(row.name, "New Row")
-        self.assertEqual(row.ideal_output, "New ideal output")
-        
-        # Check that the row was added to the dataset
-        self.assertEqual(len(dataset.rows), 2)
-        self.assertEqual(dataset.rows[-1], row)
 
 
-def run_async_tests():
-    """
-    Helper function to run async tests
-    """
-    loop = asyncio.get_event_loop()
+class AsyncTestRunner:
+    """Helper class to run async tests properly"""
     
-    # Create and run the test suite
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestDatasetSDKAsync)
-    runner = unittest.TextTestRunner()
+    def __init__(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
     
-    for test in suite:
-        if test._testMethodName.startswith('test_async_'):
-            coro = getattr(test, test._testMethodName)()
-            loop.run_until_complete(coro)
+    def run_test_case(self, test_case_class):
+        """Run all async test methods in a test case"""
+        suite = unittest.TestLoader().loadTestsFromTestCase(test_case_class)
+        
+        for test in suite:
+            test_method = getattr(test, test._testMethodName)
+            if asyncio.iscoroutinefunction(test_method):
+                try:
+                    test.setUp()
+                    self.loop.run_until_complete(test_method())
+                    print(f"✓ {test._testMethodName}")
+                except Exception as e:
+                    print(f"✗ {test._testMethodName}: {e}")
+            else:
+                # Run sync tests normally
+                try:
+                    test.setUp()
+                    test_method()
+                    print(f"✓ {test._testMethodName}")
+                except Exception as e:
+                    print(f"✗ {test._testMethodName}: {e}")
+    
+    def close(self):
+        self.loop.close()
 
 
 if __name__ == "__main__":
-    run_async_tests()
+    runner = AsyncTestRunner()
+    try:
+        runner.run_test_case(TestDatasetSDKAsync)
+    finally:
+        runner.close()

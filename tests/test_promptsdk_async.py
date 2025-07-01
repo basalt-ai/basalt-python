@@ -1,10 +1,10 @@
 import unittest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, AsyncMock
 
 from basalt.sdk.promptsdk import PromptSDK
 from basalt.utils.logger import Logger
-from basalt.utils.dtos import PromptDTO, PromptVersionDTO, PromptVariablesDTO, GetPromptDTO
+from basalt.utils.dtos import GetPromptDTO, PromptResponse, DescribePromptDTO, DescribePromptResponse, PromptListDTO, PromptListResponse
 from basalt.endpoints.get_prompt import GetPromptEndpoint, GetPromptEndpointResponse
 from basalt.endpoints.list_prompts import ListPromptsEndpoint, ListPromptsEndpointResponse
 from basalt.endpoints.describe_prompt import DescribePromptEndpoint, DescribePromptEndpointResponse
@@ -14,67 +14,77 @@ mocked_api = MagicMock()
 # Make sure async_invoke is an AsyncMock
 mocked_api.async_invoke = AsyncMock()
 
+# Mock model for PromptResponse
+mock_model = type('Model', (), {
+    'provider': 'openai',
+    'model': 'gpt-4',
+    'version': 'latest',
+    'parameters': type('Params', (), {
+        'temperature': 0.7,
+        'max_length': 100,
+        'top_p': 1.0,
+        'top_k': None,
+        'frequency_penalty': None,
+        'presence_penalty': None,
+        'response_format': 'text',
+        'json_object': None
+    })()
+})()
+
 # Mock responses for different endpoints
 prompt_get_response = GetPromptEndpointResponse(
-    prompt=PromptDTO(
-        slug="test-prompt",
-        feature_slug="test-feature",
-        name="Test Prompt",
-        description="A test prompt",
-        text="This is a test prompt with {{variable}}",
+    warning=None,
+    prompt=PromptResponse(
+        text="This is a test prompt: {{variable}}",
+        systemText="You are a helpful assistant",
         version="1.0",
-        tags=["test"],
-        variables=[PromptVariablesDTO(name="variable", description="A test variable")]
+        model=mock_model
     )
 )
 
 prompt_list_response = ListPromptsEndpointResponse(
+    warning=None,
     prompts=[
-        PromptDTO(
+        PromptListResponse(
             slug="test-prompt-1",
-            feature_slug="test-feature",
+            status="active",
             name="Test Prompt 1",
-            version="1.0"
+            description="First test prompt",
+            available_versions=["1.0"],
+            available_tags=["latest"]
         ),
-        PromptDTO(
+        PromptListResponse(
             slug="test-prompt-2",
-            feature_slug="test-feature",
+            status="active",
             name="Test Prompt 2",
-            version="1.0"
+            description="Second test prompt",
+            available_versions=["1.0", "2.0"],
+            available_tags=["latest", "stable"]
         )
     ]
 )
 
 prompt_describe_response = DescribePromptEndpointResponse(
-    prompt=PromptDTO(
+    warning=None,
+    prompt=DescribePromptResponse(
         slug="test-prompt",
-        feature_slug="test-feature",
+        status="active",
         name="Test Prompt",
-        description="A test prompt",
-        text="This is a test prompt with {{variable}}",
-        version="1.0",
-        tags=["test"],
-        variables=[PromptVariablesDTO(name="variable", description="A test variable")]
-    ),
-    versions=[
-        PromptVersionDTO(
-            version="1.0",
-            text="This is a test prompt with {{variable}}",
-            created_at="2023-01-01T00:00:00Z"
-        ),
-        PromptVersionDTO(
-            version="0.9",
-            text="This is an older test prompt with {{variable}}",
-            created_at="2022-12-01T00:00:00Z"
-        )
-    ]
+        description="A test prompt for unit testing",
+        available_versions=["1.0", "1.1", "2.0"],
+        available_tags=["latest", "stable"],
+        variables=[{"name": "variable", "type": "string"}]
+    )
 )
 
 
 class TestPromptSDKAsync(unittest.TestCase):
     def setUp(self):
+        from basalt.utils.memcache import MemoryCache
         self.prompt_sdk = PromptSDK(
             api=mocked_api,
+            cache=MemoryCache(),
+            fallback_cache=MemoryCache(),
             logger=logger
         )
         # Reset mock calls before each test
@@ -90,9 +100,10 @@ class TestPromptSDKAsync(unittest.TestCase):
         
         # Assertions
         self.assertIsNone(err)
-        self.assertEqual(prompt_response.text, "This is a test prompt with {{variable}}")
-        self.assertEqual(prompt_response.slug, "test-prompt")
-        self.assertIsNone(generation)  # No monitoring in this test
+        self.assertIsNotNone(prompt_response)
+        self.assertEqual(prompt_response.text, "This is a test prompt: {{variable}}")
+        self.assertEqual(prompt_response.version, "1.0")
+        self.assertIsNotNone(generation)  # Generation is created for monitoring
         
         # Verify correct endpoint was used
         endpoint = mocked_api.async_invoke.call_args[0][0]
@@ -112,6 +123,7 @@ class TestPromptSDKAsync(unittest.TestCase):
         
         # Assertions
         self.assertIsNone(err)
+        self.assertIsNotNone(prompts)
         self.assertEqual(len(prompts), 2)
         self.assertEqual(prompts[0].slug, "test-prompt-1")
         self.assertEqual(prompts[1].slug, "test-prompt-2")
@@ -130,11 +142,12 @@ class TestPromptSDKAsync(unittest.TestCase):
         
         # Assertions
         self.assertIsNone(err)
+        self.assertIsNotNone(prompts)
         self.assertEqual(len(prompts), 2)
         
         # Verify DTO was created correctly
         dto = mocked_api.async_invoke.call_args[0][1]
-        self.assertEqual(dto.feature_slug, "test-feature")
+        self.assertEqual(dto.featureSlug, "test-feature")
         
     async def test_async_describe_prompt(self):
         """Test asynchronously describing a prompt"""
@@ -146,10 +159,11 @@ class TestPromptSDKAsync(unittest.TestCase):
         
         # Assertions
         self.assertIsNone(err)
-        self.assertEqual(prompt_description.prompt.slug, "test-prompt")
-        self.assertEqual(len(prompt_description.versions), 2)
-        self.assertEqual(prompt_description.versions[0].version, "1.0")
-        self.assertEqual(prompt_description.versions[1].version, "0.9")
+        self.assertIsNotNone(prompt_description)
+        self.assertEqual(prompt_description.slug, "test-prompt")
+        self.assertEqual(prompt_description.name, "Test Prompt")
+        self.assertEqual(len(prompt_description.available_versions), 3)
+        self.assertIn("1.0", prompt_description.available_versions)
         
         # Verify correct endpoint was used
         endpoint = mocked_api.async_invoke.call_args[0][0]
@@ -168,8 +182,9 @@ class TestPromptSDKAsync(unittest.TestCase):
         
         # Assertions
         self.assertIsNone(err)
+        self.assertIsNotNone(prompt_response)
         # Variables should be replaced in the response
-        self.assertEqual(prompt_response.text, "This is a test prompt with test-value")
+        self.assertEqual(prompt_response.text, "This is a test prompt: test-value")
         
     async def test_async_get_prompt_error_handling(self):
         """Test error handling when asynchronously getting a prompt"""
@@ -187,21 +202,42 @@ class TestPromptSDKAsync(unittest.TestCase):
         self.assertEqual(str(err), "API Error")
 
 
-def run_async_tests():
-    """
-    Helper function to run async tests
-    """
-    loop = asyncio.get_event_loop()
+class AsyncTestRunner:
+    """Helper class to run async tests properly"""
     
-    # Create and run the test suite
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestPromptSDKAsync)
-    runner = unittest.TextTestRunner()
+    def __init__(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
     
-    for test in suite:
-        if test._testMethodName.startswith('test_async_'):
-            coro = getattr(test, test._testMethodName)()
-            loop.run_until_complete(coro)
+    def run_test_case(self, test_case_class):
+        """Run all async test methods in a test case"""
+        suite = unittest.TestLoader().loadTestsFromTestCase(test_case_class)
+        
+        for test in suite:
+            test_method = getattr(test, test._testMethodName)
+            if asyncio.iscoroutinefunction(test_method):
+                try:
+                    test.setUp()
+                    self.loop.run_until_complete(test_method())
+                    print(f"✓ {test._testMethodName}")
+                except Exception as e:
+                    print(f"✗ {test._testMethodName}: {e}")
+            else:
+                # Run sync tests normally
+                try:
+                    test.setUp()
+                    test_method()
+                    print(f"✓ {test._testMethodName}")
+                except Exception as e:
+                    print(f"✗ {test._testMethodName}: {e}")
+    
+    def close(self):
+        self.loop.close()
 
 
 if __name__ == "__main__":
-    run_async_tests()
+    runner = AsyncTestRunner()
+    try:
+        runner.run_test_case(TestPromptSDKAsync)
+    finally:
+        runner.close()
