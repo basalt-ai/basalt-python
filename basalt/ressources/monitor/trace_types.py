@@ -28,6 +28,7 @@ class TraceParams:
     name: Optional[str] = None
     input: Optional[str] = None
     output: Optional[str] = None
+    ideal_output: Optional[str] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     user: Optional[User] = None
