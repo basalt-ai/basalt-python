@@ -23,7 +23,6 @@ class LogParams(BaseLogParams):
     type: LogType = None
     input: Optional[str] = None
     output: Optional[str] = None
-    ideal_output: Optional[str] = None
 
 @dataclass
 class Log(BaseLog):

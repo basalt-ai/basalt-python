@@ -88,6 +88,11 @@ class SendTraceEndpoint:
                 else:
                     processed_log["parentId"] = None
 
+								# Rename ideal output
+                if "ideal_output" in processed_log:
+                  processed_log["idealOutput"] = processed_log["ideal_output"]
+                  del processed_log["ideal_output"]
+
                 processed_logs.append(processed_log)
 
         # Create the request body

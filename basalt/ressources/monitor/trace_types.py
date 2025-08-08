@@ -98,6 +98,10 @@ class Trace(TraceParams):
             ```
         """
         ...
+
+    def set_ideal_output(self, ideal_output: str) -> 'Trace':
+        """Sets the ideal output for the trace."""
+        ...
     
     def set_metadata(self, metadata: Dict[str, Any]) -> 'Trace':
         """Sets or updates the metadata for this trace.

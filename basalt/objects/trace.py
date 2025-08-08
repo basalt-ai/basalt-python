@@ -138,6 +138,11 @@ class Trace:
         self._start_time = datetime.now()
         return self
 
+    def set_ideal_output(self, ideal_output: str) -> 'Trace':
+        """Sets the ideal output for the trace."""
+        self._ideal_output = ideal_output
+        return self
+
     def identify(self, params: Dict[str, Any]) -> 'Trace':
         """
         Set identification information for the trace.
@@ -325,6 +330,7 @@ class Trace:
             "feature_slug": self._feature_slug,
             "input": self._input,
             "output": self._output,
+            "ideal_output": self._ideal_output,
             "name": self._name,
             "start_time": self._start_time,
             "end_time": self._end_time,

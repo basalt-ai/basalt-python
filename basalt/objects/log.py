@@ -11,7 +11,6 @@ class Log(BaseLog):
         super().__init__(params)
         self._input = params.get("input")
         self._output = None
-        self._ideal_output = None
 
     @property
     def input(self) -> Optional[str]:
@@ -22,11 +21,6 @@ class Log(BaseLog):
     def output(self) -> Optional[str]:
         """Get the log output."""
         return self._output
-
-    @property
-    def ideal_output(self) -> Optional[str]:
-        """Get the log ideal output."""
-        return self._ideal_output
 
     def start(self, input: Optional[str] = None) -> 'Log':
         """

@@ -29,6 +29,7 @@ class BaseLogParams:
         evaluators: The evaluators to attach to the log.
     """
     name: str
+    ideal_output: Optional[str] = None
     start_time: Optional[Union[datetime, str]] = None
     end_time: Optional[Union[datetime, str]] = None
     metadata: Optional[Dict[str, Any]] = None

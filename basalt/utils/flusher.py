@@ -33,6 +33,7 @@ class Flusher:
             "feature_slug": trace.feature_slug,
             "input": trace.input,
             "output": output,
+            "ideal_output": trace.ideal_output,
             "name": trace._name,
             "start_time": trace.start_time.isoformat() if trace.start_time else None,
             "end_time": trace.end_time.isoformat() if trace.end_time else None,
@@ -63,6 +64,7 @@ class Flusher:
         base_dict = {
             "id": log.id,
             "type": log.type,
+            "ideal_output": log.ideal_output,
             "name": log._name,
             "input": log.input,
             "output": output,
