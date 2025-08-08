@@ -19,6 +19,7 @@ class Trace:
 
         self._input = params.get("input")
         self._output = params.get("output")
+        self._ideal_output = params.get("ideal_output")
         self._name = params.get("name")
         self._start_time = params.get("start_time", datetime.now())
         self._end_time = params.get("end_time")
@@ -60,6 +61,11 @@ class Trace:
     def output(self) -> Optional[str]:
         """Get the trace output."""
         return self._output
+
+    @property
+    def ideal_output(self) -> Optional[str]:
+        """Get the trace ideal_output."""
+        return self._ideal_output
 
     @property
     def start_time(self) -> datetime:
@@ -130,6 +136,11 @@ class Trace:
             self._input = input
 
         self._start_time = datetime.now()
+        return self
+
+    def set_ideal_output(self, ideal_output: str) -> 'Trace':
+        """Sets the ideal output for the trace."""
+        self._ideal_output = ideal_output
         return self
 
     def identify(self, params: Dict[str, Any]) -> 'Trace':
@@ -319,6 +330,7 @@ class Trace:
             "feature_slug": self._feature_slug,
             "input": self._input,
             "output": self._output,
+            "ideal_output": self._ideal_output,
             "name": self._name,
             "start_time": self._start_time,
             "end_time": self._end_time,

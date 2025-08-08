@@ -28,6 +28,7 @@ class TraceParams:
     name: Optional[str] = None
     input: Optional[str] = None
     output: Optional[str] = None
+    ideal_output: Optional[str] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     user: Optional[User] = None
@@ -96,6 +97,10 @@ class Trace(TraceParams):
             trace.start('User query: What is the capital of France?')
             ```
         """
+        ...
+
+    def set_ideal_output(self, ideal_output: str) -> 'Trace':
+        """Sets the ideal output for the trace."""
         ...
     
     def set_metadata(self, metadata: Dict[str, Any]) -> 'Trace':

@@ -54,7 +54,8 @@ class SendTraceEndpoint:
                     "input": dict_log["input"] if "input" in dict_log else None,
                     "output": dict_log["output"] if "output" in dict_log else None,
                     "prompt": dict_log["prompt"] if "prompt" in dict_log else None,
-                    "evaluators": dict_log["evaluators"] if "evaluators" in dict_log else None
+                    "evaluators": dict_log["evaluators"] if "evaluators" in dict_log else None,
+                    "idealOutput": dict_log["ideal_output"] if "ideal_output" in dict_log else None
                 }
 
                 logs.append(log_data)
@@ -87,6 +88,11 @@ class SendTraceEndpoint:
                 else:
                     processed_log["parentId"] = None
 
+								# Rename ideal output
+                if "ideal_output" in processed_log:
+                  processed_log["idealOutput"] = processed_log["ideal_output"]
+                  del processed_log["ideal_output"]
+
                 processed_logs.append(processed_log)
 
         # Create the request body
@@ -96,6 +102,7 @@ class SendTraceEndpoint:
             "experiment": {"id": trace_data.get("experiment", {}).id} if trace_data.get("experiment") else None,
             "input": trace_data.get("input"),
             "output": trace_data.get("output"),
+            "idealOutput": trace_data.get("ideal_output"),
             "metadata": trace_data.get("metadata"),
             "organization": trace_data.get("organization"),
             "user": trace_data.get("user"),

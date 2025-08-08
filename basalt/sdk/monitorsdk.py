@@ -246,6 +246,7 @@ class MonitorSDK:
             "input": params.input,
             "output": params.output,
             "name": params.name,
+						"ideal_output": params.ideal_output,
             "start_time": params.start_time,
             "end_time": params.end_time,
             "user": params.user,

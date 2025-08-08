@@ -21,6 +21,7 @@ class BaseLog:
         self._trace = params.get("trace")
         self._parent = params.get("parent")
         self._evaluators = params.get("evaluators")
+        self._ideal_output = params.get("ideal_output")
 
         # Add to trace's logs list if trace exists
         if self._trace:
@@ -50,6 +51,11 @@ class BaseLog:
     def name(self) -> str:
         """Get the log name."""
         return self._name
+
+    @property
+    def ideal_output(self) -> Optional[str]:
+        """Get the ideal output."""
+        return self._ideal_output
 
     @property
     def start_time(self) -> datetime:
@@ -98,6 +104,11 @@ class BaseLog:
         self._evaluators.append(evaluator)
         return self
 
+    def set_ideal_output(self, ideal_output: str) -> 'BaseLog':
+        """Set the ideal output."""
+        self._ideal_output = ideal_output
+        return self
+
     def update(self, params: Dict[str, Any]) -> 'BaseLog':
         """Update the log."""
         self._name = params.get("name", self._name)
@@ -122,6 +133,7 @@ class BaseLog:
             "id": self._id,
             "type": self._type,
             "name": self._name,
+            "ideal_output": self._ideal_output,
             "start_time": self._start_time,
             "end_time": self._end_time,
             "metadata": self._metadata,
