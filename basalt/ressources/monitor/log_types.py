@@ -1,19 +1,38 @@
+from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from dataclasses import dataclass
 
 from .base_log_types import BaseLog, BaseLogParams
-from .log_type import LogType
 
 if TYPE_CHECKING:
     from .generation_types import Generation, GenerationParams
 
+
+class LogType(Enum):
+    """Enum-like class for log types.
+
+    Attributes:
+        SPAN: Represents a span log type
+        GENERATION: Represents a generation log type
+        FUNCTION: Represents a function log type
+        TOOL: Represents a tool log type
+        RETRIEVAL: Represents a retrieval log type
+        EVENT: Represents an event log type
+    """
+    SPAN = 'span'
+    GENERATION = 'generation'
+    FUNCTION = 'function'
+    TOOL = 'tool'
+    RETRIEVAL = 'retrieval'
+    EVENT = 'event'
+
 @dataclass
 class LogParams(BaseLogParams):
     """Parameters for creating or updating a log.
-    
+
     This class defines the parameters needed to create or update a log entry,
     including its type, input, and output data.
-    
+
     Attributes:
         type: The type of log entry (e.g., 'span', 'generation').
               Used to distinguish between different kinds of logs.
@@ -27,40 +46,40 @@ class LogParams(BaseLogParams):
 @dataclass
 class Log(BaseLog):
     """Log interface representing a specific operation or step within a trace.
-    
+
     Logs are used to track discrete operations within a process flow, such as
     data fetching, validation, or any other logical step. Logs can contain
     generations and can be nested within other logs to create a hierarchical
     structure of operations.
-    
+
     Example:
         ```python
         # Create a log within a trace
         log = trace.create_log({
             'name': 'data-processing'
         })
-        
+
         # Start the log with input
         log.start('Raw user data')
-        
+
         # Create a nested log for a sub-operation
         validation_log = log.create_log({
             'name': 'data-validation'
         })
-        
+
         # Create a generation within the validation log
         generation = validation_log.create_generation({
             'name': 'validation-check',
             'prompt': {'slug': 'data-validator', 'version': '1.0.0'},
             'input': 'Raw user data'
         })
-        
+
         # End the generation with output
         generation.end('Data is valid')
-        
+
         # End the validation log
         validation_log.end('Validation complete')
-        
+
         # End the main log with processed output
         log.end('Processed user data')
         ```
@@ -71,18 +90,18 @@ class Log(BaseLog):
 
     def start(self, input: Optional[str] = None) -> 'Log':
         """Marks the log as started and sets the input if provided.
-        
+
         Args:
             input: Optional input data to associate with the log.
-            
+
         Returns:
             The log instance for method chaining.
-            
+
         Example:
             ```python
             # Start a log without input
             log.start()
-            
+
             # Start a log with input
             log.start('Raw user data to be processed')
             ```
@@ -91,18 +110,18 @@ class Log(BaseLog):
 
     def end(self, output: Optional[str] = None) -> 'Log':
         """Marks the log as ended and sets the output if provided.
-        
+
         Args:
             output: Optional output data to associate with the log.
-            
+
         Returns:
             The log instance for method chaining.
-            
+
         Example:
             ```python
             # End a log without output
             log.end()
-            
+
             # End a log with output
             log.end('Processed data: {"success": true, "items": 42}')
             ```
@@ -111,13 +130,13 @@ class Log(BaseLog):
 
     def append(self, generation: 'Generation') -> 'Log':
         """Adds a generation to this log.
-        
+
         Args:
             generation: The generation to add to this log.
-            
+
         Returns:
             The log instance for method chaining.
-            
+
         Example:
             ```python
             # Create a generation separately
@@ -125,7 +144,7 @@ class Log(BaseLog):
                 'name': 'external-generation',
                 'trace': trace
             })
-            
+
             # Append the generation to this log
             log.append(generation)
             ```
@@ -134,13 +153,13 @@ class Log(BaseLog):
 
     def create_generation(self, params: 'GenerationParams') -> 'Generation':
         """Creates a new generation within this log.
-        
+
         Args:
             params: Parameters for the generation.
-            
+
         Returns:
             A new Generation instance associated with this log.
-            
+
         Example:
             ```python
             # Create a generation with a prompt reference
@@ -151,7 +170,7 @@ class Log(BaseLog):
                 'variables': {'language': 'en', 'mode': 'detailed'},
                 'metadata': {'priority': 'high'}
             })
-            
+
             # Create a simple generation without a prompt reference
             simple_generation = log.create_generation({
                 'name': 'quick-check',
@@ -164,20 +183,20 @@ class Log(BaseLog):
 
     def create_log(self, params: LogParams) -> 'Log':
         """Creates a new nested log within this log.
-        
+
         Args:
             params: Parameters for the nested log.
-            
+
         Returns:
             A new Log instance associated with this log as its parent.
-            
+
         Example:
             ```python
             # Create a basic nested log
             nested_log = log.create_log({
                 'name': 'sub-operation'
             })
-            
+
             # Create a detailed nested log
             detailed_nested_log = log.create_log({
                 'name': 'data-transformation',

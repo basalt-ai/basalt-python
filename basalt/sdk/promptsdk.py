@@ -1,6 +1,8 @@
-from typing import Optional, Dict, Tuple, Any, Awaitable
+from typing import Optional, Dict, Tuple, Any
 
-from ..utils.dtos import GetPromptDTO, PromptResponse, DescribePromptResponse, DescribePromptDTO, GetResult, DescribeResult, ListResult, PromptListResponse, PromptListDTO
+from ..ressources.monitor.generation_types import GenerationParams, PromptReference
+from ..ressources.monitor.trace_types import TraceParams
+from ..utils.dtos import GetPromptDTO, PromptResponse, DescribePromptResponse, DescribePromptDTO, DescribeResult, ListResult, PromptListResponse, PromptListDTO
 from ..utils.protocols import ICache, IApi, ILogger
 
 from ..endpoints.get_prompt import GetPromptEndpoint
@@ -11,7 +13,6 @@ from ..objects.trace import Trace
 from ..objects.generation import Generation
 from ..utils.flusher import Flusher
 from datetime import datetime
-import asyncio
 
 class PromptSDK:
     """
@@ -32,7 +33,7 @@ class PromptSDK:
         self._cache_duration = 5 * 60
         self._logger = logger
 
-    def get(
+    async def get(
         self,
         slug: str,
         version: Optional[str] = None,
@@ -47,11 +48,11 @@ class PromptSDK:
             slug (str): The slug identifier for the prompt.
             version (Optional[str]): The version of the prompt.
             tag (Optional[str]): The tag associated with the prompt.
-            variables (dict): A dictionnary of variables to replace in the prompt text.
+            variables (dict): A dictionary of variables to replace in the prompt text.
             cache_enabled (bool): Enable or disable cache for this request.
 
         Returns:
-            Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]: 
+            Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]:
             A tuple containing an optional exception, an optional PromptResponse, and an optional Generation object.
         """
         dto = GetPromptDTO(
@@ -68,11 +69,11 @@ class PromptSDK:
             generation = self._prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
             return err, prompt_response, generation
 
-        err, result = self._api.invoke(GetPromptEndpoint, dto)
+        err, result = await self._api.invoke(GetPromptEndpoint, dto)
 
         if err is None:
             original_prompt_text = result.prompt.text
-            self._cache.put(dto, result.prompt, ttl=self._cache_duration)
+            self._cache.put(dto, result.prompt, self._cache_duration)
             self._fallback_cache.put(dto, result.prompt)
 
             err, prompt_response = self._replace_vars(result.prompt, variables)
@@ -88,8 +89,8 @@ class PromptSDK:
             return err, prompt_response, generation
 
         return err, None, None
-        
-    async def async_get(
+
+    def get_sync(
         self,
         slug: str,
         version: Optional[str] = None,
@@ -98,17 +99,17 @@ class PromptSDK:
         cache_enabled: bool = True
     ) -> Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]:
         """
-        Asynchronously retrieve a prompt by slug, optionally specifying version and tag.
+        Synchronously retrieve a prompt by slug, optionally specifying version and tag.
 
         Args:
             slug (str): The slug identifier for the prompt.
             version (Optional[str]): The version of the prompt.
             tag (Optional[str]): The tag associated with the prompt.
-            variables (dict): A dictionnary of variables to replace in the prompt text.
+            variables (dict): A dictionary of variables to replace in the prompt text.
             cache_enabled (bool): Enable or disable cache for this request.
 
         Returns:
-            Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]: 
+            Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]:
             A tuple containing an optional exception, an optional PromptResponse, and an optional Generation object.
         """
         dto = GetPromptDTO(
@@ -122,10 +123,10 @@ class PromptSDK:
         if cached:
             original_prompt_text = cached.text
             err, prompt_response = self._replace_vars(cached, variables)
-            generation = await self._async_prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
+            generation = self._prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
             return err, prompt_response, generation
 
-        err, result = await self._api.async_invoke(GetPromptEndpoint, dto)
+        err, result = self._api.invoke_sync(GetPromptEndpoint, dto)
 
         if err is None:
             original_prompt_text = result.prompt.text
@@ -133,7 +134,7 @@ class PromptSDK:
             self._fallback_cache.put(dto, result.prompt)
 
             err, prompt_response = self._replace_vars(result.prompt, variables)
-            generation = await self._async_prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
+            generation = self._prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
             return err, prompt_response, generation
 
         fallback = self._fallback_cache.get(dto) if cache_enabled else None
@@ -141,23 +142,23 @@ class PromptSDK:
         if fallback:
             original_prompt_text = fallback.text
             err, prompt_response = self._replace_vars(fallback, variables)
-            generation = await self._async_prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
+            generation = self._prepare_monitoring(prompt_response, slug, version, tag, variables, original_prompt_text)
             return err, prompt_response, generation
 
         return err, None, None
 
     def _prepare_monitoring(
-        self, 
-        prompt: PromptResponse, 
-        slug: str, 
-        version: Optional[str] = None, 
+        self,
+        prompt: PromptResponse,
+        slug: str,
+        version: Optional[str] = None,
         tag: Optional[str] = None,
         variables: Optional[Dict[str, Any]] = None,
         original_prompt_text: Optional[str] = None
     ) -> Generation:
         """
         Prepare monitoring by creating a trace and generation object.
-        
+
         Args:
             prompt (PromptResponse): The prompt response.
             slug (str): The slug identifier for the prompt.
@@ -165,84 +166,36 @@ class PromptSDK:
             tag (Optional[str]): The tag associated with the prompt.
             variables (Optional[Dict[str, Any]]): Variables used in the prompt.
             original_prompt_text (Optional[str]): The original prompt text.
-            
+
         Returns:
             Generation: The generation object.
         """
         # Create a flusher
         flusher = Flusher(self._api, self._logger)
-        
+
         # Create a trace
-        trace = Trace(slug, {
-            "input": original_prompt_text or prompt.text,
-            "start_time": datetime.now()
-        }, flusher, self._logger)
-        
+        trace = Trace(slug, TraceParams(
+            input=original_prompt_text or prompt.text,
+            start_time=datetime.now()
+        ), flusher, self._logger)
+
         # Create a generation
-        generation = Generation({
-            "name": slug,
-            "trace": trace,
-            "prompt": {
-                "slug": slug,
-                "version": version,
-                "tag": tag
-            },
-            "input": original_prompt_text or prompt.text,
-            "variables": variables,
-            "options": {"type": "single"}
-        })
-        
-        return generation
-        
-    async def _async_prepare_monitoring(
-        self, 
-        prompt: PromptResponse, 
-        slug: str, 
-        version: Optional[str] = None, 
-        tag: Optional[str] = None,
-        variables: Optional[Dict[str, Any]] = None,
-        original_prompt_text: Optional[str] = None
-    ) -> Generation:
-        """
-        Asynchronously prepare monitoring by creating a trace and generation object.
-        
-        Args:
-            prompt (PromptResponse): The prompt response.
-            slug (str): The slug identifier for the prompt.
-            version (Optional[str]): The version of the prompt.
-            tag (Optional[str]): The tag associated with the prompt.
-            variables (Optional[Dict[str, Any]]): Variables used in the prompt.
-            original_prompt_text (Optional[str]): The original prompt text.
-            
-        Returns:
-            Generation: The generation object.
-        """
-        # Create a flusher
-        flusher = Flusher(self._api, self._logger)
-        
-        # Create a trace
-        trace = Trace(slug, {
-            "input": original_prompt_text or prompt.text,
-            "start_time": datetime.now()
-        }, flusher, self._logger)
-        
-        # Create a generation
-        generation = Generation({
-            "name": slug,
-            "trace": trace,
-            "prompt": {
-                "slug": slug,
-                "version": version,
-                "tag": tag
-            },
-            "input": original_prompt_text or prompt.text,
-            "variables": variables,
-            "options": {"type": "single"}
-        })
-        
+        generation = Generation(GenerationParams(
+            name=slug,
+            trace=trace,
+            prompt=PromptReference(
+                slug=slug,
+                version=version,
+                tag=tag
+            ),
+            input=original_prompt_text or prompt.text,
+            variables=variables,
+            options={"type": "single"}
+        ))
+
         return generation
 
-    def describe(
+    async def describe(
         self,
         slug: str,
         version: Optional[str] = None,
@@ -255,7 +208,6 @@ class PromptSDK:
             slug (str): The slug identifier for the prompt.
             version (Optional[str]): The version of the prompt.
             tag (Optional[str]): The tag associated with the prompt.
-            cache_enabled (bool): Enable or disable cache for this request.
 
         Returns:
             Tuple[Optional[Exception], Optional[DescribePromptResponse]]: A tuple containing an optional exception and an optional DescribePromptResponse.
@@ -266,7 +218,7 @@ class PromptSDK:
             tag=tag
         )
 
-        err, result = self._api.invoke(DescribePromptEndpoint, dto)
+        err, result = await self._api.invoke(DescribePromptEndpoint, dto)
 
         if err is None:
             prompt = result.prompt
@@ -282,15 +234,15 @@ class PromptSDK:
             )
 
         return err, None
-        
-    async def async_describe(
+
+    def describe_sync(
         self,
         slug: str,
         version: Optional[str] = None,
         tag: Optional[str] = None,
     ) -> DescribeResult:
         """
-        Asynchronously get details about a prompt by slug, optionally specifying version and tag.
+        Synchronously get details about a prompt by slug, optionally specifying version and tag.
 
         Args:
             slug (str): The slug identifier for the prompt.
@@ -306,7 +258,7 @@ class PromptSDK:
             tag=tag
         )
 
-        err, result = await self._api.async_invoke(DescribePromptEndpoint, dto)
+        err, result = self._api.invoke_sync(DescribePromptEndpoint, dto)
 
         if err is None:
             prompt = result.prompt
@@ -323,10 +275,19 @@ class PromptSDK:
 
         return err, None
 
-    def list(self, feature_slug: Optional[str] = None) -> ListResult:
+    async def list(self, feature_slug: Optional[str] = None) -> ListResult:
+        """
+        List prompts, optionally filtering by feature_slug.
+
+        Args:
+            feature_slug (Optional[str]): Optional feature slug to filter prompts by.
+
+        Returns:
+            Tuple[Optional[Exception], Optional[List[PromptListResponse]]]: A tuple containing an optional exception and an optional list of PromptListResponse objects.
+        """
         dto = PromptListDTO(featureSlug=feature_slug)
 
-        err, result = self._api.invoke(ListPromptsEndpoint, dto)
+        err, result = await self._api.invoke(ListPromptsEndpoint, dto)
 
         if err is not None:
             return err, None
@@ -339,20 +300,20 @@ class PromptSDK:
             available_versions=prompt.available_versions,
             available_tags=prompt.available_tags
         ) for prompt in result.prompts]
-        
-    async def async_list(self, feature_slug: Optional[str] = None) -> ListResult:
+
+    def list_sync(self, feature_slug: Optional[str] = None) -> ListResult:
         """
-        Asynchronously list prompts, optionally filtering by feature_slug.
-        
+        Synchronously list prompts, optionally filtering by feature_slug.
+
         Args:
             feature_slug (Optional[str]): Optional feature slug to filter prompts by.
-            
+
         Returns:
             Tuple[Optional[Exception], Optional[List[PromptListResponse]]]: A tuple containing an optional exception and an optional list of PromptListResponse objects.
         """
         dto = PromptListDTO(featureSlug=feature_slug)
 
-        err, result = await self._api.async_invoke(ListPromptsEndpoint, dto)
+        err, result = self._api.invoke_sync(ListPromptsEndpoint, dto)
 
         if err is not None:
             return err, None

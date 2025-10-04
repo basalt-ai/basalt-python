@@ -2,27 +2,28 @@ from typing import Dict, Optional, Any, List, Union
 
 from .base_log import BaseLog
 from ..ressources.monitor.generation_types import GenerationParams
+from ..ressources.monitor.base_log_types import BaseLogParams
+from ..ressources.monitor.log_types import LogType
+
 
 class Generation(BaseLog):
     """
     Class representing a generation in the monitoring system.
     """
     def __init__(self, params: GenerationParams):
-        params_with_type = {
-            "type": "generation",
-            **params
-        }
+        params_with_type = BaseLogParams(**params.__dict__, type=LogType.GENERATION)
+
         super().__init__(params_with_type)
-        
-        self._prompt = params.get("prompt")
-        self._input = params.get("input")
-        self._output = params.get("output")
-        self._input_tokens = params.get("input_tokens")
-        self._output_tokens = params.get("output_tokens")
-        self._cost = params.get("cost")
-        
+
+        self._prompt = params.prompt
+        self._input = params.input
+        self._output = params.output
+        self._input_tokens = params.input_tokens
+        self._output_tokens = params.output_tokens
+        self._cost = params.cost
+
         # Convert variables to array format if needed
-        variables = params.get("variables")
+        variables = params.variables
         if variables is not None:
             if isinstance(variables, dict):
                 self._variables = [{"label": str(k), "value": str(v)} for k, v in variables.items()]
@@ -32,8 +33,8 @@ class Generation(BaseLog):
                 self._variables = []
         else:
             self._variables = []
-            
-        self._options = params.get("options")
+
+        self._options = params.options
 
     @property
     def prompt(self) -> Optional[Dict[str, Any]]:
@@ -83,50 +84,50 @@ class Generation(BaseLog):
     def start(self, input: Optional[str] = None) -> 'Generation':
         """
         Start the generation with an optional input.
-        
+
         Args:
             input (Optional[str]): The input to the generation.
-            
+
         Returns:
             Generation: The generation instance.
         """
         if input:
             self._input = input
-            
+
         super().start()
         return self
 
     def end(self, output: Optional[Union[str, Dict[str, Any]]] = None) -> 'Generation':
         """
         End the generation with an optional output or update parameters.
-        
+
         Args:
             output (Optional[Union[str, Dict[str, Any]]]): The output of the generation
                 or a dictionary of parameters to update.
-            
+
         Returns:
             Generation: The generation instance.
         """
         super().end()
-        
+
         if isinstance(output, dict):
             self.update(output)
         elif isinstance(output, str):
             self._output = output
-        
+
         # If this is a single generation, end the trace as well
         if self._options and self._options.get("type") == "single":
-            self.trace.end(self._output)
-        
+            self.trace.end_sync(self._output)
+
         return self
 
     def update(self, params: Dict[str, Any]) -> 'Generation':
         """
         Update the generation.
-        
+
         Args:
             params (Dict[str, Any]): Parameters to update.
-            
+
         Returns:
             Generation: The generation instance.
         """
@@ -136,7 +137,7 @@ class Generation(BaseLog):
         self._input_tokens = params.get("input_tokens", self._input_tokens)
         self._output_tokens = params.get("output_tokens", self._output_tokens)
         self._cost = params.get("cost", self._cost)
-        
+
         # Update variables if provided
         variables = params.get("variables")
         if variables is not None:
@@ -146,6 +147,6 @@ class Generation(BaseLog):
                 self._variables = [{"label": str(v.get("label")), "value": str(v.get("value"))} for v in variables if v.get("label")]
             else:
                 self._variables = []
-        
+
         super().update(params)
         return self

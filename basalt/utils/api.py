@@ -1,7 +1,7 @@
+"""Module for interacting with the Basalt API."""
 from typing import Dict, TypeVar, Optional, Tuple
 
 from .protocols import IEndpoint, INetworker, ILogger
-import asyncio
 from .networker import Networker
 
 Input = TypeVar('Input')
@@ -10,7 +10,7 @@ Output = TypeVar('Output')
 class Api:
     """
     A class to interact with the Basalt API.
-    
+
     Attributes:
         root_url (str): The root URL of the API.
         api_key (str): The API key for authentication.
@@ -39,13 +39,13 @@ class Api:
         if isinstance(networker, Networker):
             networker._logger = logger
 
-    def invoke(
+    async def invoke(
         self,
         endpoint: IEndpoint[Input, Output],
         dto: Optional[Input] = None
     ) -> Tuple[Optional[Exception], Optional[Output]]:
         """
-        Invoke an API endpoint with the given data transfer object (DTO).
+        Asynchronously invoke an API endpoint with the given data transfer object (DTO).
 
         Args:
             endpoint: The endpoint to be invoked.
@@ -61,7 +61,7 @@ class Api:
             request_info = endpoint.prepare_request(dto)
 
         # Fetch the result from the network using the prepared request information
-        error, result = self._network.fetch(
+        error, result = await self._network.fetch(
             self._root + request_info['path'],
             request_info['method'],
             request_info.get('body'),
@@ -84,14 +84,14 @@ class Api:
             'X-BASALT-SDK-TYPE': self._sdk_type,
             'Content-Type': 'application/json'
         }
-        
-    async def async_invoke(
+
+    def invoke_sync(
         self,
         endpoint: IEndpoint[Input, Output],
         dto: Optional[Input] = None
     ) -> Tuple[Optional[Exception], Optional[Output]]:
         """
-        Asynchronously invoke an API endpoint with the given data transfer object (DTO).
+        Synchronously invoke an API endpoint with the given data transfer object (DTO).
 
         Args:
             endpoint: The endpoint to be invoked.
@@ -107,7 +107,7 @@ class Api:
             request_info = endpoint.prepare_request(dto)
 
         # Fetch the result from the network using the prepared request information
-        error, result = await self._network.async_fetch(
+        error, result = self._network.fetch_sync(
             self._root + request_info['path'],
             request_info['method'],
             request_info.get('body'),
