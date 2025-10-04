@@ -2,7 +2,6 @@
 SDK for interacting with Basalt datasets
 """
 from typing import Dict, List, Optional, Tuple, Any
-import asyncio
 
 from ..utils.dtos import (
     ListDatasetsDTO, GetDatasetDTO, CreateDatasetItemDTO,
@@ -13,7 +12,6 @@ from ..utils.protocols import IApi, ILogger
 from ..endpoints.list_datasets import ListDatasetsEndpoint
 from ..endpoints.get_dataset import GetDatasetEndpoint
 from ..endpoints.create_dataset_item import CreateDatasetItemEndpoint
-from ..objects.dataset import Dataset, DatasetRow
 
 
 class DatasetSDK:
@@ -28,16 +26,16 @@ class DatasetSDK:
         self._api = api
         self._logger = logger
 
-    def list(self) -> ListDatasetsResult:
+    async def list(self) -> ListDatasetsResult:
         """
         List all datasets available in the workspace.
 
         Returns:
-            Tuple[Optional[Exception], Optional[List[DatasetDTO]]]: A tuple containing an optional 
+            Tuple[Optional[Exception], Optional[List[DatasetDTO]]]: A tuple containing an optional
             exception and an optional list of DatasetDTO objects.
         """
         dto = ListDatasetsDTO()
-        err, result = self._api.invoke(ListDatasetsEndpoint, dto)
+        err, result = await self._api.invoke(ListDatasetsEndpoint, dto)
 
         if err is not None:
             return err, None
@@ -47,17 +45,17 @@ class DatasetSDK:
             name=dataset.name,
             columns=dataset.columns
         ) for dataset in result.datasets]
-        
-    async def async_list(self) -> ListDatasetsResult:
+
+    def list_sync(self) -> ListDatasetsResult:
         """
-        Asynchronously list all datasets available in the workspace.
+        Synchronously list all datasets available in the workspace.
 
         Returns:
-            Tuple[Optional[Exception], Optional[List[DatasetDTO]]]: A tuple containing an optional 
+            Tuple[Optional[Exception], Optional[List[DatasetDTO]]]: A tuple containing an optional
             exception and an optional list of DatasetDTO objects.
         """
         dto = ListDatasetsDTO()
-        err, result = await self._api.async_invoke(ListDatasetsEndpoint, dto)
+        err, result = self._api.invoke_sync(ListDatasetsEndpoint, dto)
 
         if err is not None:
             return err, None
@@ -68,7 +66,7 @@ class DatasetSDK:
             columns=dataset.columns
         ) for dataset in result.datasets]
 
-    def get(self, slug: str) -> GetDatasetResult:
+    async def get(self, slug: str) -> GetDatasetResult:
         """
         Get a dataset by its slug.
 
@@ -80,19 +78,19 @@ class DatasetSDK:
             exception and an optional DatasetDTO.
         """
         dto = GetDatasetDTO(slug=slug)
-        err, result = self._api.invoke(GetDatasetEndpoint, dto)
+        err, result = await self._api.invoke(GetDatasetEndpoint, dto)
 
         if err is not None:
             return err, None
-            
+
         if result.error:
             return Exception(result.error), None
 
         return None, result.dataset
-        
-    async def async_get(self, slug: str) -> GetDatasetResult:
+
+    def get_sync(self, slug: str) -> GetDatasetResult:
         """
-        Asynchronously get a dataset by its slug.
+        Synchronously get a dataset by its slug.
 
         Args:
             slug (str): The slug identifier for the dataset.
@@ -102,17 +100,17 @@ class DatasetSDK:
             exception and an optional DatasetDTO.
         """
         dto = GetDatasetDTO(slug=slug)
-        err, result = await self._api.async_invoke(GetDatasetEndpoint, dto)
+        err, result = self._api.invoke_sync(GetDatasetEndpoint, dto)
 
         if err is not None:
             return err, None
-            
+
         if result.error:
             return Exception(result.error), None
 
         return None, result.dataset
 
-    def addRow(
+    async def add_row(
         self,
         slug: str,
         values: Dict[str, str],
@@ -142,17 +140,17 @@ class DatasetSDK:
             metadata=metadata
         )
 
-        err, result = self._api.invoke(CreateDatasetItemEndpoint, dto)
+        err, result = await self._api.invoke(CreateDatasetItemEndpoint, dto)
 
         if err is not None:
             return err, None, None
-            
+
         if result.error:
             return Exception(result.error), None, None
-            
+
         return None, result.datasetRow, result.warning
-        
-    async def async_addRow(
+
+    def add_row_sync(
         self,
         slug: str,
         values: Dict[str, str],
@@ -161,7 +159,7 @@ class DatasetSDK:
         metadata: Optional[Dict[str, Any]] = None
     ) -> CreateDatasetItemResult:
         """
-        Asynchronously create a new item in a dataset.
+        Synchronously create a new item in a dataset.
 
         Args:
             slug (str): The slug identifier for the dataset.
@@ -182,12 +180,12 @@ class DatasetSDK:
             metadata=metadata
         )
 
-        err, result = await self._api.async_invoke(CreateDatasetItemEndpoint, dto)
+        err, result = self._api.invoke_sync(CreateDatasetItemEndpoint, dto)
 
         if err is not None:
             return err, None, None
-            
+
         if result.error:
             return Exception(result.error), None, None
-            
+
         return None, result.datasetRow, result.warning

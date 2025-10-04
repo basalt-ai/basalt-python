@@ -1,12 +1,14 @@
-from typing import TYPE_CHECKING, Dict, Any, List
+"""Module for flushing traces to the API."""
 import json
-from datetime import datetime
+from typing import TYPE_CHECKING, Dict, Any
+
+from ..endpoints.monitor.send_trace import SendTraceEndpoint
+
 
 if TYPE_CHECKING:
     from ..objects.trace import Trace
     from .protocols import IApi, ILogger
 
-from ..endpoints.monitor.send_trace import SendTraceEndpoint
 
 class Flusher:
     """
@@ -19,10 +21,10 @@ class Flusher:
     def _trace_to_dict(self, trace: 'Trace') -> Dict[str, Any]:
         """
         Convert a trace to a dictionary.
-        
+
         Args:
             trace (Trace): The trace to convert.
-            
+
         Returns:
             Dict[str, Any]: The trace as a dictionary.
         """
@@ -34,7 +36,7 @@ class Flusher:
             "input": trace.input,
             "output": output,
             "ideal_output": trace.ideal_output,
-            "name": trace._name,
+            "name": trace.name,
             "start_time": trace.start_time.isoformat() if trace.start_time else None,
             "end_time": trace.end_time.isoformat() if trace.end_time else None,
             "user": trace.user,
@@ -46,13 +48,14 @@ class Flusher:
             "evaluationConfig": trace.evaluation_config
         }
 
-    def _log_to_dict(self, log: Any) -> Dict[str, Any]:
+    @staticmethod
+    def _log_to_dict(log: Any) -> Dict[str, Any]:
         """
         Convert a log to a dictionary.
-        
+
         Args:
             log (Any): The log to convert.
-            
+
         Returns:
             Dict[str, Any]: The log as a dictionary.
         """
@@ -65,7 +68,7 @@ class Flusher:
             "id": log.id,
             "type": log.type,
             "ideal_output": log.ideal_output,
-            "name": log._name,
+            "name": log.name,
             "input": log.input,
             "output": output,
             "start_time": log.start_time.isoformat() if hasattr(log, 'start_time') and log.start_time else None,
@@ -84,17 +87,17 @@ class Flusher:
 
         return base_dict
 
-    def flush_trace(self, trace: 'Trace') -> None:
+    async def flush_trace(self, trace: 'Trace') -> None:
         """
-        Flush a trace to the API.
-        
+        Flush a trace to the API asynchronously.
+
         Args:
             trace (Trace): The trace to flush.
         """
         try:
             if not self._api:
                 self._logger.error("Cannot flush trace: no API instance available")
-                return
+                return None
 
             # Create an endpoint instance
             endpoint = SendTraceEndpoint()
@@ -106,11 +109,46 @@ class Flusher:
             dto = {"trace": trace_dict}
 
             # Invoke the API with the endpoint and DTO
-            error, result = self._api.invoke(endpoint, dto)
+            error, result = await self._api.invoke(endpoint, dto)
 
             if error:
                 self._logger.error(f"Failed to flush trace {trace.feature_slug}: {error}")
-                return
+                return None
+
+            return result
+
+        except Exception as e:
+            self._logger.error(f"Exception while flushing trace: {str(e)}")
+
+    def flush_trace_sync(self, trace: 'Trace') -> None:
+        """
+        Flush a trace to the API synchronously.
+
+        Args:
+            trace (Trace): The trace to flush.
+        """
+        try:
+            if not self._api:
+                self._logger.error("Cannot flush trace: no API instance available")
+                return None
+
+            # Create an endpoint instance
+            endpoint = SendTraceEndpoint()
+
+            # Convert trace to dictionary
+            trace_dict = self._trace_to_dict(trace)
+
+            # Create the DTO with the trace dictionary
+            dto = {"trace": trace_dict}
+
+            # Invoke the API with the endpoint and DTO
+            error, result = self._api.invoke_sync(endpoint, dto)
+
+            if error:
+                self._logger.error(f"Failed to flush trace {trace.feature_slug}: {error}")
+                return None
+
+            return result
 
         except Exception as e:
             self._logger.error(f"Exception while flushing trace: {str(e)}")

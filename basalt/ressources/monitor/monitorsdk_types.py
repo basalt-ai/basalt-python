@@ -151,7 +151,7 @@ class IMonitorSDK(Protocol):
         """
         ...
 
-    def create_experiment(self, feature_slug: str, params: ExperimentParams) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    async def create_experiment(self, feature_slug: str, params: ExperimentParams) -> Tuple[Optional[Exception], Optional[Experiment]]:
         """Creates a new experiment to bundle multiple traces together in.
 
         You can pass this experiment to the create_trace method to add the generated traces to the experiment.
@@ -164,7 +164,31 @@ class IMonitorSDK(Protocol):
 
         Examples:
             ```python
-            experiment = basalt.monitor.create_experiment('user-query', {'name': 'my-experiment'})
+            experiment = await basalt.monitor.create_experiment('user-query', {'name': 'my-experiment'})
+
+            # Create a trace and add it to the experiment
+            trace = basalt.monitor.create_trace('user-query', {'experiment': experiment})
+            ```
+
+        Returns:
+            A tuple containing (Optional[Exception], Optional[Experiment]). The Experiment object can be used to track the AI generation.
+        """
+        ...
+
+    def create_experiment_sync(self, feature_slug: str, params: ExperimentParams) -> Tuple[Optional[Exception], Optional[Experiment]]:
+        """Synchronously creates a new experiment to bundle multiple traces together in.
+
+        You can pass this experiment to the create_trace method to add the generated traces to the experiment.
+        It's used mostly for local experimentations, to compare the performance between different versions of a workflow.
+
+        Args:
+            feature_slug: The unique identifier of the feature to which the experiment belongs.
+            params: Parameters for the experiment.
+                - name: Name of the experiment (required).
+
+        Examples:
+            ```python
+            experiment = basalt.monitor.create_experiment_sync('user-query', {'name': 'my-experiment'})
 
             # Create a trace and add it to the experiment
             trace = basalt.monitor.create_trace('user-query', {'experiment': experiment})
