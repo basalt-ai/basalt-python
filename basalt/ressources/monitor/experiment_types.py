@@ -1,8 +1,9 @@
+from typing import TypedDict
 from dataclasses import dataclass
 from datetime import datetime
 
 @dataclass
-class ExperimentParams:
+class ExperimentParams(TypedDict):
     """Parameters for creating an experiment."""
     name: str
 

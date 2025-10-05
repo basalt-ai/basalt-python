@@ -1,10 +1,13 @@
-from typing import Protocol, Optional, Tuple
+from typing import Protocol, Optional, Tuple, TYPE_CHECKING
 from .trace_types import TraceParams
 from .experiment_types import ExperimentParams
 from .experiment_types import Experiment
 from .trace_types import Trace
 from .generation_types import GenerationParams, Generation
 from .log_types import LogParams, Log
+
+if TYPE_CHECKING:
+    from ...utils.dtos import CreateExperimentResult
 
 class IMonitorSDK(Protocol):
     """Interface for interacting with Basalt monitoring.
@@ -38,7 +41,7 @@ class IMonitorSDK(Protocol):
         ```
     """
 
-    def create_trace(self, slug: str, params: Optional[TraceParams] = None) -> Trace:
+    def create_trace(self, slug: str, params: TraceParams = {}) -> Trace:
         """Creates a new trace to monitor a complete user interaction or process flow.
 
         Args:
@@ -151,7 +154,7 @@ class IMonitorSDK(Protocol):
         """
         ...
 
-    async def create_experiment(self, feature_slug: str, params: ExperimentParams) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    async def create_experiment(self, feature_slug: str, params: ExperimentParams) -> 'CreateExperimentResult':
         """Creates a new experiment to bundle multiple traces together in.
 
         You can pass this experiment to the create_trace method to add the generated traces to the experiment.
@@ -175,7 +178,7 @@ class IMonitorSDK(Protocol):
         """
         ...
 
-    def create_experiment_sync(self, feature_slug: str, params: ExperimentParams) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    def create_experiment_sync(self, feature_slug: str, params: ExperimentParams) -> 'CreateExperimentResult':
         """Synchronously creates a new experiment to bundle multiple traces together in.
 
         You can pass this experiment to the create_trace method to add the generated traces to the experiment.

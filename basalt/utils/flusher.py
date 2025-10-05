@@ -66,7 +66,7 @@ class Flusher:
 
         base_dict = {
             "id": log.id,
-            "type": log.type,
+            "type": log.type.value if hasattr(log.type, 'value') else log.type,
             "ideal_output": log.ideal_output,
             "name": log.name,
             "input": log.input,

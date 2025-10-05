@@ -8,13 +8,13 @@ from ..utils.dtos import (
     ListDatasetsResult, GetDatasetResult, CreateDatasetItemResult,
     DatasetDTO, DatasetRowDTO
 )
-from ..utils.protocols import IApi, ILogger
+from ..utils.protocols import IApi, ILogger, IDatasetSDK
 from ..endpoints.list_datasets import ListDatasetsEndpoint
 from ..endpoints.get_dataset import GetDatasetEndpoint
 from ..endpoints.create_dataset_item import CreateDatasetItemEndpoint
 
 
-class DatasetSDK:
+class DatasetSDK(IDatasetSDK):
     """
     SDK for interacting with Basalt datasets.
     """

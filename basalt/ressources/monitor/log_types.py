@@ -1,30 +1,10 @@
-from enum import Enum
 from typing import Optional, TYPE_CHECKING
 from dataclasses import dataclass
 
-from .base_log_types import BaseLog, BaseLogParams
+from .base_log_types import BaseLog, BaseLogParams, LogType
 
 if TYPE_CHECKING:
     from .generation_types import Generation, GenerationParams
-
-
-class LogType(Enum):
-    """Enum-like class for log types.
-
-    Attributes:
-        SPAN: Represents a span log type
-        GENERATION: Represents a generation log type
-        FUNCTION: Represents a function log type
-        TOOL: Represents a tool log type
-        RETRIEVAL: Represents a retrieval log type
-        EVENT: Represents an event log type
-    """
-    SPAN = 'span'
-    GENERATION = 'generation'
-    FUNCTION = 'function'
-    TOOL = 'tool'
-    RETRIEVAL = 'retrieval'
-    EVENT = 'event'
 
 @dataclass
 class LogParams(BaseLogParams):

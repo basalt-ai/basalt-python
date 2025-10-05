@@ -1,5 +1,4 @@
-from numbers import Number
-from typing import Dict, Optional, Union, Any, List
+from typing import Dict, Optional, Union, Any
 from dataclasses import dataclass, field
 
 from .base_log_types import BaseLog, BaseLogParams, LogType

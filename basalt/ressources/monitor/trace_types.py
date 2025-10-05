@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Optional, Any, List, TYPE_CHECKING
+from typing import Dict, Optional, Any, List, TYPE_CHECKING, TypedDict
 from dataclasses import dataclass, field
 from .experiment_types import Experiment
 from .evaluator_types import Evaluator, EvaluationConfig
@@ -10,35 +10,36 @@ if TYPE_CHECKING:
     from .base_log_types import BaseLog
 
 @dataclass
-class User:
+class User(TypedDict):
     """User information associated with a trace."""
     id: str
     name: str
 
 @dataclass
-class Organization:
+class Organization(TypedDict):
     """Organization information associated with a trace."""
     id: str
     name: str
 
 @dataclass
-class TraceParams:
+class TraceParams(TypedDict, total=False):
     """Parameters for creating or updating a trace."""
-    name: Optional[str] = None
-    input: Optional[str] = None
-    output: Optional[str] = None
-    ideal_output: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    user: Optional[User] = None
-    organization: Optional[Organization] = None
-    metadata: Optional[Dict[str, Any]] = None
-    experiment: Optional['Experiment'] = None
-    evaluators: Optional[List[Evaluator]] = None
-    evaluation_config: Optional[EvaluationConfig] = None
+    name: str
+    input: str
+    output: str
+    ideal_output: str
+    start_time: datetime
+    end_time: datetime
+    user: User
+    organization: Organization
+    metadata: Dict[str, Any]
+    experiment: Experiment
+    evaluators: List[Evaluator]
+    evaluation_config: EvaluationConfig
+
 
 @dataclass
-class Trace(TraceParams):
+class Trace:
     """A trace represents a complete user interaction or process flow and serves as the top-level container for all monitoring activities.
 
     A trace provides methods to create and manage spans and generations within the process flow.
@@ -74,8 +75,18 @@ class Trace(TraceParams):
         trace.end('Paris is the capital of France.')
         ```
     """
-
+    name: Optional[str]
+    input: Optional[str]
+    output: Optional[str]
+    ideal_output: Optional[str]
     start_time: datetime
+    end_time: Optional[datetime]
+    user: Optional[User]
+    organization: Optional[Organization]
+    metadata: Optional[Dict[str, Any]]
+    experiment: Optional['Experiment']
+    evaluators: Optional[List[Evaluator]]
+    evaluation_config: Optional[EvaluationConfig]
     logs: List['BaseLog'] = field(default_factory=list)
 
     def start(self, input: Optional[str] = None) -> 'Trace':

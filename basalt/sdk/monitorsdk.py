@@ -1,6 +1,7 @@
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any
 
 from ..utils.protocols import IApi, ILogger
+from ..utils.dtos import CreateExperimentResult
 from ..ressources.monitor.trace_types import TraceParams
 from ..ressources.monitor.experiment_types import ExperimentParams
 from ..ressources.monitor.generation_types import GenerationParams
@@ -28,7 +29,7 @@ class MonitorSDK:
         self,
         feature_slug: str,
         params: ExperimentParams
-    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    ) -> CreateExperimentResult:
         """
         Asynchronously creates a new experiment for monitoring.
 
@@ -45,7 +46,7 @@ class MonitorSDK:
         self,
         feature_slug: str,
         params: ExperimentParams
-    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    ) -> CreateExperimentResult:
         """
         Synchronously creates a new experiment for monitoring.
 
@@ -73,12 +74,7 @@ class MonitorSDK:
         Returns:
             Trace: A new Trace instance.
         """
-        if params is None:
-            params = {}
-
-        trace_params = TraceParams(**params)
-
-        return self._create_trace(slug, trace_params)
+        return self._create_trace(slug, params if params else {})
 
     def create_generation(
         self,
@@ -116,7 +112,7 @@ class MonitorSDK:
         self,
         feature_slug: str,
         params: ExperimentParams
-    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    ) -> CreateExperimentResult:
         """
         Internal async implementation for creating an experiment.
 
@@ -129,7 +125,7 @@ class MonitorSDK:
         """
         dto = CreateExperimentDTO(
             feature_slug=feature_slug,
-            name=params.name,
+            name=params['name'],
         )
 
         # Call the API endpoint
@@ -144,7 +140,7 @@ class MonitorSDK:
         self,
         feature_slug: str,
         params: ExperimentParams
-    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    ) -> CreateExperimentResult:
         """
         Internal sync implementation for creating an experiment.
 
@@ -157,7 +153,7 @@ class MonitorSDK:
         """
         dto = CreateExperimentDTO(
             feature_slug=feature_slug,
-            name=params.name,
+            name=params['name'],
         )
 
         # Call the API endpoint

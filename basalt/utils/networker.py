@@ -37,15 +37,35 @@ class Networker(INetworker):
             - (FetchError, None)
         """
         try:
-            async with aiohttp.ClientSession() as session:
+            # Filter out None values from params and headers
+            filtered_params = {k: v for k, v in params.items() if v is not None} if params else None
+            filtered_headers = {k: v for k, v in headers.items() if v is not None} if headers else None
+
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
                 async with session.request(
                     method,
                     url,
-                    params=params,
+                    params=filtered_params,
                     json=body,
-                    headers=headers
+                    headers=filtered_headers
                 ) as response:
-                    json_response = await response.json()
+                    # Try to parse JSON response, but handle cases where there's no JSON body
+                    json_response = None
+                    content_type = response.headers.get('Content-Type', '')
+                    if content_type and 'application/json' in content_type:
+                        try:
+                            json_response = await response.json()
+                        except Exception:
+                            json_response = {}
+                    elif response.status not in [202, 204]:
+                        # For non-202/204 responses without JSON content-type, try to parse anyway
+                        try:
+                            json_response = await response.json()
+                        except Exception:
+                            json_response = {}
+                    else:
+                        # For 202 (Accepted) or 204 (No Content), an empty body is expected
+                        json_response = {}
 
                     if response.status == 400:
                         return BadRequest(json_response.get('error', json_response.get('errors', 'Bad Request'))), None
@@ -98,7 +118,23 @@ class Networker(INetworker):
                 headers=headers
             )
 
-            json_response = response.json()
+            # Try to parse JSON response, but handle cases where there's no JSON body
+            json_response = None
+            content_type = response.headers.get('Content-Type', '')
+            if content_type and 'application/json' in content_type:
+                try:
+                    json_response = response.json()
+                except Exception:
+                    json_response = {}
+            elif response.status_code not in [202, 204]:
+                # For non-202/204 responses without JSON content-type, try to parse anyway
+                try:
+                    json_response = response.json()
+                except Exception:
+                    json_response = {}
+            else:
+                # For 202 (Accepted) or 204 (No Content), an empty body is expected
+                json_response = {}
 
             if response.status_code == 400:
                 return BadRequest(json_response.get('error', json_response.get('errors', 'Bad Request'))), None

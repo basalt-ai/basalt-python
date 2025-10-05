@@ -2,12 +2,32 @@ from datetime import datetime
 from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
 from uuid import uuid4
-
-from .evaluator_types import Evaluator
+from enum import Enum
 
 if TYPE_CHECKING:
-    from .trace_types import Trace
-    from .log_types import Log, LogType
+    from .log_types import Log
+
+from .evaluator_types import Evaluator
+from .trace_types import Trace
+
+
+class LogType(Enum):
+    """Enum-like class for log types.
+
+    Attributes:
+        SPAN: Represents a span log type
+        GENERATION: Represents a generation log type
+        FUNCTION: Represents a function log type
+        TOOL: Represents a tool log type
+        RETRIEVAL: Represents a retrieval log type
+        EVENT: Represents an event log type
+    """
+    SPAN = 'span'
+    GENERATION = 'generation'
+    FUNCTION = 'function'
+    TOOL = 'tool'
+    RETRIEVAL = 'retrieval'
+    EVENT = 'event'
 
 @dataclass
 class BaseLogParams:
@@ -99,7 +119,7 @@ class BaseLog:
         """
         ...
 
-    def update(self, **params) -> 'BaseLog':
+    def update(self, params: Dict[str, Any]) -> 'BaseLog':
         """Updates the log with new parameters.
 
         Args:

@@ -2,10 +2,10 @@ from datetime import datetime
 from typing import Dict, Optional, Any, List
 import uuid
 
-from ..ressources.monitor.base_log_types import BaseLogParams
+from ..ressources.monitor.base_log_types import BaseLogParams, LogType
 from ..ressources.monitor.evaluator_types import Evaluator
 from ..ressources.monitor.trace_types import Trace
-from ..ressources.monitor.log_types import Log, LogType
+from ..ressources.monitor.log_types import Log
 
 
 class BaseLog:

@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, Tuple
 
 from ..ressources.monitor.generation_types import Generation
+from ..ressources.monitor.experiment_types import Experiment
+from ..ressources.prompts.prompt_types import Prompt
 
 from .utils import pick_typed, pick_number
 
@@ -51,13 +53,17 @@ class PromptModel:
 @dataclass(frozen=True)
 class PromptResponse:
     text: str
+    slug: str
+    version: str
+    tag: str
     model: PromptModel
     systemText: str
-    version: str
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         return cls(
+            slug=pick_typed(data, "slug", str),
+            tag=pick_typed(data, "tag", str),
             text=pick_typed(data, "text", str),
             model=PromptModel.from_dict(data.get("model")),
             systemText=pick_typed(data, "systemText", str),
@@ -70,30 +76,30 @@ class GetPromptDTO:
     tag: Optional[str] = None
     version: Optional[str] = None
 
-GetResult = Tuple[Optional[Exception], Optional[PromptResponse], Optional[Generation]]
+GetPromptResult = Tuple[Optional[Exception], Optional[Prompt], Optional[Generation]]
 
 # ------------------------------ Describe Prompt ----------------------------- #
 @dataclass(frozen=True)
 class DescribePromptResponse:
-	slug: str
-	status: str
-	name: str
-	description: str
-	available_versions: List[str]
-	available_tags: List[str]
-	variables: List[Dict[str, str]]
+    slug: str
+    status: str
+    name: str
+    description: str
+    available_versions: List[str]
+    available_tags: List[str]
+    variables: List[Dict[str, str]]
 
-	@classmethod
-	def from_dict(cls, data: Dict[str, Any]):
-		return cls(
-			slug=pick_typed(data, "slug", str) if data.get("slug") else None,
-			status=pick_typed(data, "status", str),
-			name=pick_typed(data, "name", str),
-			description=pick_typed(data, "description", str) if data.get("description") else None,
-			available_versions=pick_typed(data, "availableVersions", list),
-			available_tags=pick_typed(data, "availableTags", list),
-			variables=pick_typed(data, "variables", list),
-		)
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        return cls(
+            slug=pick_typed(data, "slug", str) if data.get("slug") else None,
+            status=pick_typed(data, "status", str),
+            name=pick_typed(data, "name", str),
+            description=pick_typed(data, "description", str) if data.get("description") else None,
+            available_versions=pick_typed(data, "availableVersions", list),
+            available_tags=pick_typed(data, "availableTags", list),
+            variables=pick_typed(data, "variables", list),
+        )
 
 @dataclass(frozen=True)
 class DescribePromptDTO:
@@ -140,7 +146,7 @@ class DatasetDTO:
     name: str
     columns: List[str]
     rows: List['DatasetRowDTO'] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DatasetDTO":
         return cls(
@@ -158,7 +164,7 @@ class DatasetRowDTO:
     name: Optional[str] = None
     idealOutput: Optional[str] = None
     metadata: Dict[str, Any] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DatasetRowDTO":
         return cls(
@@ -167,7 +173,7 @@ class DatasetRowDTO:
             idealOutput=data.get("idealOutput", None),
             metadata=data.get("metadata", {})
         )
-    
+
 
 @dataclass
 class ListDatasetsDTO:
@@ -195,3 +201,6 @@ class CreateDatasetItemDTO:
 ListDatasetsResult = Tuple[Optional[Exception], Optional[List[DatasetDTO]]]
 GetDatasetResult = Tuple[Optional[Exception], Optional[DatasetDTO]]
 CreateDatasetItemResult = Tuple[Optional[Exception], Optional[DatasetRowDTO], Optional[str]]
+
+# Result types for monitor operations
+CreateExperimentResult = Tuple[Optional[Exception], Optional[Experiment]]

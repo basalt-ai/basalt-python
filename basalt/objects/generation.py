@@ -1,9 +1,9 @@
+from datetime import datetime
 from typing import Dict, Optional, Any, List, Union
 
 from .base_log import BaseLog
 from ..ressources.monitor.generation_types import GenerationParams
-from ..ressources.monitor.base_log_types import BaseLogParams
-from ..ressources.monitor.log_types import LogType
+from ..ressources.monitor.base_log_types import BaseLogParams, LogType
 
 
 class Generation(BaseLog):
@@ -11,9 +11,19 @@ class Generation(BaseLog):
     Class representing a generation in the monitoring system.
     """
     def __init__(self, params: GenerationParams):
-        params_with_type = BaseLogParams(**params.__dict__, type=LogType.GENERATION)
+        base_log_params = BaseLogParams(
+            name=params.name,
+            ideal_output=params.ideal_output,
+            start_time=params.start_time,
+            end_time=params.end_time,
+            metadata=params.metadata,
+            parent=params.parent,
+            trace=params.trace,
+            evaluators=params.evaluators,
+            type=LogType.GENERATION,
+        )
 
-        super().__init__(params_with_type)
+        super().__init__(base_log_params)
 
         self._prompt = params.prompt
         self._input = params.input
@@ -109,6 +119,7 @@ class Generation(BaseLog):
             Generation: The generation instance.
         """
         super().end()
+        self._end_time = datetime.now()
 
         if isinstance(output, dict):
             self.update(output)

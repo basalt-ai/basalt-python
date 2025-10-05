@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Dict, Optional, Any, List
 
-
 from ..ressources.monitor.trace_types import TraceParams
 from .base_log import BaseLog
 from .generation import Generation
@@ -20,32 +19,30 @@ class Trace:
     def __init__(self, feature_slug: str, params: TraceParams, flusher: 'Flusher', logger: 'ILogger'):
         self._feature_slug = feature_slug
 
-        self._input = params.input
-        self._output = params.output
-        self._ideal_output = params.ideal_output
-        self._name = params.name
-        self._start_time = params.start_time if params.start_time else datetime.now()
-        self._end_time = params.end_time
-        self._user = params.user
-        self._organization = params.organization
-        self._metadata = params.metadata
+        self._input = params.get('input')
+        self._output = params.get("output")
+        self._ideal_output = params.get("ideal_output")
+        self._name = params.get("name")
+        self._start_time = params.get("start_time", datetime.now())
+        self._end_time = params.get("end_time")
+        self._user = params.get("user")
+        self._organization = params.get("organization")
+        self._metadata = params.get("metadata")
 
         self._logs: List['BaseLog'] = []
 
         self._flusher = flusher
         self._is_ended = False
 
-        self._evaluators = params.evaluators
-        self._evaluation_config = params.evaluation_config
+        self._evaluators = params.get("evaluators")
+        self._evaluation_config = params.get("evaluation_config")
         self._logger = logger
 
         self._experiment = None
 
         if "experiment" in params:
-            experiment = params.experiment
-            if experiment is None:
-                self._logger.warn("Warning: Experiment is None. This experiment will be ignored.")
-            elif experiment.feature_slug != self._feature_slug:
+            experiment = params["experiment"]
+            if experiment.feature_slug != self._feature_slug:
                 self._logger.warn("Warning: Experiment feature slug does not match trace feature slug. This experiment will be ignored.")
             else:
                 self._experiment = experiment
