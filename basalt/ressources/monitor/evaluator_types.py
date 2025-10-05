@@ -13,4 +13,4 @@ class EvaluationConfig(TypedDict, total=False):
     """
     Configuration for the evaluation of the trace and its logs.
     """
-    sample_rate: float
+    sample_rate: Optional[float]

@@ -11,29 +11,29 @@ class Generation(BaseLog):
     Class representing a generation in the monitoring system.
     """
     def __init__(self, params: GenerationParams):
-        base_log_params = BaseLogParams(
-            name=params.name,
-            ideal_output=params.ideal_output,
-            start_time=params.start_time,
-            end_time=params.end_time,
-            metadata=params.metadata,
-            parent=params.parent,
-            trace=params.trace,
-            evaluators=params.evaluators,
-            type=LogType.GENERATION,
-        )
+        base_log_params = {
+            "name": params.get("name"),
+            "ideal_output": params.get("ideal_output"),
+            "start_time": params.get("start_time"),
+            "end_time": params.get("end_time"),
+            "metadata": params.get("metadata"),
+            "parent": params.get("parent"),
+            "trace": params.get("trace"),
+            "evaluators": params.get("evaluators"),
+            "type": LogType.GENERATION,
+        }
 
         super().__init__(base_log_params)
 
-        self._prompt = params.prompt
-        self._input = params.input
-        self._output = params.output
-        self._input_tokens = params.input_tokens
-        self._output_tokens = params.output_tokens
-        self._cost = params.cost
+        self._prompt = params.get("prompt")
+        self._input = params.get("input")
+        self._output = params.get("output")
+        self._input_tokens = params.get("input_tokens")
+        self._output_tokens = params.get("output_tokens")
+        self._cost = params.get("cost")
 
         # Convert variables to array format if needed
-        variables = params.variables
+        variables = params.get("variables")
         if variables is not None:
             if isinstance(variables, dict):
                 self._variables = [{"label": str(k), "value": str(v)} for k, v in variables.items()]
@@ -44,7 +44,7 @@ class Generation(BaseLog):
         else:
             self._variables = []
 
-        self._options = params.options
+        self._options = params.get("options")
 
     @property
     def prompt(self) -> Optional[Dict[str, Any]]:
@@ -119,7 +119,6 @@ class Generation(BaseLog):
             Generation: The generation instance.
         """
         super().end()
-        self._end_time = datetime.now()
 
         if isinstance(output, dict):
             self.update(output)

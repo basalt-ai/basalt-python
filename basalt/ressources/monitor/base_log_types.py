@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING
+from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING, TypedDict, Literal, TypeVar
 from dataclasses import dataclass, field
 from uuid import uuid4
 from enum import Enum
@@ -10,8 +10,9 @@ if TYPE_CHECKING:
 from .evaluator_types import Evaluator
 from .trace_types import Trace
 
+SelfType = TypeVar('SelfType', bound='BaseLog')
 
-class LogType(Enum):
+class LogType(str, Enum):
     """Enum-like class for log types.
 
     Attributes:
@@ -29,12 +30,18 @@ class LogType(Enum):
     RETRIEVAL = 'retrieval'
     EVENT = 'event'
 
-@dataclass
-class BaseLogParams:
+# Type alias for log type strings - use this in TypedDict parameters
+LogTypeStr = Literal['span', 'generation', 'function', 'tool', 'retrieval', 'event']
+
+class _BaseLogParamsRequired(TypedDict):
+    """Required fields for BaseLogParams."""
+    name: str
+
+class BaseLogParams(_BaseLogParamsRequired, TypedDict, total=False):
     """Base parameters for creating a log entry.
 
     Attributes:
-        name: Name of the log entry, describing what it represents.
+        name: Name of the log entry, describing what it represents (required).
         start_time: When the log entry started, can be a datetime object or ISO string.
             If not provided, defaults to the current time when created.
         end_time: When the log entry ended, can be a datetime object or ISO string.
@@ -47,15 +54,13 @@ class BaseLogParams:
             Every log must be associated with a trace.
         evaluators: The evaluators to attach to the log.
     """
-    name: str
-    ideal_output: Optional[str] = None
-    start_time: Optional[Union[datetime, str]] = None
-    end_time: Optional[Union[datetime, str]] = None
-    metadata: Optional[Dict[str, Any]] = None
-    parent: Optional['Log'] = None
-    trace: 'Trace' = None
-    evaluators: Optional[List[Evaluator]] = None
-    type: Optional['LogType'] = None
+    ideal_output: Optional[str]
+    start_time: Optional[Union[datetime, str]]
+    end_time: Optional[Union[datetime, str]]
+    metadata: Optional[Dict[str, Any]]
+    parent: Optional['Log']
+    trace: Optional['Trace']
+    evaluators: Optional[List[Evaluator]]
 
 @dataclass
 class BaseLog:
@@ -79,17 +84,17 @@ class BaseLog:
             Every log must be associated with a trace.
         evaluators: List of evaluators attached to the log.
     """
+    name: str
+    type: LogType
     id: str = field(default_factory=lambda: str(f'log-{uuid4().hex[:8]}'))
-    type: LogType = None
-    name: str = None
     start_time: Optional[Union[datetime, str]] = None
     end_time: Optional[Union[datetime, str]] = None
     metadata: Optional[Dict[str, Any]] = None
     parent: Optional['Log'] = None
-    trace: 'Trace' = None
+    trace: Optional['Trace'] = None
     evaluators: List[Evaluator] = field(default_factory=list)
 
-    def start(self) -> 'BaseLog':
+    def start(self: SelfType) -> SelfType:
         """Marks the log as started and sets the start time if not already set.
 
         Returns:
@@ -97,7 +102,7 @@ class BaseLog:
         """
         ...
 
-    def set_metadata(self, metadata: Optional[Dict[str, Any]] = None) -> 'BaseLog':
+    def set_metadata(self: SelfType, metadata: Optional[Dict[str, Any]] = None) -> SelfType:
         """Sets the metadata for the log.
 
         Args:
@@ -108,7 +113,7 @@ class BaseLog:
         """
         ...
 
-    def add_evaluator(self, evaluator: Evaluator) -> 'BaseLog':
+    def add_evaluator(self: SelfType, evaluator: Evaluator) -> SelfType:
         """Adds an evaluator to the log.
 
         Args:
@@ -119,7 +124,7 @@ class BaseLog:
         """
         ...
 
-    def update(self, params: Dict[str, Any]) -> 'BaseLog':
+    def update(self: SelfType, params: Dict[str, Any]) -> SelfType:
         """Updates the log with new parameters.
 
         Args:
@@ -130,7 +135,7 @@ class BaseLog:
         """
         ...
 
-    def end(self) -> 'BaseLog':
+    def end(self: SelfType) -> SelfType:
         """Marks the log as ended.
 
         Returns:

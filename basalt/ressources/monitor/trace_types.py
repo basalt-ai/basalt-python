@@ -4,9 +4,10 @@ from dataclasses import dataclass, field
 from .experiment_types import Experiment
 from .evaluator_types import Evaluator, EvaluationConfig
 
+
 if TYPE_CHECKING:
-    from .log_types import Log, LogParams
     from .generation_types import Generation, GenerationParams
+    from .log_types import Log, LogParams
     from .base_log_types import BaseLog
 
 @dataclass
@@ -21,21 +22,20 @@ class Organization(TypedDict):
     id: str
     name: str
 
-@dataclass
 class TraceParams(TypedDict, total=False):
     """Parameters for creating or updating a trace."""
-    name: str
-    input: str
-    output: str
-    ideal_output: str
-    start_time: datetime
-    end_time: datetime
-    user: User
-    organization: Organization
-    metadata: Dict[str, Any]
-    experiment: Experiment
-    evaluators: List[Evaluator]
-    evaluation_config: EvaluationConfig
+    name: Optional[str]
+    input: Optional[str]
+    output: Optional[str]
+    ideal_output: Optional[str]
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+    user: Optional[User]
+    organization: Optional['Organization']
+    metadata: Optional[Dict[str, Any]]
+    experiment: Optional[Experiment]
+    evaluators: Optional[List[Evaluator]]
+    evaluation_config: Optional[EvaluationConfig]
 
 
 @dataclass
@@ -211,7 +211,7 @@ class Trace:
         """
         ...
 
-    def identify(self, user: Optional[User] = None, organization: Optional[Organization] = None) -> 'Trace':
+    def identify(self, user: User = {}, organization: Organization = {}) -> 'Trace':
         """Associates user information with this trace.
 
         Args:

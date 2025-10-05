@@ -78,35 +78,33 @@ class MonitorSDK:
 
     def create_generation(
         self,
-        params: Dict[str, Any]
+        params: GenerationParams
     ) -> Generation:
         """
         Creates a new generation for monitoring.
 
         Args:
-            params (Dict[str, Any]): Parameters for the generation.
+            params (GenerationParams): Parameters for the generation.
 
         Returns:
             Generation: A new Generation instance.
         """
-        generation_params = GenerationParams(**params)
-        return self._create_generation(generation_params)
+        return self._create_generation(params)
 
     def create_log(
         self,
-        params: Dict[str, Any]
+        params: LogParams
     ) -> Log:
         """
         Creates a new log for monitoring.
 
         Args:
-            params (Dict[str, Any]): Parameters for the log.
+            params (LogParams): Parameters for the log.
 
         Returns:
             Log: A new Log instance.
         """
-        log_params = LogParams(**params)
-        return self._create_log(log_params)
+        return self._create_log(params)
 
     async def _create_experiment(
         self,

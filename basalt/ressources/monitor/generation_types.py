@@ -1,17 +1,21 @@
-from typing import Dict, Optional, Union, Any
+from typing import Dict, Optional, Union, Any, TypedDict
 from dataclasses import dataclass, field
 
 from .base_log_types import BaseLog, BaseLogParams, LogType
 
-@dataclass
-class PromptReference:
+class _PromptReferenceRequired(TypedDict):
+    """Required fields for PromptReference."""
+    slug: str
+
+class PromptReference(_PromptReferenceRequired, TypedDict, total=False):
     """Reference to a prompt template.
 
     This class represents a reference to a prompt template used in AI model generations.
 
     Attributes:
-        slug (str): Unique identifier for the prompt template.
-        version (str): Version of the prompt template.
+        slug (str): Unique identifier for the prompt template (required).
+        version (str): Version of the prompt template (optional).
+        tag (str): Tag for the prompt template (optional).
 
     Example:
         ```python
@@ -19,12 +23,10 @@ class PromptReference:
         prompt = PromptReference(slug="qa-prompt", version="2.1.0")
         ```
     """
-    slug: str
-    version: Optional[str] = None
-    tag: Optional[str] = None
+    version: Optional[str]
+    tag: Optional[str]
 
-@dataclass
-class GenerationParams(BaseLogParams):
+class GenerationParams(BaseLogParams, total=False):
     """Parameters for creating a new generation.
 
     This class defines the parameters that can be used to create a new generation,
@@ -55,14 +57,18 @@ class GenerationParams(BaseLogParams):
         )
         ```
     """
-    prompt: Optional[PromptReference] = None
-    input: Optional[str] = None
-    output: Optional[str] = None
-    variables: Optional[Dict[str, Any]] = None
-    options: Optional[Dict[str, Any]] = None
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    cost: Optional[float] = None
+    prompt: Optional[PromptReference]
+    input: Optional[str]
+    output: Optional[str]
+    variables: Optional[Dict[str, Any]]
+    options: Optional[Dict[str, Any]]
+    input_tokens: Optional[int]
+    output_tokens: Optional[int]
+    cost: Optional[float]
+
+class UpdateGenerationParams(GenerationParams, total=False):
+    """Parameters for updating a generation."""
+    name: Optional[str]
 
 @dataclass
 class Generation(BaseLog):
@@ -107,7 +113,7 @@ class Generation(BaseLog):
     input: Optional[str] = None
     output: Optional[str] = None
     variables: Optional[Dict[str, Any]] = None
-    type: str = field(default=LogType.GENERATION)
+    type: LogType = field(default=LogType.GENERATION)
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
     cost: Optional[float] = None
@@ -158,5 +164,16 @@ class Generation(BaseLog):
                 "cost": 0.01
             })
             ```
+        """
+        ...
+
+    def update(self, params: 'UpdateGenerationParams') -> 'Generation':
+        """Updates the log with new parameters.
+
+        Args:
+            **params: The parameters to update.
+
+        Returns:
+            The log instance for method chaining.
         """
         ...

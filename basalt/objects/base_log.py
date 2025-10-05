@@ -14,15 +14,15 @@ class BaseLog:
     """
     def __init__(self, params: BaseLogParams):
         self._id = f"log-{uuid.uuid4().hex[:8]}"
-        self._type = params.type
-        self._name = params.name
-        self._start_time = params.start_time if params.start_time is not None else datetime.now()
-        self._end_time = params.end_time
-        self._metadata = params.metadata
-        self._trace = params.trace
-        self._parent = params.parent
-        self._evaluators = params.evaluators
-        self._ideal_output = params.ideal_output
+        self._type = params.get("type")
+        self._name = params.get("name")
+        self._start_time = params.get("start_time") if params.get("start_time") is not None else datetime.now()
+        self._end_time = params.get("end_time")
+        self._metadata = params.get("metadata")
+        self._trace = params.get("trace")
+        self._parent = params.get("parent")
+        self._evaluators = params.get("evaluators")
+        self._ideal_output = params.get("ideal_output")
 
         # Add to trace's logs list if trace exists
         if self._trace:

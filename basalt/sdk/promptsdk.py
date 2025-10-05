@@ -177,17 +177,17 @@ class PromptSDK:
         ), flusher, self._logger)
 
         # Create a generation
-        generation = Generation(GenerationParams(
-            name=prompt.slug,
-            trace=trace,
-            prompt=PromptReference(
-                slug=prompt.slug,
-                version=prompt.version,
-                tag=prompt.tag
-            ),
-            input=prompt.text,
-            variables=prompt.variables
-        ))
+        generation = Generation({
+            "name": prompt.slug,
+            "trace": trace,
+            "prompt": {
+                "slug": prompt.slug,
+                "version": prompt.version,
+                "tag": prompt.tag
+            },
+            "input": prompt.text,
+            "variables": prompt.variables
+        })
 
         return generation
 

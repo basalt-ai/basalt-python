@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, Optional, Any, List
 
-from ..ressources.monitor.trace_types import TraceParams
+from ..ressources.monitor.trace_types import TraceParams, User, Organization
 from .base_log import BaseLog
 from .generation import Generation
 from .log import Log
@@ -143,18 +143,19 @@ class Trace:
         self._ideal_output = ideal_output
         return self
 
-    def identify(self, params: Dict[str, Any]) -> 'Trace':
+    def identify(self, user: User = {}, organization: Organization = {}) -> 'Trace':
         """
         Set identification information for the trace.
 
         Args:
-            params (Dict[str, Any]): Identification parameters.
+            user: The user information to associate with this trace.
+            organization: The organization information to associate with this trace.
 
         Returns:
             Trace: The trace instance.
         """
-        self._user = params.get("user")
-        self._organization = params.get("organization")
+        self._user = user
+        self._organization = organization
         return self
 
     def set_metadata(self, metadata: Dict[str, Any]) -> 'Trace':
@@ -256,40 +257,40 @@ class Trace:
 
         # Add child to the new trace list
         self._logs.append(generation)
+
+        # Set the trace of the generation to the current log
         generation.trace = self
+        generation.options = {"type": "multi"}
 
         return self
 
-    def create_generation(self, params: Dict[str, Any]) -> 'Generation':
+    def create_generation(self, params: GenerationParams) -> 'Generation':
         """
         Create a new generation in this trace.
 
         Args:
-            params (Dict[str, Any]): Parameters for the generation.
+            params (GenerationParams): Parameters for the generation.
 
         Returns:
             Generation: The new generation instance.
         """
-        # Set the name to the prompt slug if available
-        name = params.get("name")
-        if params.get("prompt") and params["prompt"].get("slug"):
-            name = params["prompt"]["slug"]
-
-        generation = Generation(GenerationParams(**params, name=name, trace=self))
+        generation_params = GenerationParams(**params, trace=self)
+        generation = Generation(generation_params)
 
         return generation
 
-    def create_log(self, params: Dict[str, Any]) -> 'BaseLog':
+    def create_log(self, params: LogParams) -> 'BaseLog':
         """
         Create a new log in this trace.
 
         Args:
-            params (Dict[str, Any]): Parameters for the log.
+            params (LogParams): Parameters for the log.
 
         Returns:
             Log: The new log instance.
         """
-        log = Log(LogParams(**params, trace=self))
+        log_params = LogParams(**params, trace=self)
+        log = Log(log_params)
 
         return log
 

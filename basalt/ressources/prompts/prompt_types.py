@@ -67,7 +67,7 @@ class Prompt:
     version: str
     system_text: Optional[str] = None
     raw_system_text: Optional[str] = None
-    variables: Optional[Dict[str, str]] = None
+    variables: Optional[Dict[str, Any]] = None
     tag: Optional[str] = None
 
     def compile_variables(self, variables: Dict[str, Any]) -> 'Prompt':

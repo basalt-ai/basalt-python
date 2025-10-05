@@ -10,7 +10,7 @@ class Log(BaseLog):
     """
     def __init__(self, params: LogParams):
         super().__init__(params)
-        self._input = params.input
+        self._input = params.get("input")
         self._output = None
 
     @property
@@ -67,7 +67,8 @@ class Log(BaseLog):
             Log: The log instance.
         """
         # Remove child log from the list of its previous trace
-        generation.trace.logs = [log for log in generation.trace.logs if log.id != generation.id]
+        if generation.trace:
+            generation.trace.logs = [log for log in generation.trace.logs if log.id != generation.id]
 
         # Add child to the new trace list
         self.trace.logs.append(cast(BaseLog, generation))
@@ -101,12 +102,12 @@ class Log(BaseLog):
 
         return self
 
-    def create_generation(self, params: Dict[str, Any]) -> 'Generation':
+    def create_generation(self, params: GenerationParams) -> 'Generation':
         """
         Create a new generation as a child of this log.
 
         Args:
-            params (Dict[str, Any]): Parameters for the generation.
+            params (GenerationParams): Parameters for the generation.
 
         Returns:
             Generation: The new generation instance.
@@ -116,20 +117,22 @@ class Log(BaseLog):
         if not name and params.get("prompt") and params["prompt"].get("slug"):
             name = params["prompt"]["slug"]
 
-        generation = Generation(GenerationParams(**params, name=name, trace=self.trace, parent=self))
+        generation_params = GenerationParams(**params, name=name, trace=self.trace, parent=self)
+        generation = Generation(generation_params)
 
         return generation
 
-    def create_log(self, params: Dict[str, Any]) -> 'Log':
+    def create_log(self, params: LogParams) -> 'Log':
         """
         Create a new log as a child of this log.
 
         Args:
-            params (Dict[str, Any]): Parameters for the log.
+            params (LogParams): Parameters for the log.
 
         Returns:
             Log: The new log instance.
         """
-        log = Log(LogParams(**params, trace=self.trace, parent=self))
+        log_params = LogParams(**params, trace=self.trace, parent=self)
+        log = Log(log_params)
 
         return log
