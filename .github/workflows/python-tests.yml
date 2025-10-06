@@ -2,7 +2,7 @@ name: Python SDK Tests
 
 on:
   pull_request:
-  
+
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -12,19 +12,19 @@ jobs:
       pull-requests: write
 
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-    
+        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install dependencies
       working-directory: ./
       run: |
@@ -32,7 +32,7 @@ jobs:
         pip install pytest pytest-cov
         pip install -e .
         pip install -r dev-requirements.txt
-    
+
     - name: Run tests
       working-directory: ./
       run: |
@@ -41,13 +41,13 @@ jobs:
         echo "COVERAGE_PCT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(f'{float(root.attrib[\"line-rate\"]) * 100:.2f}')")" >> $GITHUB_OUTPUT
         echo "TEST_COUNT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.find('.//metrics').attrib['tests'])")" >> $GITHUB_OUTPUT
       id: test_results
-    
+
     - name: Create result file
       run: |
         mkdir -p test-results
         echo "${{ steps.test_results.outputs.COVERAGE_PCT }}" > test-results/coverage.txt
         echo "${{ steps.test_results.outputs.TEST_COUNT }}" > test-results/test-count.txt
-    
+
     - name: Upload test results
       uses: actions/upload-artifact@v4
       with:
@@ -58,11 +58,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    
+
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
-    
+
     - name: Prepare comment
       id: prepare_comment
       run: |
@@ -71,7 +71,7 @@ jobs:
         echo "" >> $GITHUB_ENV
         echo "| Python Version | Status | Coverage | Tests Run |" >> $GITHUB_ENV
         echo "| -------------- | ------ | -------- | --------- |" >> $GITHUB_ENV
-        
+
         for version in 3.8 3.9 3.10 3.11 3.12; do
           version_path="test-results-$version"
           if [ -d "$version_path" ] && [ -f "$version_path/coverage.txt" ]; then
@@ -82,11 +82,11 @@ jobs:
             echo "| Python $version | ❌ Failed or not run | - | - |" >> $GITHUB_ENV
           fi
         done
-        
+
         echo "" >> $GITHUB_ENV
         echo "*Last updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')*" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
-        
+
     - name: Find Comment
       uses: peter-evans/find-comment@v3
       id: fc

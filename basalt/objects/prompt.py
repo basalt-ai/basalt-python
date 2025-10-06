@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Set
 from jinja2 import Template, Environment, meta
 
 from ..ressources.prompts.prompt_types import PromptParams, PromptModel
@@ -85,7 +85,7 @@ class Prompt:
         return self
 
     @staticmethod
-    def _find_undeclared_variables(template: str) -> set[str]:
+    def _find_undeclared_variables(template: str) -> Set[str]:
         env = Environment()
         ast = env.parse(template)
         variables = meta.find_undeclared_variables(ast)
