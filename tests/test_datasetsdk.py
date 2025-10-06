@@ -70,10 +70,10 @@ class TestDatasetSDK(unittest.TestCase):
     def test_list_datasets(self):
         """Test listing all datasets"""
         # Configure mock
-        mocked_api.invoke.return_value = (None, dataset_list_response)
+        mocked_api.invoke_sync.return_value = (None, dataset_list_response)
         
         # Call the method
-        err, datasets = self.dataset_sdk.list()
+        err, datasets = self.dataset_sdk.list_sync()
         
         # Assertions
         self.assertIsNone(err)
@@ -83,16 +83,16 @@ class TestDatasetSDK(unittest.TestCase):
         self.assertEqual(datasets[1].slug, "another-dataset")
         
         # Verify correct endpoint was used
-        endpoint = mocked_api.invoke.call_args[0][0]
+        endpoint = mocked_api.invoke_sync.call_args[0][0]
         self.assertEqual(endpoint, ListDatasetsEndpoint)
         
     def test_get_dataset(self):
         """Test getting a dataset by slug"""
         # Configure mock
-        mocked_api.invoke.return_value = (None, dataset_get_response)
+        mocked_api.invoke_sync.return_value = (None, dataset_get_response)
         
         # Call the method
-        err, dataset = self.dataset_sdk.get("test-dataset")
+        err, dataset = self.dataset_sdk.get_sync("test-dataset")
         
         # Assertions
         self.assertIsNone(err)
@@ -102,21 +102,21 @@ class TestDatasetSDK(unittest.TestCase):
         self.assertEqual(len(dataset.rows), 1)
         
         # Verify correct endpoint was used
-        endpoint = mocked_api.invoke.call_args[0][0]
+        endpoint = mocked_api.invoke_sync.call_args[0][0]
         self.assertEqual(endpoint, GetDatasetEndpoint)
         
         # Verify DTO was created correctly
-        dto = mocked_api.invoke.call_args[0][1]
+        dto = mocked_api.invoke_sync.call_args[0][1]
         self.assertEqual(dto.slug, "test-dataset")
         
     def test_create_dataset_item(self):
         """Test creating a dataset item"""
         # Configure mock
-        mocked_api.invoke.return_value = (None, dataset_add_row_response)
+        mocked_api.invoke_sync.return_value = (None, dataset_add_row_response)
         
         # Call the method
         values = {"input": "New input", "output": "New output"}
-        err, row, warning = self.dataset_sdk.addRow(
+        err, row, warning = self.dataset_sdk.add_row_sync(
             slug="test-dataset",
             values=values,
             name="New Row",
@@ -132,11 +132,11 @@ class TestDatasetSDK(unittest.TestCase):
         self.assertEqual(row.idealOutput, "New ideal output")
         
         # Verify correct endpoint was used
-        endpoint = mocked_api.invoke.call_args[0][0]
+        endpoint = mocked_api.invoke_sync.call_args[0][0]
         self.assertEqual(endpoint, CreateDatasetItemEndpoint)
         
         # Verify DTO was created correctly
-        dto = mocked_api.invoke.call_args[0][1]
+        dto = mocked_api.invoke_sync.call_args[0][1]
         self.assertEqual(dto.slug, "test-dataset")
         self.assertEqual(dto.values, values)
         self.assertEqual(dto.name, "New Row")
@@ -145,10 +145,10 @@ class TestDatasetSDK(unittest.TestCase):
     def test_error_handling_get_dataset(self):
         """Test error handling when getting a dataset"""
         # Configure mock to return an error
-        mocked_api.invoke.return_value = (Exception("API Error"), None)
+        mocked_api.invoke_sync.return_value = (Exception("API Error"), None)
         
         # Call the method
-        err, dataset = self.dataset_sdk.get("non-existent")
+        err, dataset = self.dataset_sdk.get_sync("non-existent")
         
         # Assertions
         self.assertIsNotNone(err)

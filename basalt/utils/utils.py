@@ -1,5 +1,4 @@
-from re import sub as reg_replace
-from typing import Tuple, Set, Dict, Any
+from typing import Dict, Any
 
 def pick_typed(dict: Dict[str, Any], field_name: str, expected_type: Any) -> Any:
     value = dict.get(field_name)

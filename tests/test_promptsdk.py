@@ -10,12 +10,14 @@ from basalt.objects.generation import Generation
 
 logger = Logger()
 mocked_api = MagicMock()
-mocked_api.invoke.return_value = (None, GetPromptEndpointResponse(
+mocked_api.invoke_sync.return_value = (None, GetPromptEndpointResponse(
 	warning=None,
 	prompt=PromptResponse(
 		text="Some prompt",
+		slug="test-slug",
+		tag="prod",
 		systemText="Some system prompt",
-		version="0.1",
+		version="1.0",
 		model=PromptModel(
 			provider="open-ai",
 			model="gpt-4o",
@@ -45,8 +47,8 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		prompt.get("slug")
-		endpoint = mocked_api.invoke.call_args[0][0]
+		prompt.get_sync("slug")
+		endpoint = mocked_api.invoke_sync.call_args[0][0]
 
 		self.assertEqual(endpoint, GetPromptEndpoint)
 
@@ -65,9 +67,9 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		prompt.get(slug, version=version, tag=tag)
+		prompt.get_sync(slug, version=version, tag=tag)
 
-		dto = mocked_api.invoke.call_args[0][1]
+		dto = mocked_api.invoke_sync.call_args[0][1]
 
 		self.assertEqual(
 			dto,
@@ -76,7 +78,7 @@ class TestPromptSDK(unittest.TestCase):
 
 	def test_forwards_api_error(self):
 		mocked_api = MagicMock()
-		mocked_api.invoke.return_value = (Exception("Some error"), None)
+		mocked_api.invoke_sync.return_value = (Exception("Some error"), None)
 
 		prompt = PromptSDK(
 			mocked_api,
@@ -85,7 +87,7 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		err, res, generation = prompt.get("slug")
+		err, res, generation = prompt.get_sync("slug")
 
 		self.assertIsInstance(err, Exception)
 		self.assertIsNone(res)
@@ -93,10 +95,12 @@ class TestPromptSDK(unittest.TestCase):
 
 	def test_replaces_variables(self):
 		mocked_api = MagicMock()
-		mocked_api.invoke.return_value = (None, GetPromptEndpointResponse(
+		mocked_api.invoke_sync.return_value = (None, GetPromptEndpointResponse(
 			warning=None,
 			prompt=PromptResponse(
 				text="Say hello {{name}}",
+				slug="slug",
+				tag="latest",
 				systemText="Some system prompt",
 				version="0.1",
 				model=PromptModel(
@@ -120,19 +124,21 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		_, prompt_response, generation = prompt.get("slug", variables={ "name": "Basalt" })
+		_, prompt_response, generation = prompt.get_sync("slug", variables={ "name": "Basalt" })
 
 		self.assertEqual(prompt_response.text, "Say hello Basalt")
 		self.assertIsInstance(generation, Generation)
-		self.assertEqual(generation.input, "Say hello {{name}}")
+		self.assertEqual(generation.input, "Say hello Basalt")
 		self.assertEqual(generation.prompt["slug"], "slug")
 
 	def test_saves_raw_prompt_to_cache(self):
 		mocked_api = MagicMock()
-		mocked_api.invoke.return_value = (None, GetPromptEndpointResponse(
+		mocked_api.invoke_sync.return_value = (None, GetPromptEndpointResponse(
 			warning=None,
 			prompt=PromptResponse(
 				text="Say hello {{name}}",
+				slug="slug",
+				tag="latest",
 				systemText="Some system prompt",
 				version="0.1",
 				model=PromptModel(
@@ -159,7 +165,7 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		prompt.get("slug", variables={ "name": "Basalt" })
+		prompt.get_sync("slug", variables={ "name": "Basalt" })
 
 		mocked_cache.put.assert_called_once()
 		
@@ -173,6 +179,8 @@ class TestPromptSDK(unittest.TestCase):
 		mocked_cache = MagicMock()
 		mocked_cache.get.return_value = PromptResponse(
 			text="Say hello {{name}}",
+			slug="slug",
+			tag="latest",
 			systemText="Some system prompt",
 			version="0.1",
 			model=PromptModel(
@@ -194,21 +202,23 @@ class TestPromptSDK(unittest.TestCase):
 			fallback_cache=fallback_cache,
 			logger=logger
 		)
-		err, res, generation = prompt.get("slug", variables={ "name": "Cached" })
+		err, res, generation = prompt.get_sync("slug", variables={ "name": "Cached" })
 
-		mocked_api.invoke.assert_not_called()
+		mocked_api.invoke_sync.assert_not_called()
 
 		self.assertIsNone(err)
 		self.assertEqual(res.text, "Say hello Cached")
 		self.assertIsInstance(generation, Generation)
-		self.assertEqual(generation.input, "Say hello {{name}}")
+		self.assertEqual(generation.input, "Say hello Cached")
   
 	def test_caches_in_fallback_forever(self):
 		mocked_api = MagicMock()
-		mocked_api.invoke.return_value = (None, GetPromptEndpointResponse(
+		mocked_api.invoke_sync.return_value = (None, GetPromptEndpointResponse(
 			warning=None,
 			prompt=PromptResponse(
 				text="Say hello {{name}}",
+				slug="slug",
+				tag="latest",
 				systemText="Some system prompt",
 				version="0.1",
 				model=PromptModel(
@@ -235,17 +245,19 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		prompt.get("slug", variables={ "name": "Cached" })
+		prompt.get_sync("slug", variables={ "name": "Cached" })
 
 		fallback_cache.put.assert_called_once()
   
 	def test_uses_fallback_cache_on_api_failure(self):
 		mocked_api = MagicMock()
-		mocked_api.invoke.return_value = (Exception("Some error"), None)
-  
+		mocked_api.invoke_sync.return_value = (Exception("Some error"), None)
+
 		fallback_cache = MagicMock()
 		fallback_cache.get.return_value = PromptResponse(
 			text="From fallback cache",
+			slug="slug",
+			tag="latest",
 			systemText="Some system prompt",
 			version="0.1",
 			model=PromptModel(
@@ -268,7 +280,7 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		_, res, generation = prompt.get("slug", variables={ "name": "Cached" })
+		_, res, generation = prompt.get_sync("slug", variables={ "name": "Cached" })
 
 		fallback_cache.get.assert_called_once()
 		self.assertEqual(res.text, "From fallback cache")
@@ -282,7 +294,7 @@ class TestPromptSDK(unittest.TestCase):
 			logger=logger
 		)
 
-		_, _, generation = prompt.get("test-slug", version="1.0", tag="prod", variables={"key": "value"})
+		_, _, generation = prompt.get_sync("test-slug", version="1.0", tag="prod", variables={"key": "value"})
 
 		self.assertIsInstance(generation, Generation)
 		self.assertEqual(generation.prompt["slug"], "test-slug")

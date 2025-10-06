@@ -8,7 +8,7 @@ class TestApi(unittest.TestCase):
 
 	def test_uses_endpoint_to_encode_request(self):
 		mocked_network = MagicMock()
-		mocked_network.fetch.return_value = (None, {})
+		mocked_network.fetch_sync.return_value = (None, {})
 
 		mocked_endpoint = MagicMock()
 		mocked_endpoint.prepare_request.return_value = {
@@ -26,13 +26,13 @@ class TestApi(unittest.TestCase):
 			sdk_type="py-test"
 		)
 
-		api.invoke(mocked_endpoint, { "some": "dto" })
+		api.invoke_sync(mocked_endpoint, { "some": "dto" })
 
 		mocked_endpoint.prepare_request.assert_called_once_with({ "some": "dto" })
 
 	def test_uses_endpoint_to_decode_response(self):
 		mocked_network = MagicMock()
-		mocked_network.fetch.return_value = (None, { "some": "response" })
+		mocked_network.fetch_sync.return_value = (None, { "some": "response" })
 
 		mocked_endpoint = MagicMock()
 		mocked_endpoint.prepare_request.return_value = {
@@ -50,7 +50,7 @@ class TestApi(unittest.TestCase):
 			sdk_type="py-test"
 		)
 
-		err, res = api.invoke(mocked_endpoint, { "some": "dto" })
+		err, res = api.invoke_sync(mocked_endpoint, { "some": "dto" })
 
 		mocked_endpoint.decode_response.assert_called_once_with({ "some": "response" })
 
@@ -59,7 +59,7 @@ class TestApi(unittest.TestCase):
 
 	def test_forwards_decoder_error(self):
 		mocked_network = MagicMock()
-		mocked_network.fetch.return_value = (None, { "some": "response" })
+		mocked_network.fetch_sync.return_value = (None, { "some": "response" })
 
 		mocked_endpoint = MagicMock()
 		mocked_endpoint.prepare_request.return_value = {
@@ -77,7 +77,7 @@ class TestApi(unittest.TestCase):
 			sdk_type="py-test"
 		)
 
-		err, res = api.invoke(mocked_endpoint, { "some": "dto" })
+		err, res = api.invoke_sync(mocked_endpoint, { "some": "dto" })
 
 		mocked_endpoint.decode_response.assert_called_once_with({ "some": "response" })
 
@@ -88,7 +88,7 @@ class TestApi(unittest.TestCase):
 	@parameterized.expand(["GET", "POST", "PUT", "DELETE"])
 	def test_uses_http_verb(self, http_verb):
 		mocked_network = MagicMock()
-		mocked_network.fetch.return_value = (None, { "some": "response" })
+		mocked_network.fetch_sync.return_value = (None, { "some": "response" })
 
 		mocked_endpoint = MagicMock()
 		mocked_endpoint.prepare_request.return_value = {
@@ -106,15 +106,15 @@ class TestApi(unittest.TestCase):
 			sdk_type="py-test"
 		)
 
-		api.invoke(mocked_endpoint, { "some": "dto" })
+		api.invoke_sync(mocked_endpoint, { "some": "dto" })
 
-		call_args = mocked_network.fetch.call_args[0]
+		call_args = mocked_network.fetch_sync.call_args[0]
 
 		self.assertEqual(call_args[1], http_verb)
 
 	def test_prefixes_api_root(self):
 		mocked_network = MagicMock()
-		mocked_network.fetch.return_value = (None, { "some": "response" })
+		mocked_network.fetch_sync.return_value = (None, { "some": "response" })
 
 		mocked_endpoint = MagicMock()
 		mocked_endpoint.prepare_request.return_value = {
@@ -132,15 +132,15 @@ class TestApi(unittest.TestCase):
 			sdk_type="py-test"
 		)
 
-		api.invoke(mocked_endpoint, { "some": "dto" })
+		api.invoke_sync(mocked_endpoint, { "some": "dto" })
 
-		call_args = mocked_network.fetch.call_args[0]
+		call_args = mocked_network.fetch_sync.call_args[0]
 
 		self.assertTrue(call_args[0].startswith("https://basalt-test/"))
 
 	def test_includes_path_in_url(self):
 		mocked_network = MagicMock()
-		mocked_network.fetch.return_value = (None, { "some": "response" })
+		mocked_network.fetch_sync.return_value = (None, { "some": "response" })
 
 		mocked_endpoint = MagicMock()
 		mocked_endpoint.prepare_request.return_value = {
@@ -158,9 +158,9 @@ class TestApi(unittest.TestCase):
 			sdk_type="py-test"
 		)
 
-		api.invoke(mocked_endpoint, { "some": "dto" })
+		api.invoke_sync(mocked_endpoint, { "some": "dto" })
 
-		call_args = mocked_network.fetch.call_args[0]
+		call_args = mocked_network.fetch_sync.call_args[0]
 
 		self.assertIn("/test-path", call_args[0])
 
@@ -170,7 +170,7 @@ class TestApi(unittest.TestCase):
 	])
 	def test_includes_path_in_url(self, params):
 		mocked_network = MagicMock()
-		mocked_network.fetch.return_value = (None, { "some": "response" })
+		mocked_network.fetch_sync.return_value = (None, { "some": "response" })
 
 		mocked_endpoint = MagicMock()
 		mocked_endpoint.prepare_request.return_value = {
@@ -188,15 +188,15 @@ class TestApi(unittest.TestCase):
 			sdk_type="py-test"
 		)
 
-		api.invoke(mocked_endpoint, { "some": "dto" })
+		api.invoke_sync(mocked_endpoint, { "some": "dto" })
 
-		call_args = mocked_network.fetch.call_args
+		call_args = mocked_network.fetch_sync.call_args
 
 		self.assertEqual(call_args.kwargs["params"], params)
 
 	def test_passes_headers_to_network(self):
 		mocked_network = MagicMock()
-		mocked_network.fetch.return_value = (None, { "some": "response" })
+		mocked_network.fetch_sync.return_value = (None, { "some": "response" })
 
 		mocked_endpoint = MagicMock()
 		mocked_endpoint.prepare_request.return_value = {
@@ -214,9 +214,9 @@ class TestApi(unittest.TestCase):
 			sdk_type="test-sdk-type"
 		)
 
-		api.invoke(mocked_endpoint, { "some": "dto" })
+		api.invoke_sync(mocked_endpoint, { "some": "dto" })
 
-		headers = mocked_network.fetch.call_args.kwargs["headers"]
+		headers = mocked_network.fetch_sync.call_args.kwargs["headers"]
 
 		self.assertIn("Authorization", headers)
 		self.assertIn("my-api-key", headers["Authorization"])

@@ -1,27 +1,8 @@
 import unittest
 from parameterized import parameterized
-from basalt.utils.utils import replace_variables, pick_typed, pick_number
+from basalt.utils.utils import pick_typed, pick_number
 
 class TestUtils(unittest.TestCase):
-
-	@parameterized.expand([
-		# Replaces a variable
-		('Hello {{name}}', { "name": 'Basalt' }, (set([]), 'Hello Basalt')),
-
-		# Replaces a multiple occurences of a variable
-		('Hello {{name}} {{name}}', { "name": 'Basalt' }, (set([]), 'Hello Basalt Basalt')),
-
-		# Can replace multiple variables
-		('{{a}} + {{b}} = {{c}}', { "a": 1, "b": 2, "c": 3 }, (set([]), '1 + 2 = 3')),
-		
-		# Can replace multiple variables
-		('{{a}} + {{b}} = {{c {{c}} }}', { "a": 1, "b": 2, "c": 3 }, (set(["c {{c"]), '1 + 2 = {{c {{c}} }}')),
-		
-		# Doesn't replace or empty missing variables
-		('Hello {{missing}}', {}, (set(["missing"]), 'Hello {{missing}}'))
-	])
-	def test_replace_variables(self, str_value, vars, expected):
-		self.assertEqual(replace_variables(str_value, vars), expected)
 
 	@parameterized.expand([
 		({ "a": 1 }, int, True),

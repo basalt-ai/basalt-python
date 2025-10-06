@@ -186,7 +186,10 @@ class PromptSDK:
                 "tag": prompt.tag
             },
             "input": prompt.text,
-            "variables": prompt.variables
+            "variables": prompt.variables,
+            "options": {
+                "type": "single"
+            }
         })
 
         return generation

@@ -208,7 +208,7 @@ class TestMonitorSDK(unittest.TestCase):
         trace = self.monitor.create_trace("test-slug", {"input": self.content})
         
         # End the trace
-        trace.end("Trace output")
+        trace.end_sync("Trace output")
         
         # Assert trace was ended correctly
         self.assertEqual(trace.output, "Trace output")
@@ -239,10 +239,10 @@ class TestMonitorSDK(unittest.TestCase):
         trace = self.monitor.create_trace("test-slug", {"input": self.content})
         
         # Identify the trace
-        trace.identify({
-            "user": self.user,
-            "organization": {"id": "org-123", "name": "Basalt"}
-        })
+        trace.identify(
+            user=self.user,
+            organization={"id": "org-123", "name": "Basalt"}
+        )
         
         # Assert trace was identified correctly
         self.assertEqual(trace.user, self.user)
@@ -288,8 +288,10 @@ class TestMonitorSDKIntegration(unittest.TestCase):
             warning=None,
             prompt=PromptResponse(
                 text="Answer the following question about {{topic}}: {{question}}",
+                slug="ml-best-practices",
+                tag="latest",
                 systemText="Some system prompt",
-                version="0.1",
+                version="1.0",
                 model=PromptModel(
                     provider="open-ai",
                     model="gpt-4o",
@@ -306,7 +308,7 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         
         # Create a mock API for PromptSDK
         prompt_api = MagicMock()
-        prompt_api.invoke.return_value = (None, mock_prompt_response)
+        prompt_api.invoke_sync.return_value = (None, mock_prompt_response)
         
         # Create a PromptSDK instance
         from basalt.utils.memcache import MemoryCache
@@ -320,7 +322,7 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         )
         
         # Get prompt from Basalt
-        err, prompt_response, generation = prompt_sdk.get(
+        err, prompt_response, generation = prompt_sdk.get_sync(
             "ml-best-practices", 
             variables={"topic": "machine learning", "question": self.query},
             version="1.0"
@@ -340,9 +342,10 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         # Verify generation object properties
         self.assertEqual(generation.prompt["slug"], "ml-best-practices")
         self.assertEqual(generation.prompt["version"], "1.0")
-        self.assertEqual(generation.input, "Answer the following question about {{topic}}: {{question}}")
+        # The input should be the compiled text (with variables replaced)
+        self.assertEqual(generation.input, "Answer the following question about machine learning: What are the best practices for machine learning model deployment?")
         self.assertEqual(generation.variables, [
-            {"label": "topic", "value": "machine learning"}, 
+            {"label": "topic", "value": "machine learning"},
             {"label": "question", "value": self.query}
         ])
         self.assertEqual(generation.options["type"], "single")
@@ -368,7 +371,7 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         model_span.end(model_response)
         
         # End the main trace
-        main_trace.end("Completed prompt generation test")
+        main_trace.end_sync("Completed prompt generation test")
         
         # Verify trace structure
         # Filter logs to only include those of type "span"
@@ -401,6 +404,8 @@ class TestMonitorSDKIntegration(unittest.TestCase):
             warning=None,
             prompt=PromptResponse(
                 text="Generate content about: {{query}}",
+                slug="generate-content",
+                tag="latest",
                 systemText="Some system prompt",
                 version="0.1",
                 model=PromptModel(
@@ -419,7 +424,7 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         
         # Create a mock API for PromptSDK
         prompt_api = MagicMock()
-        prompt_api.invoke.return_value = (None, mock_generate_prompt_response)
+        prompt_api.invoke_sync.return_value = (None, mock_generate_prompt_response)
         
         # Create a PromptSDK instance
         from basalt.utils.memcache import MemoryCache
@@ -431,7 +436,7 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         )
         
         # Get prompt from Basalt
-        err, prompt_response, generation = prompt_sdk.get(
+        err, prompt_response, generation = prompt_sdk.get_sync(
             "generate-content", 
             variables={"query": self.query},
             version="1.0"
@@ -468,6 +473,8 @@ class TestMonitorSDKIntegration(unittest.TestCase):
             warning=None,
             prompt=PromptResponse(
                 text="Classify the following content: {{content}}",
+                slug="classify-content",
+                tag="latest",
                 systemText="Some system prompt",
                 version="0.1",
                 model=PromptModel(
@@ -485,10 +492,10 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         )
         
         # Update the mock API for the classification prompt
-        prompt_api.invoke.return_value = (None, mock_classify_prompt_response)
+        prompt_api.invoke_sync.return_value = (None, mock_classify_prompt_response)
         
         # Get prompt from Basalt
-        err, classify_prompt_response, classify_generation = prompt_sdk.get(
+        err, classify_prompt_response, classify_generation = prompt_sdk.get_sync(
             "classify-content",
             variables={"content": generated_text},
             version="1.0"
@@ -513,7 +520,7 @@ class TestMonitorSDKIntegration(unittest.TestCase):
         classification_span.end(categories)
         
         # End the main trace
-        main_trace.end("Workflow completed")
+        main_trace.end_sync("Workflow completed")
         
         # Verify trace structure
         # Filter logs to only include those of type "span"

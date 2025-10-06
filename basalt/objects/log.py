@@ -117,7 +117,9 @@ class Log(BaseLog):
         if not name and params.get("prompt") and params["prompt"].get("slug"):
             name = params["prompt"]["slug"]
 
-        generation_params = GenerationParams(**params, name=name, trace=self.trace, parent=self)
+        # Create a new params dict to avoid modifying the original
+        generation_params_dict = {**params, "name": name, "trace": self.trace, "parent": self}
+        generation_params = GenerationParams(**generation_params_dict)
         generation = Generation(generation_params)
 
         return generation
