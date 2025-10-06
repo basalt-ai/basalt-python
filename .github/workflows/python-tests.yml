@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
 
     steps:
     - uses: actions/checkout@v3
@@ -54,51 +54,3 @@ jobs:
         name: test-results-${{ matrix.python-version }}
         path: test-results/
 
-  comment:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-
-    - name: Prepare comment
-      id: prepare_comment
-      run: |
-        echo "COMMENT_BODY<<EOF" >> $GITHUB_ENV
-        echo "## Python SDK Test Results" >> $GITHUB_ENV
-        echo "" >> $GITHUB_ENV
-        echo "| Python Version | Status | Coverage | Tests Run |" >> $GITHUB_ENV
-        echo "| -------------- | ------ | -------- | --------- |" >> $GITHUB_ENV
-
-        for version in 3.8 3.9 3.10 3.11 3.12; do
-          version_path="test-results-$version"
-          if [ -d "$version_path" ] && [ -f "$version_path/coverage.txt" ]; then
-            coverage=$(cat "$version_path/coverage.txt")
-            test_count=$(cat "$version_path/test-count.txt")
-            echo "| Python $version | ✅ Passed | $coverage% | $test_count |" >> $GITHUB_ENV
-          else
-            echo "| Python $version | ❌ Failed or not run | - | - |" >> $GITHUB_ENV
-          fi
-        done
-
-        echo "" >> $GITHUB_ENV
-        echo "*Last updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')*" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-
-    - name: Find Comment
-      uses: peter-evans/find-comment@v3
-      id: fc
-      with:
-        issue-number: ${{ github.event.pull_request.number }}
-        comment-author: 'github-actions[bot]'
-        body-includes: Python SDK Test Results
-
-    - name: Create or update comment
-      uses: peter-evans/create-or-update-comment@v4
-      with:
-        comment-id: ${{ steps.fc.outputs.comment-id }}
-        issue-number: ${{ github.event.pull_request.number }}
-        body: ${{ env.COMMENT_BODY }}
-        edit-mode: replace
