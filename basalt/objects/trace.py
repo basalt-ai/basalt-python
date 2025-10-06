@@ -1,23 +1,25 @@
 from datetime import datetime
 from typing import Dict, Optional, Any, List
 
-
-from ..ressources.monitor.trace_types import TraceParams
+from ..ressources.monitor.trace_types import TraceParams, User, Organization
 from .base_log import BaseLog
 from .generation import Generation
+from .log import Log
 from ..utils.flusher import Flusher
 from .experiment import Experiment
 from ..ressources.monitor.evaluator_types import Evaluator
-from ..utils.logger import Logger
+from ..ressources.monitor.generation_types import GenerationParams
+from ..ressources.monitor.log_types import LogParams
+from ..utils.protocols import ILogger
 
 class Trace:
     """
     Class representing a trace in the monitoring system.
     """
-    def __init__(self, feature_slug: str, params: TraceParams, flusher: 'Flusher', logger: 'Logger'):
+    def __init__(self, feature_slug: str, params: TraceParams, flusher: 'Flusher', logger: 'ILogger'):
         self._feature_slug = feature_slug
 
-        self._input = params.get("input")
+        self._input = params.get('input')
         self._output = params.get("output")
         self._ideal_output = params.get("ideal_output")
         self._name = params.get("name")
@@ -33,16 +35,14 @@ class Trace:
         self._is_ended = False
 
         self._evaluators = params.get("evaluators")
-        self._evaluation_config = params.get("evaluationConfig")
+        self._evaluation_config = params.get("evaluation_config")
         self._logger = logger
 
         self._experiment = None
 
         if "experiment" in params:
             experiment = params["experiment"]
-            if experiment is None:
-                self._logger.warn("Warning: Experiment is None. This experiment will be ignored.")
-            elif experiment.feature_slug != self._feature_slug:
+            if experiment.feature_slug != self._feature_slug:
                 self._logger.warn("Warning: Experiment feature slug does not match trace feature slug. This experiment will be ignored.")
             else:
                 self._experiment = experiment
@@ -143,18 +143,19 @@ class Trace:
         self._ideal_output = ideal_output
         return self
 
-    def identify(self, params: Dict[str, Any]) -> 'Trace':
+    def identify(self, user: User = {}, organization: Organization = {}) -> 'Trace':
         """
         Set identification information for the trace.
 
         Args:
-            params (Dict[str, Any]): Identification parameters.
+            user: The user information to associate with this trace.
+            organization: The organization information to associate with this trace.
 
         Returns:
             Trace: The trace instance.
         """
-        self._user = params.get("user")
-        self._organization = params.get("organization")
+        self._user = user
+        self._organization = organization
         return self
 
     def set_metadata(self, metadata: Dict[str, Any]) -> 'Trace':
@@ -243,68 +244,57 @@ class Trace:
     def append(self, generation: 'Generation') -> 'Trace':
         """
         Append a generation to this trace.
-        
+
         Args:
             generation (Generation): The generation to append.
-            
+
         Returns:
             Trace: The trace instance.
         """
         # Remove child log from the list of its previous trace
         if generation.trace:
             generation.trace.logs = [log for log in generation.trace.logs if log.id != generation.id]
-        
+
         # Add child to the new trace list
         self._logs.append(generation)
+
+        # Set the trace of the generation to the current log
         generation.trace = self
-        
+        generation.options = {"type": "multi"}
+
         return self
 
-    def create_generation(self, params: Dict[str, Any]) -> 'Generation':
+    def create_generation(self, params: GenerationParams) -> 'Generation':
         """
         Create a new generation in this trace.
-        
+
         Args:
-            params (Dict[str, Any]): Parameters for the generation.
-            
+            params (GenerationParams): Parameters for the generation.
+
         Returns:
             Generation: The new generation instance.
         """
-        from .generation import Generation
-        
-        # Set the name to the prompt slug if available
-        name = params.get("name")
-        if params.get("prompt") and params["prompt"].get("slug"):
-            name = params["prompt"]["slug"]
-            
-        generation = Generation({
-            **params,
-            "name": name,
-            "trace": self
-        })
-        
+        generation_params = GenerationParams(**params, trace=self)
+        generation = Generation(generation_params)
+
         return generation
 
-    def create_log(self, params: Dict[str, Any]) -> 'BaseLog':
+    def create_log(self, params: LogParams) -> 'BaseLog':
         """
         Create a new log in this trace.
-        
+
         Args:
-            params (Dict[str, Any]): Parameters for the log.
-            
+            params (LogParams): Parameters for the log.
+
         Returns:
             Log: The new log instance.
         """
-        from .log import Log
-        
-        log = Log({
-            **params,
-            "trace": self
-        })
+        log_params = LogParams(**params, trace=self)
+        log = Log(log_params)
 
         return log
 
-    def end(self, output: Optional[str] = None) -> 'Trace':
+    async def end(self, output: Optional[str] = None) -> 'Trace':
         """
         End the trace with an optional output.
 
@@ -320,7 +310,27 @@ class Trace:
         if self._can_flush():
             self._end_time = datetime.now()
             self._is_ended = True
-            self._flusher.flush_trace(self)
+            await self._flusher.flush_trace(self)
+
+        return self
+
+    def end_sync(self, output: Optional[str] = None) -> 'Trace':
+        """
+        End the trace with an optional output synchronously.
+
+        Args:
+            output (Optional[str]): The output of the trace.
+
+        Returns:
+            Trace: The trace instance.
+        """
+        self._output = output if output is not None else self._output
+
+        # Send to the API using the flusher
+        if self._can_flush():
+            self._end_time = datetime.now()
+            self._is_ended = True
+            self._flusher.flush_trace_sync(self)
 
         return self
 

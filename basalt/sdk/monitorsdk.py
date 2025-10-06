@@ -1,7 +1,7 @@
-from typing import Dict, Optional, Any, Tuple
-import asyncio
+from typing import Dict, Optional, Any
 
 from ..utils.protocols import IApi, ILogger
+from ..utils.dtos import CreateExperimentResult
 from ..ressources.monitor.trace_types import TraceParams
 from ..ressources.monitor.experiment_types import ExperimentParams
 from ..ressources.monitor.generation_types import GenerationParams
@@ -25,28 +25,11 @@ class MonitorSDK:
         self._api = api
         self._logger = logger
 
-    def create_experiment(
+    async def create_experiment(
         self,
         feature_slug: str,
         params: ExperimentParams
-    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
-        """
-        Creates a new experiment for monitoring.
-
-        Args:
-            feature_slug (str): The feature slug for the experiment.
-            params (Dict[str, Any]): Parameters for the experiment.
-
-        Returns:
-            Experiment: A new Experiment instance.
-        """
-        return self._create_experiment(feature_slug, params)
-        
-    async def async_create_experiment(
-        self,
-        feature_slug: str,
-        params: ExperimentParams
-    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    ) -> CreateExperimentResult:
         """
         Asynchronously creates a new experiment for monitoring.
 
@@ -57,8 +40,24 @@ class MonitorSDK:
         Returns:
             Experiment: A new Experiment instance.
         """
-        return await self._async_create_experiment(feature_slug, params)
+        return await self._create_experiment(feature_slug, params)
 
+    def create_experiment_sync(
+        self,
+        feature_slug: str,
+        params: ExperimentParams
+    ) -> CreateExperimentResult:
+        """
+        Synchronously creates a new experiment for monitoring.
+
+        Args:
+            feature_slug (str): The feature slug for the experiment.
+            params (Dict[str, Any]): Parameters for the experiment.
+
+        Returns:
+            Experiment: A new Experiment instance.
+        """
+        return self._create_experiment_sync(feature_slug, params)
 
     def create_trace(
         self,
@@ -75,106 +74,45 @@ class MonitorSDK:
         Returns:
             Trace: A new Trace instance.
         """
-        if params is None:
-            params = {}
-
-        trace_params = TraceParams(**params)
-
-        return self._create_trace(slug, trace_params)
-        
-    async def async_create_trace(
-        self,
-        slug: str,
-        params: Optional[TraceParams] = None
-    ) -> Trace:
-        """
-        Asynchronously creates a new trace for monitoring.
-
-        Args:
-            slug (str): The unique identifier for the trace.
-            params (TraceParams): Parameters for the trace.
-
-        Returns:
-            Trace: A new Trace instance.
-        """
-        if params is None:
-            params = {}
-
-        trace_params = TraceParams(**params)
-
-        return await self._async_create_trace(slug, trace_params)
+        return self._create_trace(slug, params if params else {})
 
     def create_generation(
         self,
-        params: Dict[str, Any]
+        params: GenerationParams
     ) -> Generation:
         """
         Creates a new generation for monitoring.
 
         Args:
-            params (Dict[str, Any]): Parameters for the generation.
+            params (GenerationParams): Parameters for the generation.
 
         Returns:
             Generation: A new Generation instance.
         """
-        generation_params = GenerationParams(**params)
-        return self._create_generation(generation_params)
-        
-    async def async_create_generation(
-        self,
-        params: Dict[str, Any]
-    ) -> Generation:
-        """
-        Asynchronously creates a new generation for monitoring.
-
-        Args:
-            params (Dict[str, Any]): Parameters for the generation.
-
-        Returns:
-            Generation: A new Generation instance.
-        """
-        generation_params = GenerationParams(**params)
-        return await self._async_create_generation(generation_params)
+        return self._create_generation(params)
 
     def create_log(
         self,
-        params: Dict[str, Any]
+        params: LogParams
     ) -> Log:
         """
         Creates a new log for monitoring.
 
         Args:
-            params (Dict[str, Any]): Parameters for the log.
+            params (LogParams): Parameters for the log.
 
         Returns:
             Log: A new Log instance.
         """
-        log_params = LogParams(**params)
-        return self._create_log(log_params)
-        
-    async def async_create_log(
-        self,
-        params: Dict[str, Any]
-    ) -> Log:
-        """
-        Asynchronously creates a new log for monitoring.
+        return self._create_log(params)
 
-        Args:
-            params (Dict[str, Any]): Parameters for the log.
-
-        Returns:
-            Log: A new Log instance.
-        """
-        log_params = LogParams(**params)
-        return await self._async_create_log(log_params)
-
-    def _create_experiment(
+    async def _create_experiment(
         self,
         feature_slug: str,
         params: ExperimentParams
-    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    ) -> CreateExperimentResult:
         """
-        Internal implementation for creating an experiment.
+        Internal async implementation for creating an experiment.
 
         Args:
             feature_slug (str): The feature slug for the experiment.
@@ -185,24 +123,24 @@ class MonitorSDK:
         """
         dto = CreateExperimentDTO(
             feature_slug=feature_slug,
-            name=params.get("name"),
+            name=params['name'],
         )
 
         # Call the API endpoint
-        err, result = self._api.invoke(CreateExperimentEndpoint, dto)
+        err, result = await self._api.invoke(CreateExperimentEndpoint, dto)
 
         if err is None:
             return None, Experiment(result.experiment)
 
         return err, None
-        
-    async def _async_create_experiment(
+
+    def _create_experiment_sync(
         self,
         feature_slug: str,
         params: ExperimentParams
-    ) -> Tuple[Optional[Exception], Optional[Experiment]]:
+    ) -> CreateExperimentResult:
         """
-        Internal implementation for asynchronously creating an experiment.
+        Internal sync implementation for creating an experiment.
 
         Args:
             feature_slug (str): The feature slug for the experiment.
@@ -213,11 +151,11 @@ class MonitorSDK:
         """
         dto = CreateExperimentDTO(
             feature_slug=feature_slug,
-            name=params.get("name"),
+            name=params['name'],
         )
 
         # Call the API endpoint
-        err, result = await self._api.async_invoke(CreateExperimentEndpoint, dto)
+        err, result = self._api.invoke_sync(CreateExperimentEndpoint, dto)
 
         if err is None:
             return None, Experiment(result.experiment)
@@ -241,61 +179,12 @@ class MonitorSDK:
             Trace: A new Trace instance.
         """
         flusher = Flusher(self._api, self._logger)
-        # Convert TraceParams to a dictionary before passing to Trace
-        params_dict = {
-            "input": params.input,
-            "output": params.output,
-            "name": params.name,
-						"ideal_output": params.ideal_output,
-            "start_time": params.start_time,
-            "end_time": params.end_time,
-            "user": params.user,
-            "organization": params.organization,
-            "metadata": params.metadata,
-            "experiment": params.experiment,
-            "evaluators": params.evaluators,
-            "evaluationConfig": params.evaluation_config
-        }
-        trace = Trace(slug, params_dict, flusher, self._logger)
-        return trace
-        
-    async def _async_create_trace(
-        self,
-        slug: str,
-        params: TraceParams
-    ) -> Trace:
-        """
-        Internal implementation for asynchronously creating a trace.
 
-        Args:
-            slug (str): The unique identifier for the trace.
-            params (TraceParams): Parameters for the trace.
-
-        Returns:
-            Trace: A new Trace instance.
-        """
-        flusher = Flusher(self._api, self._logger)
-        # Convert TraceParams to a dictionary before passing to Trace
-        params_dict = {
-            "input": params.input,
-            "output": params.output,
-            "name": params.name,
-            "start_time": params.start_time,
-            "end_time": params.end_time,
-            "user": params.user,
-            "organization": params.organization,
-            "metadata": params.metadata,
-            "experiment": params.experiment,
-            "evaluators": params.evaluators,
-            "evaluationConfig": params.evaluation_config
-        }
-        trace = Trace(slug, params_dict, flusher, self._logger)
+        trace = Trace(slug, params, flusher, self._logger)
         return trace
 
-    def _create_generation(
-        self,
-        params: GenerationParams
-    ) -> Generation:
+    @staticmethod
+    def _create_generation(params: GenerationParams) -> Generation:
         """
         Internal implementation for creating a generation.
 
@@ -305,55 +194,10 @@ class MonitorSDK:
         Returns:
             Generation: A new Generation instance.
         """
-        # Convert GenerationParams to a dictionary before passing to Generation
-        params_dict = {
-            "name": params.name,
-            "trace": params.trace,
-            "prompt": params.prompt,
-            "input": params.input,
-            "output": params.output,
-            "variables": params.variables,
-            "parent": params.parent,
-            "metadata": params.metadata,
-            "start_time": params.start_time,
-            "end_time": params.end_time,
-            "options": params.options
-        }
-        return Generation(params_dict)
-        
-    async def _async_create_generation(
-        self,
-        params: GenerationParams
-    ) -> Generation:
-        """
-        Internal implementation for asynchronously creating a generation.
+        return Generation(params)
 
-        Args:
-            params (GenerationParams): Parameters for the generation.
-
-        Returns:
-            Generation: A new Generation instance.
-        """
-        # Convert GenerationParams to a dictionary before passing to Generation
-        params_dict = {
-            "name": params.name,
-            "trace": params.trace,
-            "prompt": params.prompt,
-            "input": params.input,
-            "output": params.output,
-            "variables": params.variables,
-            "parent": params.parent,
-            "metadata": params.metadata,
-            "start_time": params.start_time,
-            "end_time": params.end_time,
-            "options": params.options
-        }
-        return Generation(params_dict)
-
-    def _create_log(
-        self,
-        params: LogParams
-    ) -> Log:
+    @staticmethod
+    def _create_log(params: LogParams) -> Log:
         """
         Internal implementation for creating a log.
 
@@ -363,41 +207,4 @@ class MonitorSDK:
         Returns:
             Log: A new Log instance.
         """
-        # Convert LogParams to a dictionary before passing to Log
-        params_dict = {
-            "name": params.name,
-            "trace": params.trace,
-            "input": params.input,
-            "output": params.output,
-            "parent": params.parent,
-            "metadata": params.metadata,
-            "start_time": params.start_time,
-            "end_time": params.end_time
-        }
-        return Log(params_dict)
-        
-    async def _async_create_log(
-        self,
-        params: LogParams
-    ) -> Log:
-        """
-        Internal implementation for asynchronously creating a log.
-
-        Args:
-            params (LogParams): Parameters for the log.
-
-        Returns:
-            Log: A new Log instance.
-        """
-        # Convert LogParams to a dictionary before passing to Log
-        params_dict = {
-            "name": params.name,
-            "trace": params.trace,
-            "input": params.input,
-            "output": params.output,
-            "parent": params.parent,
-            "metadata": params.metadata,
-            "start_time": params.start_time,
-            "end_time": params.end_time
-        }
-        return Log(params_dict)
+        return Log(params)

@@ -25,6 +25,8 @@ class TestGetPromptEndpoint(unittest.TestCase):
 			"warning": "This is a warning",
 			"prompt": {
 				"text": "Valid prompt text",
+				"slug": "test-prompt",
+				"tag": "latest",
 				"systemText": "Some system prompt",
 				"version": "0.1",
 				"model": {

@@ -78,7 +78,7 @@ class SendTraceEndpoint:
                     processed_log["startTime"] = processed_log["start_time"].isoformat() if isinstance(processed_log["start_time"], datetime) else processed_log["start_time"]
                     del processed_log["start_time"]
                 if "end_time" in processed_log:
-                    processed_log["endTime"] = processed_log["end_time"].isoformat() if isinstance(processed_log["end_time"], datetime) and processed_log["end_time"] else None
+                    processed_log["endTime"] = processed_log["end_time"].isoformat() if isinstance(processed_log["end_time"], datetime) else processed_log["end_time"]
                     del processed_log["end_time"]
 
                 # Extract parent ID

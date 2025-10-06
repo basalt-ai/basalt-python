@@ -28,6 +28,7 @@ setup(
 	install_requires=[
 		"requests>=2.32",
 		"aiohttp>=3.8.0",
+        "jinja2>=3.1.0",
 	],
-	python_requires=">=3.6"
+	python_requires=">=3.8"
 )

@@ -1,16 +1,16 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TypedDict
 
 @dataclass
-class Evaluator:
+class Evaluator(TypedDict):
     """
     Represents an evaluator configuration.
     """
     slug: str
 
 @dataclass
-class EvaluationConfig:
+class EvaluationConfig(TypedDict, total=False):
     """
     Configuration for the evaluation of the trace and its logs.
     """
-    sample_rate: Optional[float] = None
+    sample_rate: Optional[float]

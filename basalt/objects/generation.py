@@ -1,26 +1,37 @@
+from datetime import datetime
 from typing import Dict, Optional, Any, List, Union
 
 from .base_log import BaseLog
 from ..ressources.monitor.generation_types import GenerationParams
+from ..ressources.monitor.base_log_types import BaseLogParams, LogType
+
 
 class Generation(BaseLog):
     """
     Class representing a generation in the monitoring system.
     """
     def __init__(self, params: GenerationParams):
-        params_with_type = {
-            "type": "generation",
-            **params
+        base_log_params = {
+            "name": params.get("name"),
+            "ideal_output": params.get("ideal_output"),
+            "start_time": params.get("start_time"),
+            "end_time": params.get("end_time"),
+            "metadata": params.get("metadata"),
+            "parent": params.get("parent"),
+            "trace": params.get("trace"),
+            "evaluators": params.get("evaluators"),
+            "type": LogType.GENERATION,
         }
-        super().__init__(params_with_type)
-        
+
+        super().__init__(base_log_params)
+
         self._prompt = params.get("prompt")
         self._input = params.get("input")
         self._output = params.get("output")
         self._input_tokens = params.get("input_tokens")
         self._output_tokens = params.get("output_tokens")
         self._cost = params.get("cost")
-        
+
         # Convert variables to array format if needed
         variables = params.get("variables")
         if variables is not None:
@@ -32,7 +43,7 @@ class Generation(BaseLog):
                 self._variables = []
         else:
             self._variables = []
-            
+
         self._options = params.get("options")
 
     @property
@@ -83,50 +94,50 @@ class Generation(BaseLog):
     def start(self, input: Optional[str] = None) -> 'Generation':
         """
         Start the generation with an optional input.
-        
+
         Args:
             input (Optional[str]): The input to the generation.
-            
+
         Returns:
             Generation: The generation instance.
         """
         if input:
             self._input = input
-            
+
         super().start()
         return self
 
     def end(self, output: Optional[Union[str, Dict[str, Any]]] = None) -> 'Generation':
         """
         End the generation with an optional output or update parameters.
-        
+
         Args:
             output (Optional[Union[str, Dict[str, Any]]]): The output of the generation
                 or a dictionary of parameters to update.
-            
+
         Returns:
             Generation: The generation instance.
         """
         super().end()
-        
+
         if isinstance(output, dict):
             self.update(output)
         elif isinstance(output, str):
             self._output = output
-        
+
         # If this is a single generation, end the trace as well
         if self._options and self._options.get("type") == "single":
-            self.trace.end(self._output)
-        
+            self.trace.end_sync(self._output)
+
         return self
 
     def update(self, params: Dict[str, Any]) -> 'Generation':
         """
         Update the generation.
-        
+
         Args:
             params (Dict[str, Any]): Parameters to update.
-            
+
         Returns:
             Generation: The generation instance.
         """
@@ -136,7 +147,7 @@ class Generation(BaseLog):
         self._input_tokens = params.get("input_tokens", self._input_tokens)
         self._output_tokens = params.get("output_tokens", self._output_tokens)
         self._cost = params.get("cost", self._cost)
-        
+
         # Update variables if provided
         variables = params.get("variables")
         if variables is not None:
@@ -146,6 +157,6 @@ class Generation(BaseLog):
                 self._variables = [{"label": str(v.get("label")), "value": str(v.get("value"))} for v in variables if v.get("label")]
             else:
                 self._variables = []
-        
+
         super().update(params)
         return self

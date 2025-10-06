@@ -11,7 +11,7 @@ class TestNetworker(unittest.TestCase):
 	def test_uses_requests_to_make_http_calls(self, request_mock):
 		networker = Networker()
 
-		networker.fetch('http://test/abc', 'GET')
+		networker.fetch_sync('http://test/abc', 'GET')
 
 		request_mock.assert_called_once_with('GET', 'http://test/abc', params=None, json=None, headers=None)
 
@@ -20,7 +20,7 @@ class TestNetworker(unittest.TestCase):
 		networker = Networker()
 		request_mock.side_effect = Exception('Some unknown error')
 
-		err, res = networker.fetch('http://test/abc', 'GET')
+		err, res = networker.fetch_sync('http://test/abc', 'GET')
 
 		self.assertIsNone(res)
 		self.assertEqual(err.message, 'Some unknown error')
@@ -32,7 +32,7 @@ class TestNetworker(unittest.TestCase):
 		request_mock.return_value = Mock()
 		request_mock.return_value.json.side_effect = Exception('No JSON object could be decoded')
 
-		err, res = networker.fetch('http://test/abc', 'GET')
+		err, res = networker.fetch_sync('http://test/abc', 'GET')
 
 		self.assertIsNone(res)
 		self.assertIsInstance(err, FetchError)
@@ -40,10 +40,13 @@ class TestNetworker(unittest.TestCase):
 	@patch('requests.request')
 	def test_returns_valid_json_as_dict(self, request_mock):
 		networker = Networker()
-		request_mock.return_value = Mock()
-		request_mock.return_value.json.return_value = { "some": "data" }
+		mock_response = Mock()
+		mock_response.json.return_value = { "some": "data" }
+		mock_response.headers = { 'Content-Type': 'application/json' }
+		mock_response.status_code = 200
+		request_mock.return_value = mock_response
 
-		err, res = networker.fetch('http://test/abc', 'GET')
+		err, res = networker.fetch_sync('http://test/abc', 'GET')
 
 		self.assertIsNone(err)
 		self.assertEqual(res, { "some": "data" })
@@ -57,10 +60,13 @@ class TestNetworker(unittest.TestCase):
 	@patch('requests.request')
 	def test_uses_custom_errors(self, response_code, error_type, request_mock):
 		networker = Networker()
-		request_mock.return_value = Mock()
-		request_mock.return_value.status_code = response_code
+		mock_response = Mock()
+		mock_response.status_code = response_code
+		mock_response.headers = { 'Content-Type': 'application/json' }
+		mock_response.json.return_value = {}
+		request_mock.return_value = mock_response
 
-		err, _ = networker.fetch('http://test/abc', 'GET')
+		err, _ = networker.fetch_sync('http://test/abc', 'GET')
 
 		self.assertIsInstance(err, FetchError)
 		self.assertEqual(type(err).__name__, error_type)
