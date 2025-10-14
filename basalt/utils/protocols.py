@@ -1,6 +1,6 @@
 from typing import Any, Dict, Hashable, Literal, Mapping, Optional, Protocol, Tuple, TypeVar
 
-from ..ressources.monitor.monitorsdk_types import IMonitorSDK
+from ..resources.monitor.monitorsdk_types import IMonitorSDK
 from .dtos import (
     CreateDatasetItemResult,
     DescribeResult,

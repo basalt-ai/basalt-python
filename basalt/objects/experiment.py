@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from ..ressources.monitor.experiment_types import Experiment as IExperiment
+from ..resources.monitor.experiment_types import Experiment as IExperiment
 
 
 class Experiment:

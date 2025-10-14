@@ -7,9 +7,9 @@ from ..endpoints.list_prompts import ListPromptsEndpoint
 from ..objects.generation import Generation
 from ..objects.prompt import Prompt
 from ..objects.trace import Trace
-from ..ressources.monitor.trace_types import TraceParams
-from ..ressources.prompts.prompt_types import Prompt as IPrompt
-from ..ressources.prompts.prompt_types import PromptParams
+from ..resources.monitor.trace_types import TraceParams
+from ..resources.prompts.prompt_types import Prompt as IPrompt
+from ..resources.prompts.prompt_types import PromptParams
 from ..utils.dtos import (
     DescribePromptDTO,
     DescribePromptResponse,

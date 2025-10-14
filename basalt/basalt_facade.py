@@ -2,7 +2,7 @@ from typing import Optional
 
 from .basaltsdk import BasaltSDK
 from .config import config
-from .ressources.monitor.monitorsdk_types import IMonitorSDK
+from .resources.monitor.monitorsdk_types import IMonitorSDK
 from .sdk.datasetsdk import DatasetSDK
 from .sdk.monitorsdk import MonitorSDK
 from .sdk.promptsdk import PromptSDK

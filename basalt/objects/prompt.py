@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional, Set
 
 from jinja2 import Environment, Template, meta
 
-from ..ressources.prompts.prompt_types import PromptModel, PromptParams
+from ..resources.prompts.prompt_types import PromptModel, PromptParams
 
 
 class Prompt:

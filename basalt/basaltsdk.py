@@ -1,4 +1,4 @@
-from .ressources.monitor.monitorsdk_types import IMonitorSDK
+from .resources.monitor.monitorsdk_types import IMonitorSDK
 from .utils.protocols import IBasaltSDK, IDatasetSDK, IPromptSDK
 
 

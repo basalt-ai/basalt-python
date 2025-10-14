@@ -5,10 +5,10 @@ from ..objects.experiment import Experiment
 from ..objects.generation import Generation
 from ..objects.log import Log
 from ..objects.trace import Trace
-from ..ressources.monitor.experiment_types import ExperimentParams
-from ..ressources.monitor.generation_types import GenerationParams
-from ..ressources.monitor.log_types import LogParams
-from ..ressources.monitor.trace_types import TraceParams
+from ..resources.monitor.experiment_types import ExperimentParams
+from ..resources.monitor.generation_types import GenerationParams
+from ..resources.monitor.log_types import LogParams
+from ..resources.monitor.trace_types import TraceParams
 from ..utils.dtos import CreateExperimentResult
 from ..utils.flusher import Flusher
 from ..utils.protocols import IApi, ILogger

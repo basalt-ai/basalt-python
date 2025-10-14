@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Union
 
-from ..ressources.monitor.base_log_types import LogType
-from ..ressources.monitor.generation_types import GenerationParams
+from ..resources.monitor.base_log_types import LogType
+from ..resources.monitor.generation_types import GenerationParams
 from .base_log import BaseLog
 
 

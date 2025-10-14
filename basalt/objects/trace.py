@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from ..ressources.monitor.evaluator_types import Evaluator
-from ..ressources.monitor.generation_types import GenerationParams
-from ..ressources.monitor.log_types import LogParams
-from ..ressources.monitor.trace_types import Organization, TraceParams, User
+from ..resources.monitor.evaluator_types import Evaluator
+from ..resources.monitor.generation_types import GenerationParams
+from ..resources.monitor.log_types import LogParams
+from ..resources.monitor.trace_types import Organization, TraceParams, User
 from ..utils.flusher import Flusher
 from ..utils.protocols import ILogger
 from .base_log import BaseLog

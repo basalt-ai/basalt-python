@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..ressources.monitor.experiment_types import Experiment
-from ..ressources.monitor.generation_types import Generation
-from ..ressources.prompts.prompt_types import Prompt
+from ..resources.monitor.experiment_types import Experiment
+from ..resources.monitor.generation_types import Generation
+from ..resources.prompts.prompt_types import Prompt
 from .utils import pick_number, pick_typed
 
 
