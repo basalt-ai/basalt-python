@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 
 def pick_typed(dict: Dict[str, Any], field_name: str, expected_type: Any) -> Any:
     value = dict.get(field_name)
@@ -12,6 +13,7 @@ def pick_typed(dict: Dict[str, Any], field_name: str, expected_type: Any) -> Any
 
     return value
 
+
 def pick_number(dict: Dict[str, Any], field_name: str) -> float:
     value = dict.get(field_name)
 
@@ -19,7 +21,7 @@ def pick_number(dict: Dict[str, Any], field_name: str) -> float:
         return float(value)
 
     # Additional check for int, because isinstance(True, int) == True
-    if isinstance(value, bool) == False and isinstance(value, int):
+    if not isinstance(value, bool) and isinstance(value, int):
         return int(value)
 
     raise TypeError(f"Field '{field_name}' must be a number (int or float), got {type(value).__name__}.")

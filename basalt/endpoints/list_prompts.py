@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..utils.dtos import PromptListResponse, PromptListDTO
+from ..utils.dtos import PromptListDTO, PromptListResponse
+
 
 @dataclass
 class ListPromptsEndpointResponse:
@@ -24,10 +25,12 @@ class ListPromptsEndpointResponse:
             prompts=[PromptListResponse.from_dict(prompt) for prompt in data["prompts"]],
         )
 
+
 class ListPromptsEndpoint:
     """
     Endpoint class for fetching a prompt.
     """
+
     @staticmethod
     def prepare_request(dto: PromptListDTO) -> Dict[str, Any]:
         """

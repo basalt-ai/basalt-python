@@ -1,30 +1,42 @@
-from typing import Optional, Dict, cast
+from datetime import datetime
+from typing import Dict, Optional, cast
 
-from ..ressources.monitor.trace_types import TraceParams
-from ..ressources.prompts.prompt_types import Prompt as IPrompt, PromptParams
-from ..utils.dtos import GetPromptDTO, GetPromptResult, PromptResponse, DescribePromptResponse, DescribePromptDTO, DescribeResult, ListResult, PromptListResponse, PromptListDTO
-from ..utils.protocols import ICache, IApi, ILogger
-
-from ..endpoints.get_prompt import GetPromptEndpoint
 from ..endpoints.describe_prompt import DescribePromptEndpoint
+from ..endpoints.get_prompt import GetPromptEndpoint
 from ..endpoints.list_prompts import ListPromptsEndpoint
-from ..objects.trace import Trace
 from ..objects.generation import Generation
 from ..objects.prompt import Prompt
+from ..objects.trace import Trace
+from ..ressources.monitor.trace_types import TraceParams
+from ..ressources.prompts.prompt_types import Prompt as IPrompt
+from ..ressources.prompts.prompt_types import PromptParams
+from ..utils.dtos import (
+    DescribePromptDTO,
+    DescribePromptResponse,
+    DescribeResult,
+    GetPromptDTO,
+    GetPromptResult,
+    ListResult,
+    PromptListDTO,
+    PromptListResponse,
+    PromptResponse,
+)
 from ..utils.flusher import Flusher
-from datetime import datetime
+from ..utils.protocols import IApi, ICache, ILogger
+
 
 class PromptSDK:
     """
     SDK for interacting with Basalt prompts.
     """
+
     def __init__(
             self,
             api: IApi,
             cache: ICache,
             fallback_cache: ICache,
             logger: ILogger
-        ):
+    ):
         self._api = api
         self._cache = cache
         self._fallback_cache = fallback_cache
@@ -34,12 +46,12 @@ class PromptSDK:
         self._logger = logger
 
     async def get(
-        self,
-        slug: str,
-        version: Optional[str] = None,
-        tag: Optional[str] = None,
-        variables: Optional[Dict[str, str]] = None,
-        cache_enabled: bool = True
+            self,
+            slug: str,
+            version: Optional[str] = None,
+            tag: Optional[str] = None,
+            variables: Optional[Dict[str, str]] = None,
+            cache_enabled: bool = True
     ) -> GetPromptResult:
         """
         Retrieve a prompt by slug, optionally specifying version and tag.
@@ -95,12 +107,12 @@ class PromptSDK:
         return err, None, None
 
     def get_sync(
-        self,
-        slug: str,
-        version: Optional[str] = None,
-        tag: Optional[str] = None,
-        variables: Optional[Dict[str, str]] = None,
-        cache_enabled: bool = True
+            self,
+            slug: str,
+            version: Optional[str] = None,
+            tag: Optional[str] = None,
+            variables: Optional[Dict[str, str]] = None,
+            cache_enabled: bool = True
     ) -> GetPromptResult:
         """
         Retrieve a prompt by slug, optionally specifying version and tag.
@@ -154,8 +166,8 @@ class PromptSDK:
 
         return err, None, None
 
-    def _prepare_monitoring(self,prompt: IPrompt,
-    ) -> Generation:
+    def _prepare_monitoring(self, prompt: IPrompt,
+                            ) -> Generation:
         """
         Prepare monitoring by creating a trace and generation object.
 
@@ -194,10 +206,10 @@ class PromptSDK:
         return generation
 
     async def describe(
-        self,
-        slug: str,
-        version: Optional[str] = None,
-        tag: Optional[str] = None,
+            self,
+            slug: str,
+            version: Optional[str] = None,
+            tag: Optional[str] = None,
     ) -> DescribeResult:
         """
         Get details about a prompt by slug, optionally specifying version and tag.
@@ -234,10 +246,10 @@ class PromptSDK:
         return err, None
 
     def describe_sync(
-        self,
-        slug: str,
-        version: Optional[str] = None,
-        tag: Optional[str] = None,
+            self,
+            slug: str,
+            version: Optional[str] = None,
+            tag: Optional[str] = None,
     ) -> DescribeResult:
         """
         Synchronously get details about a prompt by slug, optionally specifying version and tag.
@@ -327,8 +339,8 @@ class PromptSDK:
 
     @staticmethod
     def _create_prompt_instance(
-        prompt_response: PromptResponse,
-        variables: Optional[dict] = None
+            prompt_response: PromptResponse,
+            variables: Optional[dict] = None
     ) -> Prompt:
         return Prompt(PromptParams(
             slug=prompt_response.slug,

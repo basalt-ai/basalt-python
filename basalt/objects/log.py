@@ -1,13 +1,16 @@
-from typing import Dict, Optional, Any, cast
-from ..ressources.monitor.log_types import LogParams
+from typing import Any, Dict, Optional, cast
+
 from ..ressources.monitor.generation_types import GenerationParams
+from ..ressources.monitor.log_types import LogParams
 from .base_log import BaseLog
 from .generation import Generation
+
 
 class Log(BaseLog):
     """
     Class representing a log in the monitoring system.
     """
+
     def __init__(self, params: LogParams):
         super().__init__(params)
         self._input = params.get("input")

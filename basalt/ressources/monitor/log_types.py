@@ -1,14 +1,16 @@
-from typing import Optional, TYPE_CHECKING, TypedDict
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional, TypedDict
 
 from .base_log_types import BaseLog, BaseLogParams, LogTypeStr
 
 if TYPE_CHECKING:
     from .generation_types import Generation, GenerationParams
 
+
 class _LogParamsRequired(TypedDict):
     """Required fields for BaseLogParams."""
     type: LogTypeStr
+
 
 class LogParams(BaseLogParams, _LogParamsRequired, total=False):
     """Parameters for creating or updating a log.
@@ -24,6 +26,7 @@ class LogParams(BaseLogParams, _LogParamsRequired, total=False):
     """
     input: Optional[str]
     output: Optional[str]
+
 
 class UpdateLogParams(LogParams, total=False):
     """Parameters for updating a log."""

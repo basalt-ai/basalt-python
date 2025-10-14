@@ -1,11 +1,12 @@
 """Module for interacting with the Basalt API."""
-from typing import Dict, TypeVar, Optional, Tuple
+from typing import Dict, Optional, Tuple, TypeVar
 
-from .protocols import IEndpoint, INetworker, ILogger
 from .networker import Networker
+from .protocols import IEndpoint, ILogger, INetworker
 
 Input = TypeVar('Input')
 Output = TypeVar('Output')
+
 
 class Api:
     """
@@ -18,7 +19,9 @@ class Api:
         sdk_type (str): The SDK type (ex: py-pip)
         networker (INetworker): The networker instance to handle network requests.
     """
-    def __init__(self, root_url: str, networker: INetworker, api_key: str, sdk_version: str, sdk_type: str, logger: Optional[ILogger] = None):
+
+    def __init__(self, root_url: str, networker: INetworker, api_key: str, sdk_version: str, sdk_type: str,
+                 logger: Optional[ILogger] = None):
         """
         Initialize the Api class with the given parameters.
 
@@ -40,9 +43,9 @@ class Api:
             networker._logger = logger
 
     async def invoke(
-        self,
-        endpoint: IEndpoint[Input, Output],
-        dto: Optional[Input] = None
+            self,
+            endpoint: IEndpoint[Input, Output],
+            dto: Optional[Input] = None
     ) -> Tuple[Optional[Exception], Optional[Output]]:
         """
         Asynchronously invoke an API endpoint with the given data transfer object (DTO).
@@ -86,9 +89,9 @@ class Api:
         }
 
     def invoke_sync(
-        self,
-        endpoint: IEndpoint[Input, Output],
-        dto: Optional[Input] = None
+            self,
+            endpoint: IEndpoint[Input, Output],
+            dto: Optional[Input] = None
     ) -> Tuple[Optional[Exception], Optional[Output]]:
         """
         Synchronously invoke an API endpoint with the given data transfer object (DTO).

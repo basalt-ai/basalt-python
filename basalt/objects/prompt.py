@@ -1,13 +1,15 @@
-from typing import Dict, Optional, Any, Set
-from jinja2 import Template, Environment, meta
+from typing import Any, Dict, Optional, Set
 
-from ..ressources.prompts.prompt_types import PromptParams, PromptModel
+from jinja2 import Environment, Template, meta
+
+from ..ressources.prompts.prompt_types import PromptModel, PromptParams
 
 
 class Prompt:
     """
     Class representing a prompt in the Basalt system.
     """
+
     def __init__(self, params: PromptParams):
         self._slug = params.slug
         self._text = params.text
@@ -73,14 +75,14 @@ class Prompt:
 
         self._text = Template(self._raw_text).render(variables)
 
-        undeclared_variable=self._find_undeclared_variables(self._text)
+        undeclared_variable = self._find_undeclared_variables(self._text)
 
         if self._raw_system_text:
             self._system_text = Template(self._raw_system_text).render(variables)
             undeclared_variable = undeclared_variable | self._find_undeclared_variables(self._system_text)
 
         if undeclared_variable:
-            print("undeclared variables:", undeclared_variable)
+            pass
 
         return self
 
@@ -91,4 +93,3 @@ class Prompt:
         variables = meta.find_undeclared_variables(ast)
 
         return variables
-

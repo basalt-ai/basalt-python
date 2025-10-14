@@ -1,14 +1,15 @@
-from typing import Dict, Optional, Any, List, Union
+from typing import Any, Dict, List, Optional, Union
 
-from .base_log import BaseLog
-from ..ressources.monitor.generation_types import GenerationParams
 from ..ressources.monitor.base_log_types import LogType
+from ..ressources.monitor.generation_types import GenerationParams
+from .base_log import BaseLog
 
 
 class Generation(BaseLog):
     """
     Class representing a generation in the monitoring system.
     """
+
     def __init__(self, params: GenerationParams):
         base_log_params = {
             "name": params.get("name"),
@@ -37,7 +38,8 @@ class Generation(BaseLog):
             if isinstance(variables, dict):
                 self._variables = [{"label": str(k), "value": str(v)} for k, v in variables.items()]
             elif isinstance(variables, list):
-                self._variables = [{"label": str(v.get("label")), "value": str(v.get("value"))} for v in variables if v.get("label")]
+                self._variables = [{"label": str(v.get("label")), "value": str(v.get("value"))} for v in variables if
+                                   v.get("label")]
             else:
                 self._variables = []
         else:
@@ -153,7 +155,8 @@ class Generation(BaseLog):
             if isinstance(variables, dict):
                 self._variables = [{"label": str(k), "value": str(v)} for k, v in variables.items()]
             elif isinstance(variables, list):
-                self._variables = [{"label": str(v.get("label")), "value": str(v.get("value"))} for v in variables if v.get("label")]
+                self._variables = [{"label": str(v.get("label")), "value": str(v.get("value"))} for v in variables if
+                                   v.get("label")]
             else:
                 self._variables = []
 

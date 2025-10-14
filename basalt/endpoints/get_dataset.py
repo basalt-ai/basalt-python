@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from ..utils.dtos import DatasetDTO, GetDatasetDTO
 
+
 @dataclass
 class GetDatasetEndpointResponse:
     """
@@ -27,7 +28,7 @@ class GetDatasetEndpointResponse:
         """
         if "error" in data:
             return cls(dataset=None, error=data["error"])
-            
+
         return cls(
             dataset=DatasetDTO.from_dict(data["dataset"]),
             error=None
@@ -38,6 +39,7 @@ class GetDatasetEndpoint:
     """
     Endpoint class for fetching a specific dataset.
     """
+
     @staticmethod
     def prepare_request(dto: GetDatasetDTO) -> Dict[str, Any]:
         """
@@ -45,7 +47,7 @@ class GetDatasetEndpoint:
 
         Args:
             dto (GetDatasetDTO): The DTO containing dataset slug.
-            
+
         Returns:
             The path, method, and query parameters for getting a dataset on the API.
         """

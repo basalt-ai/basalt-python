@@ -1,15 +1,18 @@
-import requests
+from typing import Any, Dict, Mapping, Optional, Tuple
+
 import aiohttp
-from typing import Any, Dict, Optional, Tuple, Mapping
+import requests
 
 from .errors import BadRequest, FetchError, Forbidden, NetworkBaseError, NotFound, Unauthorized
 from .protocols import INetworker
+
 
 class Networker(INetworker):
     """
     Networker class that implements the INetworker protocol.
     Provides a method to fetch data from a given URL using HTTP methods.
     """
+
     def __init__(self):
         pass
 
@@ -20,7 +23,7 @@ class Networker(INetworker):
             body: Optional[Any] = None,
             params: Optional[Mapping[str, str]] = None,
             headers: Optional[Mapping[str, str]] = None
-        ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
+    ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
         """
         Fetch data from a given URL using the specified HTTP method.
 
@@ -43,11 +46,11 @@ class Networker(INetworker):
 
             async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
                 async with session.request(
-                    method,
-                    url,
-                    params=filtered_params,
-                    json=body,
-                    headers=filtered_headers
+                        method,
+                        url,
+                        params=filtered_params,
+                        json=body,
+                        headers=filtered_headers
                 ) as response:
                     # Try to parse JSON response, but handle cases where there's no JSON body
                     json_response = None
@@ -93,7 +96,7 @@ class Networker(INetworker):
             body: Optional[Any] = None,
             params: Optional[Mapping[str, str]] = None,
             headers: Optional[Mapping[str, str]] = None
-        ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
+    ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
         """
         Synchronously fetch data from a given URL using the specified HTTP method. This method should never throw.
 

@@ -1,12 +1,13 @@
-from typing import Protocol, TYPE_CHECKING
-from .trace_types import TraceParams
+from typing import TYPE_CHECKING, Protocol
+
 from .experiment_types import ExperimentParams
-from .trace_types import Trace
-from .generation_types import GenerationParams, Generation
-from .log_types import LogParams, Log
+from .generation_types import Generation, GenerationParams
+from .log_types import Log, LogParams
+from .trace_types import Trace, TraceParams
 
 if TYPE_CHECKING:
     from ...utils.dtos import CreateExperimentResult
+
 
 class IMonitorSDK(Protocol):
     """Interface for interacting with Basalt monitoring.
@@ -40,7 +41,7 @@ class IMonitorSDK(Protocol):
         ```
     """
 
-    def create_trace(self, slug: str, params: TraceParams = {}) -> Trace:
+    def create_trace(self, slug: str, params: TraceParams = None) -> Trace:
         """Creates a new trace to monitor a complete user interaction or process flow.
 
         Args:

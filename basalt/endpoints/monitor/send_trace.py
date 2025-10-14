@@ -1,17 +1,19 @@
 """
 Endpoint for sending a trace to the API.
 """
-from typing import Dict, Any, Optional, TypeVar, Tuple
 from datetime import datetime
+from typing import Any, Dict, Optional, Tuple, TypeVar
 
 # Define type variables for the endpoint
 Input = TypeVar('Input', bound=Dict[str, Any])
 Output = TypeVar('Output', bound=Dict[str, Any])
 
+
 class SendTraceEndpoint:
     """
     Endpoint for sending a trace to the API.
     """
+
     def prepare_request(self, dto: Optional[Input] = None) -> Dict[str, Any]:
         """
         Prepares the request for sending a trace.
@@ -44,13 +46,16 @@ class SendTraceEndpoint:
 
                 # Convert dates and handle parent ID
                 log_data = {
-                    "startTime": dict_log["start_time"].isoformat() if isinstance(dict_log["start_time"], datetime) else dict_log["start_time"],
-                    "endTime": dict_log["end_time"].isoformat() if isinstance(dict_log["end_time"], datetime) and dict_log["end_time"] else None,
+                    "startTime": dict_log["start_time"].isoformat() if isinstance(dict_log["start_time"], datetime) else
+                    dict_log["start_time"],
+                    "endTime": dict_log["end_time"].isoformat() if isinstance(dict_log["end_time"], datetime) and
+                                                                   dict_log["end_time"] else None,
                     "parentId": dict_log["parent"]["id"] if dict_log["parent"] else None,
                     "inputTokens": dict_log["input_tokens"] if "input_tokens" in dict_log else None,
                     "outputTokens": dict_log["output_tokens"] if "output_tokens" in dict_log else None,
                     "cost": dict_log["cost"] if "cost" in dict_log else None,
-                    "variables": [{"label": k, "value": v} for k, v in dict_log["variables"].items()] if "variables" in dict_log else None,
+                    "variables": [{"label": k, "value": v} for k, v in
+                                  dict_log["variables"].items()] if "variables" in dict_log else None,
                     "input": dict_log["input"] if "input" in dict_log else None,
                     "output": dict_log["output"] if "output" in dict_log else None,
                     "prompt": dict_log["prompt"] if "prompt" in dict_log else None,
@@ -75,10 +80,12 @@ class SendTraceEndpoint:
                 # Convert dates to ISO format if they're in the old format
                 processed_log = dict(log_data)
                 if "start_time" in processed_log:
-                    processed_log["startTime"] = processed_log["start_time"].isoformat() if isinstance(processed_log["start_time"], datetime) else processed_log["start_time"]
+                    processed_log["startTime"] = processed_log["start_time"].isoformat() if isinstance(
+                        processed_log["start_time"], datetime) else processed_log["start_time"]
                     del processed_log["start_time"]
                 if "end_time" in processed_log:
-                    processed_log["endTime"] = processed_log["end_time"].isoformat() if isinstance(processed_log["end_time"], datetime) else processed_log["end_time"]
+                    processed_log["endTime"] = processed_log["end_time"].isoformat() if isinstance(
+                        processed_log["end_time"], datetime) else processed_log["end_time"]
                     del processed_log["end_time"]
 
                 # Extract parent ID
@@ -88,10 +95,10 @@ class SendTraceEndpoint:
                 else:
                     processed_log["parentId"] = None
 
-								# Rename ideal output
+                # Rename ideal output
                 if "ideal_output" in processed_log:
-                  processed_log["idealOutput"] = processed_log["ideal_output"]
-                  del processed_log["ideal_output"]
+                    processed_log["idealOutput"] = processed_log["ideal_output"]
+                    del processed_log["ideal_output"]
 
                 processed_logs.append(processed_log)
 
@@ -124,18 +131,18 @@ class SendTraceEndpoint:
             "path": "/monitor/trace",
             "body": body
         }
-    
+
     def decode_response(self, response: Any) -> Tuple[Optional[Exception], Optional[Output]]:
         """
         Decodes the response from sending a trace.
-        
+
         Args:
             response (Any): The response from the API.
-            
+
         Returns:
             Tuple[Optional[Exception], Optional[Dict[str, Any]]]: The decoded response.
         """
         if not isinstance(response, dict):
             return Exception("Failed to decode response (invalid body format)"), None
-            
+
         return None, response.get("trace", {})

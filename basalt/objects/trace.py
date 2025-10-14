@@ -1,21 +1,23 @@
 from datetime import datetime
-from typing import Dict, Optional, Any, List
+from typing import Any, Dict, List, Optional
 
-from ..ressources.monitor.trace_types import TraceParams, User, Organization
-from .base_log import BaseLog
-from .generation import Generation
-from .log import Log
-from ..utils.flusher import Flusher
-from .experiment import Experiment
 from ..ressources.monitor.evaluator_types import Evaluator
 from ..ressources.monitor.generation_types import GenerationParams
 from ..ressources.monitor.log_types import LogParams
+from ..ressources.monitor.trace_types import Organization, TraceParams, User
+from ..utils.flusher import Flusher
 from ..utils.protocols import ILogger
+from .base_log import BaseLog
+from .experiment import Experiment
+from .generation import Generation
+from .log import Log
+
 
 class Trace:
     """
     Class representing a trace in the monitoring system.
     """
+
     def __init__(self, feature_slug: str, params: TraceParams, flusher: 'Flusher', logger: 'ILogger'):
         self._feature_slug = feature_slug
 
@@ -29,7 +31,7 @@ class Trace:
         self._organization = params.get("organization")
         self._metadata = params.get("metadata")
 
-        self._logs: List['BaseLog'] = []
+        self._logs: List[BaseLog] = []
 
         self._flusher = flusher
         self._is_ended = False
@@ -43,7 +45,8 @@ class Trace:
         if "experiment" in params:
             experiment = params["experiment"]
             if experiment.feature_slug != self._feature_slug:
-                self._logger.warn("Warning: Experiment feature slug does not match trace feature slug. This experiment will be ignored.")
+                self._logger.warn(
+                    "Warning: Experiment feature slug does not match trace feature slug. This experiment will be ignored.")
             else:
                 self._experiment = experiment
 
@@ -143,7 +146,7 @@ class Trace:
         self._ideal_output = ideal_output
         return self
 
-    def identify(self, user: User = {}, organization: Organization = {}) -> 'Trace':
+    def identify(self, user: User = None, organization: Organization = None) -> 'Trace':
         """
         Set identification information for the trace.
 
@@ -154,6 +157,10 @@ class Trace:
         Returns:
             Trace: The trace instance.
         """
+        if organization is None:
+            organization = {}
+        if user is None:
+            user = {}
         self._user = user
         self._organization = organization
         return self

@@ -1,13 +1,14 @@
-import unittest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
+import unittest
+from unittest.mock import AsyncMock, MagicMock
 
-from basalt.sdk.monitorsdk import MonitorSDK
-from basalt.utils.logger import Logger
-from basalt.objects.trace import Trace
+from basalt.endpoints.monitor.create_experiment import CreateExperimentEndpoint
+from basalt.endpoints.monitor.create_experiment import Output as ExperimentOutput
 from basalt.objects.generation import Generation
 from basalt.objects.log import Log
-from basalt.endpoints.monitor.create_experiment import CreateExperimentEndpoint, Output as ExperimentOutput
+from basalt.objects.trace import Trace
+from basalt.sdk.monitorsdk import MonitorSDK
+from basalt.utils.logger import Logger
 
 logger = Logger()
 mocked_api = MagicMock()
@@ -41,32 +42,32 @@ class TestMonitorSDKAsync(unittest.TestCase):
         )
         # Reset mock calls before each test
         mocked_api.async_invoke.reset_mock()
-        
+
     async def test_async_create_experiment(self):
         """Test asynchronously creating an experiment"""
         # Configure mock
         mocked_api.async_invoke.return_value = (None, experiment_output)
-        
+
         # Call the method
         params = {"name": "Test Experiment"}
         err, result = await self.monitor_sdk.async_create_experiment("test-feature", params)
-        
+
         # Assertions
         self.assertIsNone(err)
         self.assertIsNotNone(result)
         self.assertEqual(result.id, "exp-123")
         self.assertEqual(result.feature_slug, "test-feature")
         self.assertEqual(result.name, "Test Experiment")
-        
+
         # Verify correct endpoint was used
         endpoint = mocked_api.async_invoke.call_args[0][0]
         self.assertEqual(endpoint, CreateExperimentEndpoint)
-        
+
         # Verify DTO was created correctly
         dto = mocked_api.async_invoke.call_args[0][1]
         self.assertEqual(dto.feature_slug, "test-feature")
         self.assertEqual(dto.name, "Test Experiment")
-        
+
     async def test_async_create_trace(self):
         """Test asynchronously creating a trace"""
         # Call the method - traces are created directly without API calls
@@ -75,14 +76,14 @@ class TestMonitorSDKAsync(unittest.TestCase):
             "metadata": {"source": "test"}
         }
         result = await self.monitor_sdk.async_create_trace("test-trace", params)
-        
+
         # Assertions
         self.assertIsNotNone(result)
         self.assertIsInstance(result, Trace)
         self.assertEqual(result.name, "Test Trace")
         self.assertEqual(result.feature_slug, "test-trace")
         self.assertEqual(result.metadata, {"source": "test"})
-        
+
     async def test_async_create_generation(self):
         """Test asynchronously creating a generation"""
         # Call the method - generations are created directly without API calls
@@ -92,7 +93,7 @@ class TestMonitorSDKAsync(unittest.TestCase):
             "metadata": {"source": "test"}
         }
         result = await self.monitor_sdk.async_create_generation(params)
-        
+
         # Assertions
         self.assertIsNotNone(result)
         self.assertIsInstance(result, Generation)
@@ -101,7 +102,7 @@ class TestMonitorSDKAsync(unittest.TestCase):
         self.assertEqual(result.metadata, {"source": "test"})
         # Options will be None since not provided
         self.assertIsNone(result.options)
-        
+
     async def test_async_create_log(self):
         """Test asynchronously creating a log"""
         # Call the method - logs are created directly without API calls
@@ -111,25 +112,25 @@ class TestMonitorSDKAsync(unittest.TestCase):
             "metadata": {"source": "test"}
         }
         result = await self.monitor_sdk.async_create_log(params)
-        
+
         # Assertions
         self.assertIsNotNone(result)
         self.assertIsInstance(result, Log)
         self.assertEqual(result.name, "Test Log")
         self.assertEqual(result.input, "Test log input")
         self.assertEqual(result.metadata, {"source": "test"})
-        
+
     async def test_async_error_handling_create_experiment(self):
         """Test error handling when asynchronously creating an experiment"""
         # Configure mock to return an error
         error = Exception("API Error")
         mocked_api.async_invoke.return_value = (error, None)
-        
+
         # Call the method
         params = {"name": "Test Experiment"}
-        
+
         err, result = await self.monitor_sdk.async_create_experiment("test-feature", params)
-        
+
         # Assertions
         self.assertIsNotNone(err)
         self.assertIsNone(result)
@@ -138,33 +139,31 @@ class TestMonitorSDKAsync(unittest.TestCase):
 
 class AsyncTestRunner:
     """Helper class to run async tests properly"""
-    
+
     def __init__(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-    
+
     def run_test_case(self, test_case_class):
         """Run all async test methods in a test case"""
         suite = unittest.TestLoader().loadTestsFromTestCase(test_case_class)
-        
+
         for test in suite:
             test_method = getattr(test, test._testMethodName)
             if asyncio.iscoroutinefunction(test_method):
                 try:
                     test.setUp()
                     self.loop.run_until_complete(test_method())
-                    print(f"✓ {test._testMethodName}")
-                except Exception as e:
-                    print(f"✗ {test._testMethodName}: {e}")
+                except Exception:
+                    pass
             else:
                 # Run sync tests normally
                 try:
                     test.setUp()
                     test_method()
-                    print(f"✓ {test._testMethodName}")
-                except Exception as e:
-                    print(f"✗ {test._testMethodName}: {e}")
-    
+                except Exception:
+                    pass
+
     def close(self):
         self.loop.close()
 

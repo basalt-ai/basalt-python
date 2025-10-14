@@ -1,11 +1,11 @@
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..ressources.monitor.generation_types import Generation
 from ..ressources.monitor.experiment_types import Experiment
+from ..ressources.monitor.generation_types import Generation
 from ..ressources.prompts.prompt_types import Prompt
+from .utils import pick_number, pick_typed
 
-from .utils import pick_typed, pick_number
 
 # ------------------------------ Get Prompt ----------------------------- #
 @dataclass
@@ -34,6 +34,7 @@ class PromptModelParameters:
             json_object=data.get("jsonObject"),
         )
 
+
 @dataclass(frozen=True)
 class PromptModel:
     provider: str
@@ -49,6 +50,7 @@ class PromptModel:
             version=pick_typed(data, "version", str),
             parameters=PromptModelParameters.from_dict(data.get("parameters")),
         )
+
 
 @dataclass(frozen=True)
 class PromptResponse:
@@ -70,13 +72,16 @@ class PromptResponse:
             version=pick_typed(data, "version", str),
         )
 
+
 @dataclass(frozen=True)
 class GetPromptDTO:
     slug: str
     tag: Optional[str] = None
     version: Optional[str] = None
 
+
 GetPromptResult = Tuple[Optional[Exception], Optional[Prompt], Optional[Generation]]
+
 
 # ------------------------------ Describe Prompt ----------------------------- #
 @dataclass(frozen=True)
@@ -101,13 +106,16 @@ class DescribePromptResponse:
             variables=pick_typed(data, "variables", list),
         )
 
+
 @dataclass(frozen=True)
 class DescribePromptDTO:
     slug: str
     tag: Optional[str] = None
     version: Optional[str] = None
 
+
 DescribeResult = Tuple[Optional[Exception], Optional[DescribePromptResponse]]
+
 
 # ------------------------------ List Prompts ----------------------------- #
 @dataclass(frozen=True)
@@ -130,13 +138,14 @@ class PromptListResponse:
             available_tags=pick_typed(data, "availableTags", list),
         )
 
+
 @dataclass(frozen=True)
 class PromptListDTO:
     featureSlug: Optional[str] = None
 
 
-
 ListResult = Tuple[Optional[Exception], Optional[List[PromptListResponse]]]
+
 
 # ------------------------------ Datasets ----------------------------- #
 @dataclass

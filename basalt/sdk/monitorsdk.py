@@ -1,34 +1,36 @@
 from typing import Optional
 
-from ..utils.protocols import IApi, ILogger
-from ..utils.dtos import CreateExperimentResult
-from ..ressources.monitor.trace_types import TraceParams
+from ..endpoints.monitor.create_experiment import CreateExperimentDTO, CreateExperimentEndpoint
+from ..objects.experiment import Experiment
+from ..objects.generation import Generation
+from ..objects.log import Log
+from ..objects.trace import Trace
 from ..ressources.monitor.experiment_types import ExperimentParams
 from ..ressources.monitor.generation_types import GenerationParams
 from ..ressources.monitor.log_types import LogParams
-from ..objects.trace import Trace
-from ..objects.generation import Generation
-from ..objects.log import Log
-from ..objects.experiment import Experiment
+from ..ressources.monitor.trace_types import TraceParams
+from ..utils.dtos import CreateExperimentResult
 from ..utils.flusher import Flusher
-from ..endpoints.monitor.create_experiment import CreateExperimentEndpoint, CreateExperimentDTO
+from ..utils.protocols import IApi, ILogger
+
 
 class MonitorSDK:
     """
     SDK for monitoring and tracing in Basalt.
     """
+
     def __init__(
             self,
             api: IApi,
             logger: ILogger
-        ):
+    ):
         self._api = api
         self._logger = logger
 
     async def create_experiment(
-        self,
-        feature_slug: str,
-        params: ExperimentParams
+            self,
+            feature_slug: str,
+            params: ExperimentParams
     ) -> CreateExperimentResult:
         """
         Asynchronously creates a new experiment for monitoring.
@@ -43,9 +45,9 @@ class MonitorSDK:
         return await self._create_experiment(feature_slug, params)
 
     def create_experiment_sync(
-        self,
-        feature_slug: str,
-        params: ExperimentParams
+            self,
+            feature_slug: str,
+            params: ExperimentParams
     ) -> CreateExperimentResult:
         """
         Synchronously creates a new experiment for monitoring.
@@ -60,9 +62,9 @@ class MonitorSDK:
         return self._create_experiment_sync(feature_slug, params)
 
     def create_trace(
-        self,
-        slug: str,
-        params: Optional[TraceParams] = None
+            self,
+            slug: str,
+            params: Optional[TraceParams] = None
     ) -> Trace:
         """
         Creates a new trace for monitoring.
@@ -77,8 +79,8 @@ class MonitorSDK:
         return self._create_trace(slug, params if params else {})
 
     def create_generation(
-        self,
-        params: GenerationParams
+            self,
+            params: GenerationParams
     ) -> Generation:
         """
         Creates a new generation for monitoring.
@@ -92,8 +94,8 @@ class MonitorSDK:
         return self._create_generation(params)
 
     def create_log(
-        self,
-        params: LogParams
+            self,
+            params: LogParams
     ) -> Log:
         """
         Creates a new log for monitoring.
@@ -107,9 +109,9 @@ class MonitorSDK:
         return self._create_log(params)
 
     async def _create_experiment(
-        self,
-        feature_slug: str,
-        params: ExperimentParams
+            self,
+            feature_slug: str,
+            params: ExperimentParams
     ) -> CreateExperimentResult:
         """
         Internal async implementation for creating an experiment.
@@ -135,9 +137,9 @@ class MonitorSDK:
         return err, None
 
     def _create_experiment_sync(
-        self,
-        feature_slug: str,
-        params: ExperimentParams
+            self,
+            feature_slug: str,
+            params: ExperimentParams
     ) -> CreateExperimentResult:
         """
         Internal sync implementation for creating an experiment.
@@ -162,11 +164,10 @@ class MonitorSDK:
 
         return err, None
 
-
     def _create_trace(
-        self,
-        slug: str,
-        params: TraceParams
+            self,
+            slug: str,
+            params: TraceParams
     ) -> Trace:
         """
         Internal implementation for creating a trace.

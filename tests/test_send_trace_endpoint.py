@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime
+
 from basalt.endpoints.monitor.send_trace import SendTraceEndpoint
 
 
@@ -44,7 +45,7 @@ class TestSendTraceEndpoint(unittest.TestCase):
         # Verify the basic request structure
         self.assertEqual(result["method"], "post")
         self.assertEqual(result["path"], "/monitor/trace")
-        
+
         # Verify the body contains all required fields
         body = result["body"]
         self.assertEqual(body["featureSlug"], "test-feature")

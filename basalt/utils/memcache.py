@@ -3,6 +3,7 @@ from typing import Any, Dict, Hashable
 
 from .protocols import ICache
 
+
 class MemoryCache(ICache):
     """
     MemoryCache is a simple in-memory cache that stores values for a given key.

@@ -1,14 +1,15 @@
-from datetime import datetime
-from typing import Dict, Optional, Any, List, TYPE_CHECKING, TypedDict
 from dataclasses import dataclass, field
-from .experiment_types import Experiment
-from .evaluator_types import Evaluator, EvaluationConfig
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict
 
+from .evaluator_types import EvaluationConfig, Evaluator
+from .experiment_types import Experiment
 
 if TYPE_CHECKING:
+    from .base_log_types import BaseLog
     from .generation_types import Generation, GenerationParams
     from .log_types import Log, LogParams
-    from .base_log_types import BaseLog
+
 
 @dataclass
 class User(TypedDict):
@@ -16,11 +17,13 @@ class User(TypedDict):
     id: str
     name: str
 
+
 @dataclass
 class Organization(TypedDict):
     """Organization information associated with a trace."""
     id: str
     name: str
+
 
 class TraceParams(TypedDict, total=False):
     """Parameters for creating or updating a trace."""
@@ -211,7 +214,7 @@ class Trace:
         """
         ...
 
-    def identify(self, user: User = {}, organization: Organization = {}) -> 'Trace':
+    def identify(self, user: User = None, organization: Organization = None) -> 'Trace':
         """Associates user information with this trace.
 
         Args:

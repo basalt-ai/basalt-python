@@ -1,8 +1,8 @@
-from datetime import datetime
-from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING, TypedDict, Literal, TypeVar
 from dataclasses import dataclass, field
-from uuid import uuid4
+from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, TypedDict, TypeVar, Union
+from uuid import uuid4
 
 if TYPE_CHECKING:
     from .log_types import Log
@@ -11,6 +11,7 @@ from .evaluator_types import Evaluator
 from .trace_types import Trace
 
 SelfType = TypeVar('SelfType', bound='BaseLog')
+
 
 class LogType(str, Enum):
     """Enum-like class for log types.
@@ -30,12 +31,15 @@ class LogType(str, Enum):
     RETRIEVAL = 'retrieval'
     EVENT = 'event'
 
+
 # Type alias for log type strings - use this in TypedDict parameters
 LogTypeStr = Literal['span', 'generation', 'function', 'tool', 'retrieval', 'event']
+
 
 class _BaseLogParamsRequired(TypedDict):
     """Required fields for BaseLogParams."""
     name: str
+
 
 class BaseLogParams(_BaseLogParamsRequired, TypedDict, total=False):
     """Base parameters for creating a log entry.
@@ -61,6 +65,7 @@ class BaseLogParams(_BaseLogParamsRequired, TypedDict, total=False):
     parent: Optional['Log']
     trace: Optional['Trace']
     evaluators: Optional[List[Evaluator]]
+
 
 @dataclass
 class BaseLog:

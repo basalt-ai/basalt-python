@@ -1,11 +1,13 @@
-from typing import Dict, Optional, Union, Any, TypedDict
 from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, TypedDict, Union
 
 from .base_log_types import BaseLog, BaseLogParams, LogType
+
 
 class _PromptReferenceRequired(TypedDict):
     """Required fields for PromptReference."""
     slug: str
+
 
 class PromptReference(_PromptReferenceRequired, TypedDict, total=False):
     """Reference to a prompt template.
@@ -25,6 +27,7 @@ class PromptReference(_PromptReferenceRequired, TypedDict, total=False):
     """
     version: Optional[str]
     tag: Optional[str]
+
 
 class GenerationParams(BaseLogParams, total=False):
     """Parameters for creating a new generation.
@@ -66,9 +69,11 @@ class GenerationParams(BaseLogParams, total=False):
     output_tokens: Optional[int]
     cost: Optional[float]
 
+
 class UpdateGenerationParams(GenerationParams, total=False):
     """Parameters for updating a generation."""
     name: Optional[str]
+
 
 @dataclass
 class Generation(BaseLog):

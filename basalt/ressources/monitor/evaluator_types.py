@@ -1,12 +1,14 @@
 from dataclasses import dataclass
 from typing import Optional, TypedDict
 
+
 @dataclass
 class Evaluator(TypedDict):
     """
     Represents an evaluator configuration.
     """
     slug: str
+
 
 @dataclass
 class EvaluationConfig(TypedDict, total=False):

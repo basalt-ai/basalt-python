@@ -1,19 +1,19 @@
 from typing import Optional
 
-from .utils.api import Api
-from .utils.protocols import ICache, IPromptSDK, IBasaltSDK, LogLevel, IDatasetSDK
-from .sdk.promptsdk import PromptSDK
-from .sdk.monitorsdk import MonitorSDK
-from .sdk.datasetsdk import DatasetSDK
 from .basaltsdk import BasaltSDK
+from .config import config
+from .ressources.monitor.monitorsdk_types import IMonitorSDK
+from .sdk.datasetsdk import DatasetSDK
+from .sdk.monitorsdk import MonitorSDK
+from .sdk.promptsdk import PromptSDK
+from .utils.api import Api
+from .utils.logger import Logger
 from .utils.memcache import MemoryCache
 from .utils.networker import Networker
-from .config import config
-from .utils.logger import Logger
-
-from .ressources.monitor.monitorsdk_types import IMonitorSDK
+from .utils.protocols import IBasaltSDK, ICache, IDatasetSDK, IPromptSDK, LogLevel
 
 global_fallback_cache = MemoryCache()
+
 
 class BasaltFacade(IBasaltSDK):
     """
@@ -21,10 +21,10 @@ class BasaltFacade(IBasaltSDK):
     """
 
     def __init__(
-        self,
-        api_key: str,
-        log_level: LogLevel = "all",
-        cache: Optional[ICache] = None,
+            self,
+            api_key: str,
+            log_level: LogLevel = "all",
+            cache: Optional[ICache] = None,
     ):
         """
         Initializes the Basalt client with the given API key and log level.
@@ -69,7 +69,7 @@ class BasaltFacade(IBasaltSDK):
         Read-only access to the MonitorSDK instance.
         """
         return self._basalt.monitor
-        
+
     @property
     def datasets(self) -> IDatasetSDK:
         """

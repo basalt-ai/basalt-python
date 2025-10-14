@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..utils.dtos import DatasetDTO, ListDatasetsDTO
 
+
 @dataclass
 class ListDatasetsEndpointResponse:
     """
@@ -33,6 +34,7 @@ class ListDatasetsEndpoint:
     """
     Endpoint class for fetching all datasets.
     """
+
     @staticmethod
     def prepare_request(dto: ListDatasetsDTO) -> Dict[str, Any]:
         """

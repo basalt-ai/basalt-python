@@ -1,28 +1,33 @@
 """
 SDK for interacting with Basalt datasets
 """
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
-from ..utils.dtos import (
-    ListDatasetsDTO, GetDatasetDTO, CreateDatasetItemDTO,
-    ListDatasetsResult, GetDatasetResult, CreateDatasetItemResult,
-    DatasetDTO
-)
-from ..utils.protocols import IApi, ILogger, IDatasetSDK
-from ..endpoints.list_datasets import ListDatasetsEndpoint
-from ..endpoints.get_dataset import GetDatasetEndpoint
 from ..endpoints.create_dataset_item import CreateDatasetItemEndpoint
+from ..endpoints.get_dataset import GetDatasetEndpoint
+from ..endpoints.list_datasets import ListDatasetsEndpoint
+from ..utils.dtos import (
+    CreateDatasetItemDTO,
+    CreateDatasetItemResult,
+    DatasetDTO,
+    GetDatasetDTO,
+    GetDatasetResult,
+    ListDatasetsDTO,
+    ListDatasetsResult,
+)
+from ..utils.protocols import IApi, IDatasetSDK, ILogger
 
 
 class DatasetSDK(IDatasetSDK):
     """
     SDK for interacting with Basalt datasets.
     """
+
     def __init__(
             self,
             api: IApi,
             logger: ILogger
-        ):
+    ):
         self._api = api
         self._logger = logger
 
@@ -111,12 +116,12 @@ class DatasetSDK(IDatasetSDK):
         return None, result.dataset
 
     async def add_row(
-        self,
-        slug: str,
-        values: Dict[str, str],
-        name: Optional[str] = None,
-        ideal_output: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+            self,
+            slug: str,
+            values: Dict[str, str],
+            name: Optional[str] = None,
+            ideal_output: Optional[str] = None,
+            metadata: Optional[Dict[str, Any]] = None
     ) -> CreateDatasetItemResult:
         """
         Create a new item in a dataset.
@@ -151,12 +156,12 @@ class DatasetSDK(IDatasetSDK):
         return None, result.datasetRow, result.warning
 
     def add_row_sync(
-        self,
-        slug: str,
-        values: Dict[str, str],
-        name: Optional[str] = None,
-        ideal_output: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+            self,
+            slug: str,
+            values: Dict[str, str],
+            name: Optional[str] = None,
+            ideal_output: Optional[str] = None,
+            metadata: Optional[Dict[str, Any]] = None
     ) -> CreateDatasetItemResult:
         """
         Synchronously create a new item in a dataset.

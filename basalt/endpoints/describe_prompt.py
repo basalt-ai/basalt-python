@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from ..utils.dtos import DescribePromptDTO, DescribePromptResponse
 
+
 @dataclass
 class DescribePromptEndpointResponse:
     warning: Optional[str]
@@ -24,10 +25,12 @@ class DescribePromptEndpointResponse:
             prompt=DescribePromptResponse.from_dict(data["prompt"]),
         )
 
+
 class DescribePromptEndpoint:
     """
     Endpoint class for fetching a prompt.
     """
+
     @staticmethod
     def prepare_request(dto: DescribePromptDTO) -> Dict[str, Any]:
         """

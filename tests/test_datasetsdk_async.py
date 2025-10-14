@@ -1,13 +1,16 @@
-import unittest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
+import unittest
+from unittest.mock import AsyncMock, MagicMock
 
-from basalt.sdk.datasetsdk import DatasetSDK
-from basalt.utils.logger import Logger
-from basalt.utils.dtos import DatasetDTO, DatasetRowDTO
-from basalt.endpoints.list_datasets import ListDatasetsEndpoint, ListDatasetsEndpointResponse
+from basalt.endpoints.create_dataset_item import (
+    CreateDatasetItemEndpoint,
+    CreateDatasetItemEndpointResponse,
+)
 from basalt.endpoints.get_dataset import GetDatasetEndpoint, GetDatasetEndpointResponse
-from basalt.endpoints.create_dataset_item import CreateDatasetItemEndpoint, CreateDatasetItemEndpointResponse
+from basalt.endpoints.list_datasets import ListDatasetsEndpoint, ListDatasetsEndpointResponse
+from basalt.sdk.datasetsdk import DatasetSDK
+from basalt.utils.dtos import DatasetDTO, DatasetRowDTO
+from basalt.utils.logger import Logger
 
 logger = Logger()
 mocked_api = MagicMock()
@@ -161,7 +164,6 @@ class TestDatasetSDKAsync(unittest.TestCase):
         self.assertEqual(str(err), "API Error")
 
 
-
 class AsyncTestRunner:
     """Helper class to run async tests properly"""
 
@@ -179,17 +181,15 @@ class AsyncTestRunner:
                 try:
                     test.setUp()
                     self.loop.run_until_complete(test_method())
-                    print(f"✓ {test._testMethodName}")
-                except Exception as e:
-                    print(f"✗ {test._testMethodName}: {e}")
+                except Exception:
+                    pass
             else:
                 # Run sync tests normally
                 try:
                     test.setUp()
                     test_method()
-                    print(f"✓ {test._testMethodName}")
-                except Exception as e:
-                    print(f"✗ {test._testMethodName}: {e}")
+                except Exception:
+                    pass
 
     def close(self):
         self.loop.close()

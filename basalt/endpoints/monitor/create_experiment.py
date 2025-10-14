@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
 from datetime import datetime
+from typing import Any, Dict, Optional, Tuple
+
 
 # Minimal Experiment model (expand as needed)
 @dataclass
@@ -9,6 +10,7 @@ class Experiment:
     name: str
     id: str
     created_at: datetime
+
     # Add more fields as needed
 
     @classmethod
@@ -20,19 +22,23 @@ class Experiment:
             created_at=data.get("createdAt"),
         )
 
+
 @dataclass
 class CreateExperimentDTO:
     feature_slug: str
     name: str
 
+
 @dataclass
 class Output:
     experiment: Experiment
+
 
 class CreateExperimentEndpoint:
     """
     Endpoint for creating an experiment
     """
+
     @staticmethod
     def prepare_request(dto: CreateExperimentDTO) -> Dict[str, Any]:
         body = {

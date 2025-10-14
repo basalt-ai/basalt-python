@@ -1,17 +1,18 @@
-from datetime import datetime
-from typing import Dict, Optional, Any, List
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from ..ressources.monitor.base_log_types import BaseLogParams, LogType
 from ..ressources.monitor.evaluator_types import Evaluator
-from ..ressources.monitor.trace_types import Trace
 from ..ressources.monitor.log_types import Log
+from ..ressources.monitor.trace_types import Trace
 
 
 class BaseLog:
     """
     Base class for logs and generations.
     """
+
     def __init__(self, params: BaseLogParams):
         self._id = f"log-{uuid.uuid4().hex[:8]}"
         self._type = params.get("type")

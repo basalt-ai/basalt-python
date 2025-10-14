@@ -4,7 +4,8 @@ Endpoint for creating a new dataset item
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
-from ..utils.dtos import DatasetRowDTO, CreateDatasetItemDTO
+from ..utils.dtos import CreateDatasetItemDTO, DatasetRowDTO
+
 
 @dataclass
 class CreateDatasetItemEndpointResponse:
@@ -28,7 +29,7 @@ class CreateDatasetItemEndpointResponse:
         """
         if "error" in data:
             return cls(datasetRow=None, error=data["error"])
-            
+
         return cls(
             datasetRow=DatasetRowDTO.from_dict(data["datasetRow"]),
             warning=data.get("warning"),
@@ -40,6 +41,7 @@ class CreateDatasetItemEndpoint:
     """
     Endpoint class for creating a dataset item.
     """
+
     @staticmethod
     def prepare_request(dto: CreateDatasetItemDTO) -> Dict[str, Any]:
         """
@@ -47,23 +49,23 @@ class CreateDatasetItemEndpoint:
 
         Args:
             dto (CreateDatasetItemDTO): The DTO containing dataset item data.
-            
+
         Returns:
             The path, method, and body for creating a dataset item on the API.
         """
         body = {
             "values": dto.values
         }
-        
+
         if dto.name:
             body["name"] = dto.name
-            
+
         if dto.idealOutput:
             body["idealOutput"] = dto.idealOutput
-            
+
         if dto.metadata:
             body["metadata"] = dto.metadata
-        
+
         return {
             "path": f"/datasets/{dto.slug}/items",
             "method": "POST",

@@ -2,7 +2,7 @@
 Dataset types module for Basalt SDK
 """
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -30,11 +30,12 @@ class DatasetRow:
         values_list = []
         if "values" in data:
             if isinstance(data["values"], list):
-                values_list = [DatasetRowValue(**val) if isinstance(val, dict) else DatasetRowValue(label=val["label"], value=val["value"]) 
+                values_list = [DatasetRowValue(**val) if isinstance(val, dict) else DatasetRowValue(label=val["label"],
+                                                                                                    value=val["value"])
                                for val in data["values"]]
             elif isinstance(data["values"], dict):
                 values_list = [DatasetRowValue(label=key, value=val) for key, val in data["values"].items()]
-                
+
         return cls(
             values=values_list,
             name=data.get("name", None),
@@ -59,7 +60,7 @@ class Dataset:
         rows = []
         if "rows" in data:
             rows = [DatasetRow.from_dict(row) for row in data["rows"]]
-            
+
         return cls(
             slug=data["slug"],
             name=data["name"],

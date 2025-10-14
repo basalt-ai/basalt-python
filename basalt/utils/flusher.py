@@ -1,9 +1,8 @@
 """Module for flushing traces to the API."""
 import json
-from typing import TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Any, Dict
 
 from ..endpoints.monitor.send_trace import SendTraceEndpoint
-
 
 if TYPE_CHECKING:
     from ..objects.trace import Trace
@@ -14,6 +13,7 @@ class Flusher:
     """
     Class for flushing traces to the API.
     """
+
     def __init__(self, api: 'IApi', logger: 'ILogger'):
         self._api = api
         self._logger = logger

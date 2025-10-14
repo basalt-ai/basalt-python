@@ -12,6 +12,7 @@ else:
 # during build-time metadata inspection.
 __all__ = ["Basalt"]
 
+
 def __getattr__(name: str):
     if name == "Basalt":
         from .basalt_facade import BasaltFacade as Basalt  # imported only when accessed

@@ -3,7 +3,7 @@ Dataset object for Basalt SDK
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -11,7 +11,7 @@ class DatasetRow:
     """
     A row in a dataset with values and metadata
     """
-    values: Dict[str, str] 
+    values: Dict[str, str]
     name: Optional[str] = None
     ideal_output: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -21,20 +21,20 @@ class DatasetRow:
         result = {
             "values": self.values,
             "metadata": self.metadata,
-			"name": self.name,
-			"idealOutput": self.ideal_output
+            "name": self.name,
+            "idealOutput": self.ideal_output
         }
-            
+
         return result
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DatasetRow":
         """
         Create a DatasetRow instance from a dictionary
-        
+
         Args:
             data: Dictionary containing dataset row data
-            
+
         Returns:
             DatasetRow: A new DatasetRow instance
         """
@@ -69,15 +69,15 @@ class Dataset:
     def from_dict(cls, data: Dict[str, Any]) -> "Dataset":
         """
         Create a Dataset instance from a dictionary
-        
+
         Args:
             data: Dictionary containing dataset data
-            
+
         Returns:
             Dataset: A new Dataset instance
         """
         rows = [DatasetRow.from_dict(row) for row in data.get("rows", [])]
-        
+
         return cls(
             slug=data["slug"],
             name=data["name"],

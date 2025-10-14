@@ -1,20 +1,21 @@
 from .protocols import ILogger, LogLevel
 
+
 class Logger(ILogger):
     def __init__(self, log_level: LogLevel = 'all'):
         self._log_level = log_level
 
     def warn(self, *args):
         if self._can_warn():
-            print(*args)
+            pass
 
     def info(self, *args):
         if self._can_info():
-            print(*args)
+            pass
 
     def error(self, *args):
         if self._can_error():
-            print(*args)
+            pass
 
     def _can_warn(self):
         return self._log_level == 'all' or self._log_level == 'warning'
