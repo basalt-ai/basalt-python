@@ -47,7 +47,7 @@ dev = [
 
 # A recommended configuration for Ruff, the modern linter/formatter
 [tool.ruff]
-line-length = 99
+line-length = 120
 target-version = "py38"
 
 [tool.ruff.lint]
