@@ -1,7 +1,6 @@
-from typing import Protocol, Optional, Tuple, TYPE_CHECKING
+from typing import Protocol, TYPE_CHECKING
 from .trace_types import TraceParams
 from .experiment_types import ExperimentParams
-from .experiment_types import Experiment
 from .trace_types import Trace
 from .generation_types import GenerationParams, Generation
 from .log_types import LogParams, Log

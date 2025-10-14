@@ -1,12 +1,12 @@
 """
 SDK for interacting with Basalt datasets
 """
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, Optional, Any
 
 from ..utils.dtos import (
     ListDatasetsDTO, GetDatasetDTO, CreateDatasetItemDTO,
     ListDatasetsResult, GetDatasetResult, CreateDatasetItemResult,
-    DatasetDTO, DatasetRowDTO
+    DatasetDTO
 )
 from ..utils.protocols import IApi, ILogger, IDatasetSDK
 from ..endpoints.list_datasets import ListDatasetsEndpoint

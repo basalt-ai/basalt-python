@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, AsyncMock
 
 from basalt.sdk.datasetsdk import DatasetSDK
 from basalt.utils.logger import Logger
-from basalt.utils.dtos import DatasetDTO, DatasetRowDTO, ListDatasetsDTO, GetDatasetDTO, CreateDatasetItemDTO
+from basalt.utils.dtos import DatasetDTO, DatasetRowDTO
 from basalt.endpoints.list_datasets import ListDatasetsEndpoint, ListDatasetsEndpointResponse
 from basalt.endpoints.get_dataset import GetDatasetEndpoint, GetDatasetEndpointResponse
 from basalt.endpoints.create_dataset_item import CreateDatasetItemEndpoint, CreateDatasetItemEndpointResponse

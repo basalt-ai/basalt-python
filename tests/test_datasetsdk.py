@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import MagicMock
-from parameterized import parameterized
 
 from basalt.sdk.datasetsdk import DatasetSDK
 from basalt.utils.logger import Logger

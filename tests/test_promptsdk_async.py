@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, AsyncMock
 
 from basalt.sdk.promptsdk import PromptSDK
 from basalt.utils.logger import Logger
-from basalt.utils.dtos import GetPromptDTO, PromptResponse, DescribePromptDTO, DescribePromptResponse, PromptListDTO, PromptListResponse
+from basalt.utils.dtos import PromptResponse, DescribePromptResponse, PromptListResponse
 from basalt.endpoints.get_prompt import GetPromptEndpoint, GetPromptEndpointResponse
 from basalt.endpoints.list_prompts import ListPromptsEndpoint, ListPromptsEndpointResponse
 from basalt.endpoints.describe_prompt import DescribePromptEndpoint, DescribePromptEndpointResponse

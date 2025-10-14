@@ -1,9 +1,8 @@
-from datetime import datetime
 from typing import Dict, Optional, Any, List, Union
 
 from .base_log import BaseLog
 from ..ressources.monitor.generation_types import GenerationParams
-from ..ressources.monitor.base_log_types import BaseLogParams, LogType
+from ..ressources.monitor.base_log_types import LogType
 
 
 class Generation(BaseLog):

@@ -1,7 +1,7 @@
 from typing import Optional, TYPE_CHECKING, TypedDict
 from dataclasses import dataclass
 
-from .base_log_types import BaseLog, BaseLogParams, LogType, LogTypeStr
+from .base_log_types import BaseLog, BaseLogParams, LogTypeStr
 
 if TYPE_CHECKING:
     from .generation_types import Generation, GenerationParams

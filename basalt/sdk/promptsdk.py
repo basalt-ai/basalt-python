@@ -1,6 +1,5 @@
-from typing import Optional, Dict, Tuple, cast
+from typing import Optional, Dict, cast
 
-from ..ressources.monitor.generation_types import GenerationParams, PromptReference
 from ..ressources.monitor.trace_types import TraceParams
 from ..ressources.prompts.prompt_types import Prompt as IPrompt, PromptParams
 from ..utils.dtos import GetPromptDTO, GetPromptResult, PromptResponse, DescribePromptResponse, DescribePromptDTO, DescribeResult, ListResult, PromptListResponse, PromptListDTO

@@ -1,5 +1,5 @@
 from typing import Any, Optional, Protocol, Hashable, Tuple, TypeVar, Dict, Mapping, Literal
-from .dtos import GetPromptResult, DescribeResult, ListResult, ListDatasetsResult, GetDatasetResult, CreateDatasetItemResult, CreateExperimentResult
+from .dtos import GetPromptResult, DescribeResult, ListResult, ListDatasetsResult, GetDatasetResult, CreateDatasetItemResult
 
 from ..ressources.monitor.monitorsdk_types import IMonitorSDK
 
