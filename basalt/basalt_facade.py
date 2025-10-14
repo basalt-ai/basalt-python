@@ -17,7 +17,14 @@ global_fallback_cache = MemoryCache()
 
 class BasaltFacade(IBasaltSDK):
     """
-    The Basalt client.
+    The Basalt client facade providing unified access to SDK components.
+
+    This class serves as the main entry point for interacting with Basalt services,
+    providing access to prompts, monitoring, and datasets through a single interface.
+
+    Example:
+        >>> client = BasaltFacade(api_key="your-key")
+        >>> prompt = client.prompt.get("my-prompt")
     """
 
     def __init__(
@@ -33,7 +40,13 @@ class BasaltFacade(IBasaltSDK):
             api_key (str): The API key for authenticating with the Basalt SDK.
             log_level (str, optional): The log level for the logger. Defaults to 'all'. (all, warn, error, debug, none)
             cache (ICache, optional): The cache to use for the SDK. Defaults to None, which means a MemoryCache will be used.
+
+        Raises:
+            ValueError: If the API key is empty.
         """
+
+        if not api_key or not api_key.strip():
+            raise ValueError("API key cannot be empty")
 
         if cache is None:
             cache = MemoryCache()

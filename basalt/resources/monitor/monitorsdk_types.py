@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Optional, Protocol
 
 from .experiment_types import ExperimentParams
 from .generation_types import Generation, GenerationParams
@@ -41,7 +41,7 @@ class IMonitorSDK(Protocol):
         ```
     """
 
-    def create_trace(self, slug: str, params: TraceParams = None) -> Trace:
+    def create_trace(self, slug: str, params: Optional[TraceParams] = None) -> Trace:
         """Creates a new trace to monitor a complete user interaction or process flow.
 
         Args:
