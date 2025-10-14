@@ -1,3 +1,57 @@
+# This section defines the build system. It's standard for setuptools.
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "basalt_sdk"
+version = "0.4.0"
+description = "Basalt SDK for python"
+readme = "README.md" # Replaces long_description
+license = "MIT"
+keywords = ["basalt", "ai", "sdk", "python"]
+authors = [
+    { name = "Basalt", email = "support@getbasalt.ai" },
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "requests>=2.32",
+    "aiohttp>=3.8.0",
+    "jinja2>=3.1.0",
+]
+
+# This section lists URLs, replacing the `url` parameter
+[project.urls]
+Homepage = "https://github.com/basalt-ai/basalt-python"
+
+# This replaces dev-requirements.txt
+[project.optional-dependencies]
+dev = [
+    # Build tools
+    "setuptools",
+    "wheel",
+    "twine",
+    # Test dependencies
+    "parameterized",
+    "requests", # Often included for testing API clients
+    # Modern tooling
+    "ruff",
+    "pytest",
+    "pytest-cov",
+]
+
+# A recommended configuration for Ruff, the modern linter/formatter
+[tool.ruff]
+line-length = 99
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "T20"]
+
+[tool.ruff.format]
+quote-style = "double"
