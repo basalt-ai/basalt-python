@@ -24,12 +24,20 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
+googleapis-common-protos==1.70.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+grpcio==1.75.1
+    # via opentelemetry-exporter-otlp-proto-grpc
 id==1.5.0
     # via twine
 idna==3.11
     # via
     #   requests
     #   yarl
+importlib-metadata==8.7.0
+    # via opentelemetry-api
 iniconfig==2.1.0
     # via pytest
 jaraco-classes==3.4.0
@@ -62,6 +70,35 @@ multidict==6.7.0
     #   yarl
 nh3==0.3.1
     # via readme-renderer
+opentelemetry-api==1.38.0
+    # via
+    #   basalt-sdk (pyproject.toml)
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
+opentelemetry-exporter-otlp==1.38.0
+    # via basalt-sdk (pyproject.toml)
+opentelemetry-exporter-otlp-proto-common==1.38.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-grpc==1.38.0
+    # via opentelemetry-exporter-otlp
+opentelemetry-exporter-otlp-proto-http==1.38.0
+    # via opentelemetry-exporter-otlp
+opentelemetry-proto==1.38.0
+    # via
+    #   opentelemetry-exporter-otlp-proto-common
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-sdk==1.38.0
+    # via
+    #   basalt-sdk (pyproject.toml)
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+opentelemetry-semantic-conventions==0.59b0
+    # via opentelemetry-sdk
 packaging==25.0
     # via
     #   pytest
@@ -76,6 +113,10 @@ propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
+protobuf==6.33.0
+    # via
+    #   googleapis-common-protos
+    #   opentelemetry-proto
 pycparser==2.23
     # via cffi
 pygments==2.19.2
@@ -95,6 +136,7 @@ requests==2.32.5
     # via
     #   basalt-sdk (pyproject.toml)
     #   id
+    #   opentelemetry-exporter-otlp-proto-http
     #   requests-toolbelt
     #   twine
 requests-toolbelt==1.0.0
@@ -111,11 +153,23 @@ setuptools==80.9.0
     # via basalt-sdk (pyproject.toml)
 twine==6.2.0
     # via basalt-sdk (pyproject.toml)
+typing-extensions==4.15.0
+    # via
+    #   grpcio
+    #   opentelemetry-api
+    #   opentelemetry-exporter-otlp-proto-grpc
+    #   opentelemetry-exporter-otlp-proto-http
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
 urllib3==2.5.0
     # via
     #   requests
     #   twine
 wheel==0.45.1
     # via basalt-sdk (pyproject.toml)
+wrapt==1.17.3
+    # via basalt-sdk (pyproject.toml)
 yarl==1.22.0
     # via aiohttp
+zipp==3.23.0
+    # via importlib-metadata
