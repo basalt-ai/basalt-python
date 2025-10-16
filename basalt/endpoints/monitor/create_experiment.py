@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 
 # Minimal Experiment model (expand as needed)
@@ -14,7 +14,7 @@ class Experiment:
     # Add more fields as needed
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: dict[str, Any]):
         return cls(
             feature_slug=data.get("featureSlug") or data.get("feature_slug"),
             name=data.get("name"),
@@ -40,7 +40,7 @@ class CreateExperimentEndpoint:
     """
 
     @staticmethod
-    def prepare_request(dto: CreateExperimentDTO) -> Dict[str, Any]:
+    def prepare_request(dto: CreateExperimentDTO) -> dict[str, Any]:
         body = {
             "featureSlug": dto.feature_slug,
             "name": dto.name,
@@ -53,7 +53,7 @@ class CreateExperimentEndpoint:
         }
 
     @staticmethod
-    def decode_response(body: Any) -> Tuple[Optional[Exception], Optional[Output]]:
+    def decode_response(body: Any) -> tuple[Exception | None, Output | None]:
         if not isinstance(body, dict):
             return Exception("Failed to decode response (invalid body format)"), None
 

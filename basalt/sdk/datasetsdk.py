@@ -1,7 +1,7 @@
 """
 SDK for interacting with Basalt datasets
 """
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ..endpoints.create_dataset_item import CreateDatasetItemEndpoint
 from ..endpoints.get_dataset import GetDatasetEndpoint
@@ -118,10 +118,10 @@ class DatasetSDK(IDatasetSDK):
     async def add_row(
             self,
             slug: str,
-            values: Dict[str, str],
-            name: Optional[str] = None,
-            ideal_output: Optional[str] = None,
-            metadata: Optional[Dict[str, Any]] = None
+            values: dict[str, str],
+            name: str | None = None,
+            ideal_output: str | None = None,
+            metadata: dict[str, Any] | None = None
     ) -> CreateDatasetItemResult:
         """
         Create a new item in a dataset.
@@ -158,10 +158,10 @@ class DatasetSDK(IDatasetSDK):
     def add_row_sync(
             self,
             slug: str,
-            values: Dict[str, str],
-            name: Optional[str] = None,
-            ideal_output: Optional[str] = None,
-            metadata: Optional[Dict[str, Any]] = None
+            values: dict[str, str],
+            name: str | None = None,
+            ideal_output: str | None = None,
+            metadata: dict[str, Any] | None = None
     ) -> CreateDatasetItemResult:
         """
         Synchronously create a new item in a dataset.

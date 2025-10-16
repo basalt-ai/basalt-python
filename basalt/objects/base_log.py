@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..resources.monitor.base_log_types import BaseLogParams, LogType
 from ..resources.monitor.evaluator_types import Evaluator
@@ -55,7 +55,7 @@ class BaseLog:
         return self._name
 
     @property
-    def ideal_output(self) -> Optional[str]:
+    def ideal_output(self) -> str | None:
         """Get the ideal output."""
         return self._ideal_output
 
@@ -65,12 +65,12 @@ class BaseLog:
         return self._start_time
 
     @property
-    def end_time(self) -> Optional[datetime]:
+    def end_time(self) -> datetime | None:
         """Get the end time."""
         return self._end_time
 
     @property
-    def metadata(self) -> Optional[Dict[str, Any]]:
+    def metadata(self) -> dict[str, Any] | None:
         """Get the metadata."""
         return self._metadata
 
@@ -80,7 +80,7 @@ class BaseLog:
         return self._trace
 
     @property
-    def evaluators(self) -> List[Evaluator]:
+    def evaluators(self) -> list[Evaluator]:
         """Get the evaluators."""
         return self._evaluators
 
@@ -94,7 +94,7 @@ class BaseLog:
         self._start_time = datetime.now()
         return self
 
-    def set_metadata(self, metadata: Dict[str, Any]) -> 'BaseLog':
+    def set_metadata(self, metadata: dict[str, Any]) -> 'BaseLog':
         """Set the metadata."""
         self._metadata = metadata
         return self
@@ -111,7 +111,7 @@ class BaseLog:
         self._ideal_output = ideal_output
         return self
 
-    def update(self, params: Dict[str, Any]) -> 'BaseLog':
+    def update(self, params: dict[str, Any]) -> 'BaseLog':
         """Update the log."""
         self._name = params.get("name", self._name)
         self._metadata = params.get("metadata", self._metadata)
@@ -129,7 +129,7 @@ class BaseLog:
         self._end_time = datetime.now()
         return self
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the log to a dictionary for API serialization."""
         return {
             "id": self._id,

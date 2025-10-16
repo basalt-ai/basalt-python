@@ -1,4 +1,5 @@
-from typing import Any, Dict, Hashable, Literal, Mapping, Optional, Protocol, Tuple, TypeVar
+from collections.abc import Hashable, Mapping
+from typing import Any, Literal, Protocol, TypeVar
 
 from ..resources.monitor.monitorsdk_types import IMonitorSDK
 from .dtos import (
@@ -15,57 +16,57 @@ Output = TypeVar('Output')
 
 
 class ICache(Protocol):
-    def get(self, key: Hashable) -> Optional[Any]: ...
+    def get(self, key: Hashable) -> Any | None: ...
 
     def put(self, key: Hashable, value: Any, duration: int) -> None: ...
 
 
 class IEndpoint(Protocol[Input, Output]):
-    def prepare_request(self, dto: Optional[Input] = None) -> Dict[str, Any]: ...
+    def prepare_request(self, dto: Input | None = None) -> dict[str, Any]: ...
 
-    def decode_response(self, response: Any) -> Tuple[Optional[Exception], Optional[Output]]: ...
+    def decode_response(self, response: Any) -> tuple[Exception | None, Output | None]: ...
 
 
 class IApi(Protocol):
-    async def invoke(self, endpoint: IEndpoint[Input, Output], dto: Optional[Input] = None) -> Tuple[
-        Optional[Exception], Optional[Output]]: ...
+    async def invoke(self, endpoint: IEndpoint[Input, Output], dto: Input | None = None) -> tuple[
+        Exception | None, Output | None]: ...
 
-    def invoke_sync(self, endpoint: IEndpoint[Input, Output], dto: Optional[Input] = None) -> Tuple[
-        Optional[Exception], Optional[Output]]: ...
+    def invoke_sync(self, endpoint: IEndpoint[Input, Output], dto: Input | None = None) -> tuple[
+        Exception | None, Output | None]: ...
 
 
 class INetworker(Protocol):
     async def fetch(self,
                     url: str,
                     method: str,
-                    body: Optional[Any] = None,
-                    params: Optional[Mapping[str, str]] = None,
-                    headers: Optional[Mapping[str, str]] = None
-                    ) -> Tuple[Optional[Exception], Optional[Output]]: ...
+                    body: Any | None = None,
+                    params: Mapping[str, str] | None = None,
+                    headers: Mapping[str, str] | None = None
+                    ) -> tuple[Exception | None, Output | None]: ...
 
     def fetch_sync(self,
                    url: str,
                    method: str,
-                   body: Optional[Any] = None,
-                   params: Optional[Mapping[str, str]] = None,
-                   headers: Optional[Mapping[str, str]] = None
-                   ) -> Tuple[Optional[Exception], Optional[Output]]: ...
+                   body: Any | None = None,
+                   params: Mapping[str, str] | None = None,
+                   headers: Mapping[str, str] | None = None
+                   ) -> tuple[Exception | None, Output | None]: ...
 
 
 class IPromptSDK(Protocol):
-    async def get(self, slug: str,  version: Optional[str] = None, tag: Optional[str] = None,
-                  variables: Optional[Dict[str, str]] = None, cache_enabled: bool = True) -> GetPromptResult: ...
+    async def get(self, slug: str,  version: str | None = None, tag: str | None = None,
+                  variables: dict[str, str] | None = None, cache_enabled: bool = True) -> GetPromptResult: ...
 
-    def get_sync(self, slug: str,  version: Optional[str] = None, tag: Optional[str] = None,
-                 variables: Optional[Dict[str, str]] = None, cache_enabled: bool = True) -> GetPromptResult: ...
+    def get_sync(self, slug: str,  version: str | None = None, tag: str | None = None,
+                 variables: dict[str, str] | None = None, cache_enabled: bool = True) -> GetPromptResult: ...
 
-    async def describe(self, slug: str,  version: Optional[str] = None, tag: Optional[str] = None) -> DescribeResult: ...
+    async def describe(self, slug: str,  version: str | None = None, tag: str | None = None) -> DescribeResult: ...
 
-    def describe_sync(self, slug: str,  version: Optional[str] = None, tag: Optional[str] = None) -> DescribeResult: ...
+    def describe_sync(self, slug: str,  version: str | None = None, tag: str | None = None) -> DescribeResult: ...
 
-    async def list(self, feature_slug: Optional[str] = None) -> ListResult: ...
+    async def list(self, feature_slug: str | None = None) -> ListResult: ...
 
-    def list_sync(self, feature_slug: Optional[str] = None) -> ListResult: ...
+    def list_sync(self, feature_slug: str | None = None) -> ListResult: ...
 
 
 class IDatasetSDK(Protocol):
@@ -77,13 +78,13 @@ class IDatasetSDK(Protocol):
 
     def get_sync(self, slug: str) -> GetDatasetResult: ...
 
-    async def add_row(self, slug: str, values: Dict[str, str], name: Optional[str] = None,
-                      ideal_output: Optional[str] = None,
-                      metadata: Optional[Dict[str, Any]] = None) -> CreateDatasetItemResult: ...
+    async def add_row(self, slug: str, values: dict[str, str], name: str | None = None,
+                      ideal_output: str | None = None,
+                      metadata: dict[str, Any] | None = None) -> CreateDatasetItemResult: ...
 
-    def add_row_sync(self, slug: str, values: Dict[str, str], name: Optional[str] = None,
-                     ideal_output: Optional[str] = None,
-                     metadata: Optional[Dict[str, Any]] = None) -> CreateDatasetItemResult: ...
+    def add_row_sync(self, slug: str, values: dict[str, str], name: str | None = None,
+                     ideal_output: str | None = None,
+                     metadata: dict[str, Any] | None = None) -> CreateDatasetItemResult: ...
 
 
 class IBasaltSDK(Protocol):

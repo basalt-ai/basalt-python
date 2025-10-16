@@ -1,6 +1,20 @@
-"""Tracing package for basalt (placeholder).
+"""Tracing package for basalt.
 
-This package will hold tracing helpers and telemetry setup.
+This package provides OpenTelemetry tracing setup and utilities.
 """
 
-__all__ = []
+from .provider import (
+    BasaltConfig,
+    create_tracer_provider,
+    get_tracer,
+    setup_tracing,
+    shutdown_tracing,
+)
+
+__all__ = [
+    "BasaltConfig",
+    "create_tracer_provider",
+    "get_tracer",
+    "setup_tracing",
+    "shutdown_tracing",
+]

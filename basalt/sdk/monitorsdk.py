@@ -1,4 +1,3 @@
-from typing import Optional
 
 from ..endpoints.monitor.create_experiment import CreateExperimentDTO, CreateExperimentEndpoint
 from ..objects.experiment import Experiment
@@ -64,7 +63,7 @@ class MonitorSDK:
     def create_trace(
             self,
             slug: str,
-            params: Optional[TraceParams] = None
+            params: TraceParams | None = None
     ) -> Trace:
         """
         Creates a new trace for monitoring.

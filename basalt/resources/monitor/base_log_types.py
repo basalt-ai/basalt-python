@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, TypedDict, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypedDict, TypeVar
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -58,13 +58,13 @@ class BaseLogParams(_BaseLogParamsRequired, TypedDict, total=False):
             Every log must be associated with a trace.
         evaluators: The evaluators to attach to the log.
     """
-    ideal_output: Optional[str]
-    start_time: Optional[Union[datetime, str]]
-    end_time: Optional[Union[datetime, str]]
-    metadata: Optional[Dict[str, Any]]
+    ideal_output: str | None
+    start_time: datetime | str | None
+    end_time: datetime | str | None
+    metadata: dict[str, Any] | None
     parent: Optional['Log']
     trace: Optional['Trace']
-    evaluators: Optional[List[Evaluator]]
+    evaluators: list[Evaluator] | None
 
 
 @dataclass
@@ -92,12 +92,12 @@ class BaseLog:
     name: str
     type: LogType
     id: str = field(default_factory=lambda: str(f'log-{uuid4().hex[:8]}'))
-    start_time: Optional[Union[datetime, str]] = None
-    end_time: Optional[Union[datetime, str]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    start_time: datetime | str | None = None
+    end_time: datetime | str | None = None
+    metadata: dict[str, Any] | None = None
     parent: Optional['Log'] = None
     trace: Optional['Trace'] = None
-    evaluators: List[Evaluator] = field(default_factory=list)
+    evaluators: list[Evaluator] = field(default_factory=list)
 
     def start(self: SelfType) -> SelfType:
         """Marks the log as started and sets the start time if not already set.
@@ -107,7 +107,7 @@ class BaseLog:
         """
         ...
 
-    def set_metadata(self: SelfType, metadata: Optional[Dict[str, Any]] = None) -> SelfType:
+    def set_metadata(self: SelfType, metadata: dict[str, Any] | None = None) -> SelfType:
         """Sets the metadata for the log.
 
         Args:
@@ -129,7 +129,7 @@ class BaseLog:
         """
         ...
 
-    def update(self: SelfType, params: Dict[str, Any]) -> SelfType:
+    def update(self: SelfType, params: dict[str, Any]) -> SelfType:
         """Updates the log with new parameters.
 
         Args:

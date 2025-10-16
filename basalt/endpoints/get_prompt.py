@@ -1,16 +1,16 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from ..utils.dtos import GetPromptDTO, PromptResponse
 
 
 @dataclass
 class GetPromptEndpointResponse:
-    warning: Optional[str]
+    warning: str | None
     prompt: PromptResponse
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "GetPromptEndpointResponse":
+    def from_dict(cls, data: dict[str, Any]) -> "GetPromptEndpointResponse":
         """
         Create an instance of GetPromptEndpointResponse from a dictionary.
 
@@ -32,7 +32,7 @@ class GetPromptEndpoint:
     """
 
     @staticmethod
-    def prepare_request(dto: GetPromptDTO) -> Dict[str, Any]:
+    def prepare_request(dto: GetPromptDTO) -> dict[str, Any]:
         """
         Prepare the request dictionary for the GetPrompt endpoint.
 
@@ -52,7 +52,7 @@ class GetPromptEndpoint:
         }
 
     @staticmethod
-    def decode_response(response: dict) -> Tuple[Optional[Exception], Optional[GetPromptEndpointResponse]]:
+    def decode_response(response: dict) -> tuple[Exception | None, GetPromptEndpointResponse | None]:
         """
         Decode the response returned from the API
 

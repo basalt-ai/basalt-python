@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..resources.monitor.base_log_types import LogType
 from ..resources.monitor.generation_types import GenerationParams
@@ -48,51 +48,51 @@ class Generation(BaseLog):
         self._options = params.get("options")
 
     @property
-    def prompt(self) -> Optional[Dict[str, Any]]:
+    def prompt(self) -> dict[str, Any] | None:
         """Get the generation prompt."""
         return self._prompt
 
     @property
-    def input(self) -> Optional[str]:
+    def input(self) -> str | None:
         """Get the generation input."""
         return self._input
 
     @property
-    def output(self) -> Optional[str]:
+    def output(self) -> str | None:
         """Get the generation output."""
         return self._output
 
     @property
-    def input_tokens(self) -> Optional[int]:
+    def input_tokens(self) -> int | None:
         """Get the generation input tokens."""
         return self._input_tokens
 
     @property
-    def output_tokens(self) -> Optional[int]:
+    def output_tokens(self) -> int | None:
         """Get the generation output tokens."""
         return self._output_tokens
 
     @property
-    def cost(self) -> Optional[float]:
+    def cost(self) -> float | None:
         """Get the generation cost."""
         return self._cost
 
     @property
-    def variables(self) -> List[Dict[str, str]]:
+    def variables(self) -> list[dict[str, str]]:
         """Get the generation variables."""
         return self._variables
 
     @property
-    def options(self) -> Optional[Dict[str, Any]]:
+    def options(self) -> dict[str, Any] | None:
         """Get the generation options."""
         return self._options
 
     @options.setter
-    def options(self, options: Dict[str, Any]):
+    def options(self, options: dict[str, Any]):
         """Set the generation options."""
         self._options = options
 
-    def start(self, input: Optional[str] = None) -> 'Generation':
+    def start(self, input: str | None = None) -> 'Generation':
         """
         Start the generation with an optional input.
 
@@ -108,7 +108,7 @@ class Generation(BaseLog):
         super().start()
         return self
 
-    def end(self, output: Optional[Union[str, Dict[str, Any]]] = None) -> 'Generation':
+    def end(self, output: str | dict[str, Any] | None = None) -> 'Generation':
         """
         End the generation with an optional output or update parameters.
 
@@ -132,7 +132,7 @@ class Generation(BaseLog):
 
         return self
 
-    def update(self, params: Dict[str, Any]) -> 'Generation':
+    def update(self, params: dict[str, Any]) -> 'Generation':
         """
         Update the generation.
 

@@ -1,4 +1,3 @@
-from typing import Optional
 
 from .basaltsdk import BasaltSDK
 from .config import config
@@ -31,7 +30,7 @@ class BasaltFacade(IBasaltSDK):
             self,
             api_key: str,
             log_level: LogLevel = "all",
-            cache: Optional[ICache] = None,
+            cache: ICache | None = None,
     ):
         """
         Initializes the Basalt client with the given API key and log level.

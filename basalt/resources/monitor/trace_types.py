@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Optional, TypedDict
 
 from .evaluator_types import EvaluationConfig, Evaluator
 from .experiment_types import Experiment
@@ -27,18 +27,18 @@ class Organization(TypedDict):
 
 class TraceParams(TypedDict, total=False):
     """Parameters for creating or updating a trace."""
-    name: Optional[str]
-    input: Optional[str]
-    output: Optional[str]
-    ideal_output: Optional[str]
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
-    user: Optional[User]
+    name: str | None
+    input: str | None
+    output: str | None
+    ideal_output: str | None
+    start_time: datetime | None
+    end_time: datetime | None
+    user: User | None
     organization: Optional['Organization']
-    metadata: Optional[Dict[str, Any]]
-    experiment: Optional[Experiment]
-    evaluators: Optional[List[Evaluator]]
-    evaluation_config: Optional[EvaluationConfig]
+    metadata: dict[str, Any] | None
+    experiment: Experiment | None
+    evaluators: list[Evaluator] | None
+    evaluation_config: EvaluationConfig | None
 
 
 @dataclass
@@ -78,21 +78,21 @@ class Trace:
         trace.end('Paris is the capital of France.')
         ```
     """
-    name: Optional[str]
-    input: Optional[str]
-    output: Optional[str]
-    ideal_output: Optional[str]
+    name: str | None
+    input: str | None
+    output: str | None
+    ideal_output: str | None
     start_time: datetime
-    end_time: Optional[datetime]
-    user: Optional[User]
-    organization: Optional[Organization]
-    metadata: Optional[Dict[str, Any]]
+    end_time: datetime | None
+    user: User | None
+    organization: Organization | None
+    metadata: dict[str, Any] | None
     experiment: Optional['Experiment']
-    evaluators: Optional[List[Evaluator]]
-    evaluation_config: Optional[EvaluationConfig]
-    logs: List['BaseLog'] = field(default_factory=list)
+    evaluators: list[Evaluator] | None
+    evaluation_config: EvaluationConfig | None
+    logs: list['BaseLog'] = field(default_factory=list)
 
-    def start(self, input: Optional[str] = None) -> 'Trace':
+    def start(self, input: str | None = None) -> 'Trace':
         """Marks the trace as started and sets the input if provided.
 
         Args:
@@ -116,7 +116,7 @@ class Trace:
         """Sets the ideal output for the trace."""
         ...
 
-    def set_metadata(self, metadata: Dict[str, Any]) -> 'Trace':
+    def set_metadata(self, metadata: dict[str, Any]) -> 'Trace':
         """Sets or updates the metadata for this trace.
 
         Args:
@@ -298,7 +298,7 @@ class Trace:
         """
         ...
 
-    async def end(self, output: Optional[str] = None) -> 'Trace':
+    async def end(self, output: str | None = None) -> 'Trace':
         """Marks the trace as ended and sets the output if provided.
 
         Args:
@@ -318,7 +318,7 @@ class Trace:
         """
         ...
 
-    def end_sync(self, output: Optional[str] = None) -> 'Trace':
+    def end_sync(self, output: str | None = None) -> 'Trace':
         """Marks the trace as ended and sets the output if provided.
 
         Args:

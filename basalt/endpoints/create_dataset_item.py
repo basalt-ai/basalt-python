@@ -2,7 +2,7 @@
 Endpoint for creating a new dataset item
 """
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from ..utils.dtos import CreateDatasetItemDTO, DatasetRowDTO
 
@@ -13,11 +13,11 @@ class CreateDatasetItemEndpointResponse:
     Response from the create dataset item endpoint
     """
     datasetRow: DatasetRowDTO
-    warning: Optional[str] = None
-    error: Optional[str] = None
+    warning: str | None = None
+    error: str | None = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CreateDatasetItemEndpointResponse":
+    def from_dict(cls, data: dict[str, Any]) -> "CreateDatasetItemEndpointResponse":
         """
         Create an instance of CreateDatasetItemEndpointResponse from a dictionary.
 
@@ -43,7 +43,7 @@ class CreateDatasetItemEndpoint:
     """
 
     @staticmethod
-    def prepare_request(dto: CreateDatasetItemDTO) -> Dict[str, Any]:
+    def prepare_request(dto: CreateDatasetItemDTO) -> dict[str, Any]:
         """
         Prepare the request dictionary for the CreateDatasetItem endpoint.
 
@@ -73,7 +73,7 @@ class CreateDatasetItemEndpoint:
         }
 
     @staticmethod
-    def decode_response(response: dict) -> Tuple[Optional[Exception], Optional[CreateDatasetItemEndpointResponse]]:
+    def decode_response(response: dict) -> tuple[Exception | None, CreateDatasetItemEndpointResponse | None]:
         """
         Decode the response returned from the API
 

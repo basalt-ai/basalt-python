@@ -1,6 +1,6 @@
 """Module for flushing traces to the API."""
 import json
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 from ..endpoints.monitor.send_trace import SendTraceEndpoint
 
@@ -18,7 +18,7 @@ class Flusher:
         self._api = api
         self._logger = logger
 
-    def _trace_to_dict(self, trace: 'Trace') -> Dict[str, Any]:
+    def _trace_to_dict(self, trace: 'Trace') -> dict[str, Any]:
         """
         Convert a trace to a dictionary.
 
@@ -49,7 +49,7 @@ class Flusher:
         }
 
     @staticmethod
-    def _log_to_dict(log: Any) -> Dict[str, Any]:
+    def _log_to_dict(log: Any) -> dict[str, Any]:
         """
         Convert a log to a dictionary.
 

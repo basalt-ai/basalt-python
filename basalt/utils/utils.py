@@ -1,7 +1,7 @@
-from typing import Any, Dict
+from typing import Any
 
 
-def pick_typed(dict: Dict[str, Any], field_name: str, expected_type: Any) -> Any:
+def pick_typed(dict: dict[str, Any], field_name: str, expected_type: Any) -> Any:
     value = dict.get(field_name)
 
     if not isinstance(value, expected_type):
@@ -14,7 +14,7 @@ def pick_typed(dict: Dict[str, Any], field_name: str, expected_type: Any) -> Any
     return value
 
 
-def pick_number(dict: Dict[str, Any], field_name: str) -> float:
+def pick_number(dict: dict[str, Any], field_name: str) -> float:
     value = dict.get(field_name)
 
     if isinstance(value, float):

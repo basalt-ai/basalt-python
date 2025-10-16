@@ -23,6 +23,8 @@ dependencies = [
     "requests>=2.32",
     "aiohttp>=3.8.0",
     "jinja2>=3.1.0",
+    "opentelemetry-instrumentation>=0.58b0",
+    "opentelemetry-semantic-conventions>=0.58b0",
     "opentelemetry-api>=1.38.0",
     "opentelemetry-sdk>=1.38.0",
     "opentelemetry-exporter-otlp>=1.38.0",
@@ -47,12 +49,14 @@ dev = [
     "ruff",
     "pytest",
     "pytest-cov",
+    "coverage>=7.11.0",
+
 ]
 
 # A recommended configuration for Ruff, the modern linter/formatter
 [tool.ruff]
 line-length = 120
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "T20"]

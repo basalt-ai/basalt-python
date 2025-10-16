@@ -2,11 +2,11 @@
 Endpoint for sending a trace to the API.
 """
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, TypeVar
+from typing import Any, TypeVar
 
 # Define type variables for the endpoint
-Input = TypeVar('Input', bound=Dict[str, Any])
-Output = TypeVar('Output', bound=Dict[str, Any])
+Input = TypeVar('Input', bound=dict[str, Any])
+Output = TypeVar('Output', bound=dict[str, Any])
 
 
 class SendTraceEndpoint:
@@ -14,7 +14,7 @@ class SendTraceEndpoint:
     Endpoint for sending a trace to the API.
     """
 
-    def prepare_request(self, dto: Optional[Input] = None) -> Dict[str, Any]:
+    def prepare_request(self, dto: Input | None = None) -> dict[str, Any]:
         """
         Prepares the request for sending a trace.
 
@@ -132,7 +132,7 @@ class SendTraceEndpoint:
             "body": body
         }
 
-    def decode_response(self, response: Any) -> Tuple[Optional[Exception], Optional[Output]]:
+    def decode_response(self, response: Any) -> tuple[Exception | None, Output | None]:
         """
         Decodes the response from sending a trace.
 

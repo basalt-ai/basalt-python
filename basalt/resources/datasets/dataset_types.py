@@ -2,7 +2,7 @@
 Dataset types module for Basalt SDK
 """
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -19,13 +19,13 @@ class DatasetRow:
     """
     A row in a dataset
     """
-    values: List[DatasetRowValue]
-    name: Optional[str] = None
-    idealOutput: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    values: list[DatasetRowValue]
+    name: str | None = None
+    idealOutput: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetRow":
+    def from_dict(cls, data: dict[str, Any]) -> "DatasetRow":
         """Create a DatasetRow from a dictionary"""
         values_list = []
         if "values" in data:
@@ -51,11 +51,11 @@ class Dataset:
     """
     slug: str
     name: str
-    columns: List[str]
-    rows: List[DatasetRow] = field(default_factory=list)
+    columns: list[str]
+    rows: list[DatasetRow] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Dataset":
+    def from_dict(cls, data: dict[str, Any]) -> "Dataset":
         """Create a Dataset from a dictionary"""
         rows = []
         if "rows" in data:

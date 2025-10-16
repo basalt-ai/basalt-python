@@ -1,5 +1,6 @@
 import time
-from typing import Any, Dict, Hashable
+from collections.abc import Hashable
+from typing import Any
 
 from .protocols import ICache
 
@@ -11,8 +12,8 @@ class MemoryCache(ICache):
     """
 
     def __init__(self):
-        self._mem: Dict[Hashable, Any] = {}
-        self._timeouts: Dict[Hashable, float] = {}
+        self._mem: dict[Hashable, Any] = {}
+        self._timeouts: dict[Hashable, float] = {}
 
     def get(self, key: Hashable):
         """

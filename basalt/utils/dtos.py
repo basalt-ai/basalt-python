@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ..resources.monitor.experiment_types import Experiment
 from ..resources.monitor.generation_types import Generation
@@ -12,17 +12,17 @@ from .utils import pick_number, pick_typed
 class PromptModelParameters:
     temperature: float
     top_k: float
-    top_p: Optional[float]
+    top_p: float | None
 
-    frequency_penalty: Optional[float]
-    presence_penalty: Optional[float]
+    frequency_penalty: float | None
+    presence_penalty: float | None
 
     max_length: int
     response_format: str
-    json_object: Optional[dict]
+    json_object: dict | None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: dict[str, Any]):
         return cls(
             temperature=pick_number(data, "temperature"),
             frequency_penalty=pick_number(data, 'frequencyPenalty') if data.get("frequencyPenalty") else None,
@@ -43,7 +43,7 @@ class PromptModel:
     parameters: PromptModelParameters
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: dict[str, Any]):
         return cls(
             provider=pick_typed(data, "provider", str),
             model=pick_typed(data, "model", str),
@@ -62,7 +62,7 @@ class PromptResponse:
     systemText: str
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: dict[str, Any]):
         return cls(
             slug=pick_typed(data, "slug", str),
             tag=pick_typed(data, "tag", str),
@@ -76,11 +76,11 @@ class PromptResponse:
 @dataclass(frozen=True)
 class GetPromptDTO:
     slug: str
-    tag: Optional[str] = None
-    version: Optional[str] = None
+    tag: str | None = None
+    version: str | None = None
 
 
-GetPromptResult = Tuple[Optional[Exception], Optional[Prompt], Optional[Generation]]
+GetPromptResult = tuple[Exception | None, Prompt | None, Generation | None]
 
 
 # ------------------------------ Describe Prompt ----------------------------- #
@@ -90,12 +90,12 @@ class DescribePromptResponse:
     status: str
     name: str
     description: str
-    available_versions: List[str]
-    available_tags: List[str]
-    variables: List[Dict[str, str]]
+    available_versions: list[str]
+    available_tags: list[str]
+    variables: list[dict[str, str]]
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: dict[str, Any]):
         return cls(
             slug=pick_typed(data, "slug", str) if data.get("slug") else None,
             status=pick_typed(data, "status", str),
@@ -110,11 +110,11 @@ class DescribePromptResponse:
 @dataclass(frozen=True)
 class DescribePromptDTO:
     slug: str
-    tag: Optional[str] = None
-    version: Optional[str] = None
+    tag: str | None = None
+    version: str | None = None
 
 
-DescribeResult = Tuple[Optional[Exception], Optional[DescribePromptResponse]]
+DescribeResult = tuple[Exception | None, DescribePromptResponse | None]
 
 
 # ------------------------------ List Prompts ----------------------------- #
@@ -124,11 +124,11 @@ class PromptListResponse:
     status: str
     name: str
     description: str
-    available_versions: List[str]
-    available_tags: List[str]
+    available_versions: list[str]
+    available_tags: list[str]
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]):
+    def from_dict(cls, data: dict[str, Any]):
         return cls(
             slug=pick_typed(data, "slug", str) if data.get("slug") else None,
             status=pick_typed(data, "status", str),
@@ -141,10 +141,10 @@ class PromptListResponse:
 
 @dataclass(frozen=True)
 class PromptListDTO:
-    featureSlug: Optional[str] = None
+    featureSlug: str | None = None
 
 
-ListResult = Tuple[Optional[Exception], Optional[List[PromptListResponse]]]
+ListResult = tuple[Exception | None, list[PromptListResponse] | None]
 
 
 # ------------------------------ Datasets ----------------------------- #
@@ -153,11 +153,11 @@ class DatasetDTO:
     """Dataset data transfer object"""
     slug: str
     name: str
-    columns: List[str]
-    rows: List['DatasetRowDTO'] = None
+    columns: list[str]
+    rows: list['DatasetRowDTO'] = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetDTO":
+    def from_dict(cls, data: dict[str, Any]) -> "DatasetDTO":
         return cls(
             slug=data["slug"],
             name=data["name"],
@@ -169,13 +169,13 @@ class DatasetDTO:
 @dataclass
 class DatasetRowDTO:
     """Dataset row data transfer object"""
-    values: Dict[str, str]
-    name: Optional[str] = None
-    idealOutput: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    values: dict[str, str]
+    name: str | None = None
+    idealOutput: str | None = None
+    metadata: dict[str, Any] = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetRowDTO":
+    def from_dict(cls, data: dict[str, Any]) -> "DatasetRowDTO":
         return cls(
             values=data["values"],
             name=data.get("name", None),
@@ -200,16 +200,16 @@ class GetDatasetDTO:
 class CreateDatasetItemDTO:
     """DTO for creating a dataset item"""
     slug: str
-    values: Dict[str, str]
-    name: Optional[str] = None
-    idealOutput: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    values: dict[str, str]
+    name: str | None = None
+    idealOutput: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 # Result types for dataset operations
-ListDatasetsResult = Tuple[Optional[Exception], Optional[List[DatasetDTO]]]
-GetDatasetResult = Tuple[Optional[Exception], Optional[DatasetDTO]]
-CreateDatasetItemResult = Tuple[Optional[Exception], Optional[DatasetRowDTO], Optional[str]]
+ListDatasetsResult = tuple[Exception | None, list[DatasetDTO] | None]
+GetDatasetResult = tuple[Exception | None, DatasetDTO | None]
+CreateDatasetItemResult = tuple[Exception | None, DatasetRowDTO | None, str | None]
 
 # Result types for monitor operations
-CreateExperimentResult = Tuple[Optional[Exception], Optional[Experiment]]
+CreateExperimentResult = tuple[Exception | None, Experiment | None]

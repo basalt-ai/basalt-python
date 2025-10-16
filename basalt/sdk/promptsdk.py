@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, Optional, cast
+from typing import cast
 
 from ..endpoints.describe_prompt import DescribePromptEndpoint
 from ..endpoints.get_prompt import GetPromptEndpoint
@@ -48,9 +48,9 @@ class PromptSDK:
     async def get(
             self,
             slug: str,
-            version: Optional[str] = None,
-            tag: Optional[str] = None,
-            variables: Optional[Dict[str, str]] = None,
+            version: str | None = None,
+            tag: str | None = None,
+            variables: dict[str, str] | None = None,
             cache_enabled: bool = True
     ) -> GetPromptResult:
         """
@@ -109,9 +109,9 @@ class PromptSDK:
     def get_sync(
             self,
             slug: str,
-            version: Optional[str] = None,
-            tag: Optional[str] = None,
-            variables: Optional[Dict[str, str]] = None,
+            version: str | None = None,
+            tag: str | None = None,
+            variables: dict[str, str] | None = None,
             cache_enabled: bool = True
     ) -> GetPromptResult:
         """
@@ -208,8 +208,8 @@ class PromptSDK:
     async def describe(
             self,
             slug: str,
-            version: Optional[str] = None,
-            tag: Optional[str] = None,
+            version: str | None = None,
+            tag: str | None = None,
     ) -> DescribeResult:
         """
         Get details about a prompt by slug, optionally specifying version and tag.
@@ -248,8 +248,8 @@ class PromptSDK:
     def describe_sync(
             self,
             slug: str,
-            version: Optional[str] = None,
-            tag: Optional[str] = None,
+            version: str | None = None,
+            tag: str | None = None,
     ) -> DescribeResult:
         """
         Synchronously get details about a prompt by slug, optionally specifying version and tag.
@@ -285,7 +285,7 @@ class PromptSDK:
 
         return err, None
 
-    async def list(self, feature_slug: Optional[str] = None) -> ListResult:
+    async def list(self, feature_slug: str | None = None) -> ListResult:
         """
         List prompts, optionally filtering by feature_slug.
 
@@ -311,7 +311,7 @@ class PromptSDK:
             available_tags=prompt.available_tags
         ) for prompt in result.prompts]
 
-    def list_sync(self, feature_slug: Optional[str] = None) -> ListResult:
+    def list_sync(self, feature_slug: str | None = None) -> ListResult:
         """
         Synchronously list prompts, optionally filtering by feature_slug.
 
@@ -340,7 +340,7 @@ class PromptSDK:
     @staticmethod
     def _create_prompt_instance(
             prompt_response: PromptResponse,
-            variables: Optional[dict] = None
+            variables: dict | None = None
     ) -> Prompt:
         return Prompt(PromptParams(
             slug=prompt_response.slug,

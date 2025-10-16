@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 
 from ..resources.monitor.generation_types import GenerationParams
 from ..resources.monitor.log_types import LogParams
@@ -17,16 +17,16 @@ class Log(BaseLog):
         self._output = None
 
     @property
-    def input(self) -> Optional[str]:
+    def input(self) -> str | None:
         """Get the log input."""
         return self._input
 
     @property
-    def output(self) -> Optional[str]:
+    def output(self) -> str | None:
         """Get the log output."""
         return self._output
 
-    def start(self, input: Optional[str] = None) -> 'Log':
+    def start(self, input: str | None = None) -> 'Log':
         """
         Start the log with an optional input.
 
@@ -42,7 +42,7 @@ class Log(BaseLog):
         super().start()
         return self
 
-    def end(self, output: Optional[str] = None) -> 'Log':
+    def end(self, output: str | None = None) -> 'Log':
         """
         End the log with an optional output.
 
@@ -85,7 +85,7 @@ class Log(BaseLog):
 
         return self
 
-    def update(self, params: Dict[str, Any]) -> 'Log':
+    def update(self, params: dict[str, Any]) -> 'Log':
         """
         Update the log with new parameters.
 

@@ -3,7 +3,7 @@ Dataset object for Basalt SDK
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -11,12 +11,12 @@ class DatasetRow:
     """
     A row in a dataset with values and metadata
     """
-    values: Dict[str, str]
-    name: Optional[str] = None
-    ideal_output: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    values: dict[str, str]
+    name: str | None = None
+    ideal_output: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the DatasetRow to a dictionary for API requests"""
         result = {
             "values": self.values,
@@ -28,7 +28,7 @@ class DatasetRow:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DatasetRow":
+    def from_dict(cls, data: dict[str, Any]) -> "DatasetRow":
         """
         Create a DatasetRow instance from a dictionary
 
@@ -53,10 +53,10 @@ class Dataset:
     """
     slug: str
     name: str
-    columns: List[str]
-    rows: List[DatasetRow] = field(default_factory=list)
+    columns: list[str]
+    rows: list[DatasetRow] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the Dataset to a dictionary for API responses"""
         return {
             "slug": self.slug,
@@ -66,7 +66,7 @@ class Dataset:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Dataset":
+    def from_dict(cls, data: dict[str, Any]) -> "Dataset":
         """
         Create a Dataset instance from a dictionary
 

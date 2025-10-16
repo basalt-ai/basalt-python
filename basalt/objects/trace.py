@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from ..resources.monitor.evaluator_types import Evaluator
 from ..resources.monitor.generation_types import GenerationParams
@@ -31,7 +31,7 @@ class Trace:
         self._organization = params.get("organization")
         self._metadata = params.get("metadata")
 
-        self._logs: List[BaseLog] = []
+        self._logs: list[BaseLog] = []
 
         self._flusher = flusher
         self._is_ended = False
@@ -51,22 +51,22 @@ class Trace:
                 self._experiment = experiment
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """Get the trace name."""
         return self._name
 
     @property
-    def input(self) -> Optional[str]:
+    def input(self) -> str | None:
         """Get the trace input."""
         return self._input
 
     @property
-    def output(self) -> Optional[str]:
+    def output(self) -> str | None:
         """Get the trace output."""
         return self._output
 
     @property
-    def ideal_output(self) -> Optional[str]:
+    def ideal_output(self) -> str | None:
         """Get the trace ideal_output."""
         return self._ideal_output
 
@@ -76,27 +76,27 @@ class Trace:
         return self._start_time
 
     @property
-    def user(self) -> Optional[Dict[str, Any]]:
+    def user(self) -> dict[str, Any] | None:
         """Get the user information."""
         return self._user
 
     @property
-    def organization(self) -> Optional[Dict[str, Any]]:
+    def organization(self) -> dict[str, Any] | None:
         """Get the organization information."""
         return self._organization
 
     @property
-    def metadata(self) -> Optional[Dict[str, Any]]:
+    def metadata(self) -> dict[str, Any] | None:
         """Get the metadata."""
         return self._metadata
 
     @property
-    def logs(self) -> List['BaseLog']:
+    def logs(self) -> list['BaseLog']:
         """Get the logs."""
         return self._logs
 
     @logs.setter
-    def logs(self, logs: List['BaseLog']):
+    def logs(self, logs: list['BaseLog']):
         """Set the logs."""
         self._logs = logs
 
@@ -106,7 +106,7 @@ class Trace:
         return self._feature_slug
 
     @property
-    def end_time(self) -> Optional[datetime]:
+    def end_time(self) -> datetime | None:
         """Get the end time."""
         return self._end_time
 
@@ -116,16 +116,16 @@ class Trace:
         return self._experiment
 
     @property
-    def evaluation_config(self) -> Optional[Dict[str, Any]]:
+    def evaluation_config(self) -> dict[str, Any] | None:
         """Get the evaluation configuration."""
         return self._evaluation_config
 
     @property
-    def evaluators(self) -> Optional[List[Dict[str, Any]]]:
+    def evaluators(self) -> list[dict[str, Any]] | None:
         """Get the evaluators."""
         return self._evaluators
 
-    def start(self, input: Optional[str] = None) -> 'Trace':
+    def start(self, input: str | None = None) -> 'Trace':
         """
         Start the trace with an optional input.
 
@@ -165,7 +165,7 @@ class Trace:
         self._organization = organization
         return self
 
-    def set_metadata(self, metadata: Dict[str, Any]) -> 'Trace':
+    def set_metadata(self, metadata: dict[str, Any]) -> 'Trace':
         """
         Set metadata for the trace.
 
@@ -178,7 +178,7 @@ class Trace:
         self._metadata = metadata
         return self
 
-    def set_evaluation_config(self, config: Dict[str, Any]) -> 'Trace':
+    def set_evaluation_config(self, config: dict[str, Any]) -> 'Trace':
         """
         Set the evaluation configuration for the trace.
 
@@ -191,7 +191,7 @@ class Trace:
         self._evaluation_config = config
         return self
 
-    def set_experiment(self, experiment: Dict[str, Any]) -> 'Trace':
+    def set_experiment(self, experiment: dict[str, Any]) -> 'Trace':
         """
         Set the experiment for the trace.
 
@@ -220,7 +220,7 @@ class Trace:
         self._evaluators.append(evaluator)
         return self
 
-    def update(self, params: Dict[str, Any]) -> 'Trace':
+    def update(self, params: dict[str, Any]) -> 'Trace':
         """
         Update the trace.
 
@@ -301,7 +301,7 @@ class Trace:
 
         return log
 
-    async def end(self, output: Optional[str] = None) -> 'Trace':
+    async def end(self, output: str | None = None) -> 'Trace':
         """
         End the trace with an optional output.
 
@@ -321,7 +321,7 @@ class Trace:
 
         return self
 
-    def end_sync(self, output: Optional[str] = None) -> 'Trace':
+    def end_sync(self, output: str | None = None) -> 'Trace':
         """
         End the trace with an optional output synchronously.
 
@@ -341,7 +341,7 @@ class Trace:
 
         return self
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the trace to a dictionary for API serialization."""
         return {
             "feature_slug": self._feature_slug,

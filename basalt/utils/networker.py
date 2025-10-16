@@ -1,4 +1,5 @@
-from typing import Any, Dict, Mapping, Optional, Tuple
+from collections.abc import Mapping
+from typing import Any
 
 import aiohttp
 import requests
@@ -20,10 +21,10 @@ class Networker(INetworker):
             self,
             url: str,
             method: str,
-            body: Optional[Any] = None,
-            params: Optional[Mapping[str, str]] = None,
-            headers: Optional[Mapping[str, str]] = None
-    ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
+            body: Any | None = None,
+            params: Mapping[str, str] | None = None,
+            headers: Mapping[str, str] | None = None
+    ) -> tuple[FetchError | None, dict[str, Any] | None]:
         """
         Fetch data from a given URL using the specified HTTP method.
 
@@ -93,10 +94,10 @@ class Networker(INetworker):
             self,
             url: str,
             method: str,
-            body: Optional[Any] = None,
-            params: Optional[Mapping[str, str]] = None,
-            headers: Optional[Mapping[str, str]] = None
-    ) -> Tuple[Optional[FetchError], Optional[Dict[str, Any]]]:
+            body: Any | None = None,
+            params: Mapping[str, str] | None = None,
+            headers: Mapping[str, str] | None = None
+    ) -> tuple[FetchError | None, dict[str, Any] | None]:
         """
         Synchronously fetch data from a given URL using the specified HTTP method. This method should never throw.
 

@@ -2,7 +2,7 @@
 Endpoint for listing all datasets
 """
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ..utils.dtos import DatasetDTO, ListDatasetsDTO
 
@@ -12,10 +12,10 @@ class ListDatasetsEndpointResponse:
     """
     Response from the list datasets endpoint
     """
-    datasets: List[DatasetDTO]
+    datasets: list[DatasetDTO]
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ListDatasetsEndpointResponse":
+    def from_dict(cls, data: dict[str, Any]) -> "ListDatasetsEndpointResponse":
         """
         Create an instance of ListDatasetsEndpointResponse from a dictionary.
 
@@ -36,7 +36,7 @@ class ListDatasetsEndpoint:
     """
 
     @staticmethod
-    def prepare_request(dto: ListDatasetsDTO) -> Dict[str, Any]:
+    def prepare_request(dto: ListDatasetsDTO) -> dict[str, Any]:
         """
         Prepare the request dictionary for the ListDatasets endpoint.
 
@@ -50,7 +50,7 @@ class ListDatasetsEndpoint:
         }
 
     @staticmethod
-    def decode_response(response: dict) -> Tuple[Optional[Exception], Optional[ListDatasetsEndpointResponse]]:
+    def decode_response(response: dict) -> tuple[Exception | None, ListDatasetsEndpointResponse | None]:
         """
         Decode the response returned from the API
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, TypedDict, Union
+from typing import Any, TypedDict
 
 from .base_log_types import BaseLog, BaseLogParams, LogType
 
@@ -25,8 +25,8 @@ class PromptReference(_PromptReferenceRequired, TypedDict, total=False):
         prompt = PromptReference(slug="qa-prompt", version="2.1.0")
         ```
     """
-    version: Optional[str]
-    tag: Optional[str]
+    version: str | None
+    tag: str | None
 
 
 class GenerationParams(BaseLogParams, total=False):
@@ -60,19 +60,19 @@ class GenerationParams(BaseLogParams, total=False):
         )
         ```
     """
-    prompt: Optional[PromptReference]
-    input: Optional[str]
-    output: Optional[str]
-    variables: Optional[Dict[str, Any]]
-    options: Optional[Dict[str, Any]]
-    input_tokens: Optional[int]
-    output_tokens: Optional[int]
-    cost: Optional[float]
+    prompt: PromptReference | None
+    input: str | None
+    output: str | None
+    variables: dict[str, Any] | None
+    options: dict[str, Any] | None
+    input_tokens: int | None
+    output_tokens: int | None
+    cost: float | None
 
 
 class UpdateGenerationParams(GenerationParams, total=False):
     """Parameters for updating a generation."""
-    name: Optional[str]
+    name: str | None
 
 
 @dataclass
@@ -114,16 +114,16 @@ class Generation(BaseLog):
         })
         ```
     """
-    prompt: Optional[PromptReference] = None
-    input: Optional[str] = None
-    output: Optional[str] = None
-    variables: Optional[Dict[str, Any]] = None
+    prompt: PromptReference | None = None
+    input: str | None = None
+    output: str | None = None
+    variables: dict[str, Any] | None = None
     type: LogType = field(default=LogType.GENERATION)
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    cost: Optional[float] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost: float | None = None
 
-    def start(self, input: Optional[str] = None) -> 'Generation':
+    def start(self, input: str | None = None) -> 'Generation':
         """Marks the generation as started and sets the input if provided.
 
         Args:
@@ -143,7 +143,7 @@ class Generation(BaseLog):
         """
         ...
 
-    def end(self, output: Optional[Union[str, Dict[str, Any]]] = None) -> 'Generation':
+    def end(self, output: str | dict[str, Any] | None = None) -> 'Generation':
         """Marks the generation as ended and sets the output if provided.
 
         Args:

@@ -2,7 +2,7 @@
 Endpoint for fetching a specific dataset by slug
 """
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from ..utils.dtos import DatasetDTO, GetDatasetDTO
 
@@ -13,10 +13,10 @@ class GetDatasetEndpointResponse:
     Response from the get dataset endpoint
     """
     dataset: DatasetDTO
-    error: Optional[str] = None
+    error: str | None = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "GetDatasetEndpointResponse":
+    def from_dict(cls, data: dict[str, Any]) -> "GetDatasetEndpointResponse":
         """
         Create an instance of GetDatasetEndpointResponse from a dictionary.
 
@@ -41,7 +41,7 @@ class GetDatasetEndpoint:
     """
 
     @staticmethod
-    def prepare_request(dto: GetDatasetDTO) -> Dict[str, Any]:
+    def prepare_request(dto: GetDatasetDTO) -> dict[str, Any]:
         """
         Prepare the request dictionary for the GetDataset endpoint.
 
@@ -58,7 +58,7 @@ class GetDatasetEndpoint:
         }
 
     @staticmethod
-    def decode_response(response: dict) -> Tuple[Optional[Exception], Optional[GetDatasetEndpointResponse]]:
+    def decode_response(response: dict) -> tuple[Exception | None, GetDatasetEndpointResponse | None]:
         """
         Decode the response returned from the API
 

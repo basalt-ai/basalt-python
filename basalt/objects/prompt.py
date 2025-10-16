@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 from jinja2 import Environment, Template, meta
 
@@ -35,7 +35,7 @@ class Prompt:
         return self._text
 
     @property
-    def system_text(self) -> Optional[str]:
+    def system_text(self) -> str | None:
         """Get the prompt system text."""
         return self._system_text
 
@@ -45,7 +45,7 @@ class Prompt:
         return self._version
 
     @property
-    def tag(self) -> Optional[str]:
+    def tag(self) -> str | None:
         """Get the prompt tag."""
         return self._tag
 
@@ -60,16 +60,16 @@ class Prompt:
         return self._raw_text
 
     @property
-    def variables(self) -> Optional[Dict[str, str]]:
+    def variables(self) -> dict[str, str] | None:
         """Get the prompt variables."""
         return self._variables
 
     @property
-    def raw_system_text(self) -> Optional[str]:
+    def raw_system_text(self) -> str | None:
         """Get the original system text before variable replacement."""
         return self._raw_system_text
 
-    def compile_variables(self, variables: Dict[str, Any]) -> 'Prompt':
+    def compile_variables(self, variables: dict[str, Any]) -> 'Prompt':
         """Compile the prompt variables."""
         self._variables = variables
 
@@ -87,7 +87,7 @@ class Prompt:
         return self
 
     @staticmethod
-    def _find_undeclared_variables(template: str) -> Set[str]:
+    def _find_undeclared_variables(template: str) -> set[str]:
         env = Environment()
         ast = env.parse(template)
         variables = meta.find_undeclared_variables(ast)

@@ -2,7 +2,7 @@
 Prompt types module for Basalt SDK
 """
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -11,11 +11,11 @@ class PromptModelParameters:
     temperature: float
     max_length: int
     response_format: str
-    top_k: Optional[float] = None
-    top_p: Optional[float] = None
-    frequency_penalty: Optional[float] = None
-    presence_penalty: Optional[float] = None
-    json_object: Optional[dict] = None
+    top_k: float | None = None
+    top_p: float | None = None
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
+    json_object: dict | None = None
 
 
 @dataclass
@@ -34,9 +34,9 @@ class PromptParams:
     text: str
     model: PromptModel
     version: str
-    system_text: Optional[str] = None
-    tag: Optional[str] = None
-    variables: Optional[Dict[str, Any]] = None
+    system_text: str | None = None
+    tag: str | None = None
+    variables: dict[str, Any] | None = None
 
 
 @dataclass
@@ -65,12 +65,12 @@ class Prompt:
     raw_text: str
     model: PromptModel
     version: str
-    system_text: Optional[str] = None
-    raw_system_text: Optional[str] = None
-    variables: Optional[Dict[str, Any]] = None
-    tag: Optional[str] = None
+    system_text: str | None = None
+    raw_system_text: str | None = None
+    variables: dict[str, Any] | None = None
+    tag: str | None = None
 
-    def compile_variables(self, variables: Dict[str, Any]) -> 'Prompt':
+    def compile_variables(self, variables: dict[str, Any]) -> 'Prompt':
         """
         Compile the prompt variables and render the text and system_text templates.
 

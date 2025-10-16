@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 
 @dataclass
@@ -15,4 +15,4 @@ class EvaluationConfig(TypedDict, total=False):
     """
     Configuration for the evaluation of the trace and its logs.
     """
-    sample_rate: Optional[float]
+    sample_rate: float | None
