@@ -166,7 +166,7 @@ class TestSetupTracing:
         """Test that setup_tracing sets the global tracer provider."""
         config = BasaltConfig(service_name="test-service")
 
-        provider = setup_tracing(config)
+        setup_tracing(config)
 
         # Get a tracer and verify it comes from our provider
         tracer = get_tracer("test")

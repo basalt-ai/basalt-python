@@ -181,7 +181,6 @@ version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
-    { name = "coverage" },
     { name = "jinja2" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
@@ -194,6 +193,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "coverage" },
     { name = "parameterized" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -207,7 +207,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.8.0" },
-    { name = "coverage", specifier = ">=7.11.0" },
+    { name = "coverage", marker = "extra == 'dev'", specifier = ">=7.11.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "opentelemetry-api", specifier = ">=1.38.0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.38.0" },
