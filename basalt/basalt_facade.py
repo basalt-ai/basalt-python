@@ -1,10 +1,11 @@
-
 from .basaltsdk import BasaltSDK
 from .config import config
+from .datasets.client import DatasetsClient
+from .prompts.client import PromptsClient
 from .resources.monitor.monitorsdk_types import IMonitorSDK
-from .sdk.datasetsdk import DatasetSDK
+from .sdk.adapters.dataset_adapter import DatasetSDKAdapter
+from .sdk.adapters.prompt_adapter import PromptSDKAdapter
 from .sdk.monitorsdk import MonitorSDK
-from .sdk.promptsdk import PromptSDK
 from .utils.api import Api
 from .utils.logger import Logger
 from .utils.memcache import MemoryCache
@@ -62,9 +63,25 @@ class BasaltFacade(IBasaltSDK):
             logger=logger
         )
 
-        prompt = PromptSDK(api, cache, global_fallback_cache, logger)
+        # Create new clients
+        prompts_client = PromptsClient(
+            api_key=api_key,
+            cache=cache,
+            fallback_cache=global_fallback_cache,
+            logger=logger,
+            base_url=config["api_url"]
+        )
+
+        datasets_client = DatasetsClient(
+            api_key=api_key,
+            logger=logger,
+            base_url=config["api_url"]
+        )
+
+        # Wrap new clients in adapters for backward compatibility
+        prompt = PromptSDKAdapter(prompts_client, api, logger)
+        datasets = DatasetSDKAdapter(datasets_client)
         monitor = MonitorSDK(api, logger)
-        datasets = DatasetSDK(api, logger)
 
         self._basalt = BasaltSDK(prompt, monitor, datasets)
 
