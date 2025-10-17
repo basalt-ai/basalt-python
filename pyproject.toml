@@ -29,6 +29,7 @@ dependencies = [
     "opentelemetry-sdk>=1.38.0",
     "opentelemetry-exporter-otlp>=1.38.0",
     "wrapt",
+    "pytest-asyncio>=1.2.0",
 ]
 
 # This section lists URLs, replacing the `url` parameter
@@ -50,6 +51,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "coverage>=7.11.0",
+
 
 ]
 
