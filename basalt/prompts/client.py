@@ -7,8 +7,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import cast
-from ..resources.monitor import trace_types as resource_trace_types
-from ..resources.prompts import prompt_types as resource_prompt_types
 
 from .._internal.exceptions import BasaltAPIError
 from .._internal.http import HTTPClient
@@ -16,7 +14,9 @@ from ..config import config
 from ..objects.generation import Generation
 from ..objects.prompt import Prompt as PromptObject
 from ..objects.trace import Trace
+from ..resources.monitor import trace_types as resource_trace_types
 from ..resources.monitor.trace_types import TraceParams
+from ..resources.prompts import prompt_types as resource_prompt_types
 from ..resources.prompts.prompt_types import PromptParams
 from ..utils.flusher import Flusher
 from ..utils.protocols import ICache, ILogger
