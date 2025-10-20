@@ -26,13 +26,11 @@ def common_client():
     cache.get.return_value = None
     fallback_cache = MagicMock()
     fallback_cache.get.return_value = None
-    logger = MagicMock()
 
     client = PromptsClient(
         api_key=api_key,
         cache=cache,
         fallback_cache=fallback_cache,
-        logger=logger,
     )
 
     mock_prompt_model = PromptModel(
@@ -64,7 +62,6 @@ def common_client():
         "client": client,
         "cache": cache,
         "fallback_cache": fallback_cache,
-        "logger": logger,
         "mock_prompt_model": mock_prompt_model,
         "mock_prompt_response": mock_prompt_response,
     }
@@ -203,7 +200,6 @@ def test_get_sync_cache_disabled(common_client):
 def test_get_sync_fallback_cache(common_client):
     client = common_client["client"]
     fallback_cache = common_client["fallback_cache"]
-    logger = common_client["logger"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         # Mock API error
@@ -217,7 +213,6 @@ def test_get_sync_fallback_cache(common_client):
         # Verify fallback cache was used
         fallback_cache.get.assert_called_once()
         assert prompt.slug == "test-slug"
-        logger.warn.assert_called_once()
 
 
 def test_get_sync_error_no_fallback(common_client):
@@ -409,16 +404,14 @@ async def test_get_async_cache_hit(common_client):
 async def test_get_async_fallback_cache(common_client):
     client = common_client["client"]
     fallback_cache = common_client["fallback_cache"]
-    logger = common_client["logger"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
         mock_fetch.side_effect = NotFoundError("Prompt not found")
         fallback_cache.get.return_value = common_client["mock_prompt_response"]
 
-        prompt, generation = await client.get("test-slug")
+        prompt = await client.get("test-slug")
 
         assert prompt.slug == "test-slug"
-        logger.warn.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -499,7 +492,6 @@ def test_headers_include_api_key():
         api_key="test-key",
         cache=MagicMock(),
         fallback_cache=MagicMock(),
-        logger=MagicMock(),
     )
 
     headers = client._get_headers()
@@ -511,7 +503,6 @@ def test_headers_include_sdk_info():
         api_key="test-key",
         cache=MagicMock(),
         fallback_cache=MagicMock(),
-        logger=MagicMock(),
     )
 
     headers = client._get_headers()
@@ -525,7 +516,6 @@ def test_headers_include_content_type():
         api_key="test-key",
         cache=MagicMock(),
         fallback_cache=MagicMock(),
-        logger=MagicMock(),
     )
 
     headers = client._get_headers()

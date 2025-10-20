@@ -1,5 +1,5 @@
 """
-Integration tests for the PromptsClient.
+Integration tests for PromptsClient with real API.
 
 These tests make real API requests to the Basalt backend. They can be toggled
 using the BASALT_RUN_INTEGRATION_TESTS environment variable.
@@ -10,269 +10,261 @@ To run integration tests:
     export BASALT_TEST_PROMPT_SLUG=your-test-prompt-slug
     python -m pytest tests/prompts/test_integration.py
 """
+from __future__ import annotations
+
 import os
-import unittest
+from dataclasses import dataclass
+
+import pytest
 
 from basalt._internal.exceptions import NotFoundError
 from basalt.prompts.client import PromptsClient
 from basalt.prompts.models import DescribePromptResponse, Prompt, PromptListResponse
-from basalt.utils.logger import Logger
 from basalt.utils.memcache import MemoryCache
 
 
-@unittest.skipUnless(
-    os.getenv("BASALT_RUN_INTEGRATION_TESTS") == "1",
-    "Integration tests disabled. Set BASALT_RUN_INTEGRATION_TESTS=1 to enable."
+# Typed container for fixture return
+@dataclass
+class PromptIntegrationContext:
+    """Typed context for prompt integration tests."""
+
+    api_key: str
+    test_prompt_slug: str
+    cache: MemoryCache
+    fallback_cache: MemoryCache
+    client: PromptsClient
+
+
+@pytest.fixture(scope="class")
+def prompt_ctx() -> PromptIntegrationContext:
+    """Set up integration test fixtures and return a typed context."""
+    api_key = os.getenv("BASALT_API_KEY")
+    if not api_key:
+        pytest.skip("BASALT_API_KEY not set")
+
+    test_prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG")
+    if not test_prompt_slug:
+        pytest.skip("BASALT_TEST_PROMPT_SLUG not set")
+
+    cache = MemoryCache()
+    fallback_cache = MemoryCache()
+    client = PromptsClient(
+        api_key=api_key,
+        cache=cache,
+        fallback_cache=fallback_cache,
+    )
+
+    return PromptIntegrationContext(
+        api_key=api_key,
+        test_prompt_slug=test_prompt_slug,
+        cache=cache,
+        fallback_cache=fallback_cache,
+        client=client,
+    )
+
+
+@pytest.mark.skipif(
+    os.getenv("BASALT_RUN_INTEGRATION_TESTS") != "1",
+    reason="Integration tests disabled. Set BASALT_RUN_INTEGRATION_TESTS=1"
 )
-class TestPromptsClientIntegration(unittest.TestCase):
+class TestPromptsClientIntegration:
     """Integration test suite for PromptsClient."""
 
-    @classmethod
-    def setUpClass(cls):
-        """Set up integration test fixtures."""
-        cls.api_key = os.getenv("BASALT_API_KEY")
-        if not cls.api_key:
-            raise unittest.SkipTest("BASALT_API_KEY environment variable not set")
-
-        cls.test_prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG")
-        if not cls.test_prompt_slug:
-            raise unittest.SkipTest("BASALT_TEST_PROMPT_SLUG environment variable not set")
-
-        cls.logger = Logger(log_level="all")
-        cls.cache = MemoryCache()
-        cls.fallback_cache = MemoryCache()
-
-        cls.client = PromptsClient(
-            api_key=cls.api_key,
-            cache=cls.cache,
-            fallback_cache=cls.fallback_cache,
-            logger=cls.logger,
-        )
-
-    def test_get_sync_real_api(self):
+    def test_get_sync_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test synchronous prompt retrieval with real API."""
-        prompt, generation = self.client.get_sync(self.test_prompt_slug)
+        prompt = prompt_ctx.client.get_sync(prompt_ctx.test_prompt_slug)
 
         # Verify prompt object
-        self.assertIsInstance(prompt, Prompt)
-        self.assertEqual(prompt.slug, self.test_prompt_slug)
-        self.assertIsNotNone(prompt.text)
-        self.assertIsNotNone(prompt.model)
-        self.assertIsNotNone(prompt.version)
+        assert isinstance(prompt, Prompt)
+        assert prompt.slug == prompt_ctx.test_prompt_slug
+        assert prompt.text is not None
+        assert prompt.model is not None
+        assert prompt.version is not None
 
-        # Verify generation object
-        self.assertIsNotNone(generation)
-        self.assertEqual(generation.prompt["slug"], self.test_prompt_slug)
 
-    def test_get_sync_with_version_real_api(self):
+    def test_get_sync_with_version_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test prompt retrieval with specific version."""
-        # First describe to get available versions
-        describe_response = self.client.describe_sync(self.test_prompt_slug)
+        describe_response = prompt_ctx.client.describe_sync(prompt_ctx.test_prompt_slug)
 
         if describe_response.available_versions:
             version = describe_response.available_versions[0]
-            prompt, generation = self.client.get_sync(
-                self.test_prompt_slug,
-                version=version
+            prompt= prompt_ctx.client.get_sync(
+                prompt_ctx.test_prompt_slug,
+                version=version,
             )
 
-            self.assertEqual(prompt.version, version)
+            assert prompt.version == version
 
-    def test_get_sync_with_tag_real_api(self):
+    def test_get_sync_with_tag_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test prompt retrieval with tag."""
-        # First describe to get available tags
-        describe_response = self.client.describe_sync(self.test_prompt_slug)
+        describe_response = prompt_ctx.client.describe_sync(prompt_ctx.test_prompt_slug)
 
         if describe_response.available_tags:
             tag = describe_response.available_tags[0]
-            prompt, generation = self.client.get_sync(
-                self.test_prompt_slug,
-                tag=tag
+            prompt = prompt_ctx.client.get_sync(
+                prompt_ctx.test_prompt_slug,
+                tag=tag,
             )
 
-            self.assertEqual(prompt.tag, tag)
+            assert prompt.tag == tag
 
-    def test_get_sync_with_variables_real_api(self):
+    def test_get_sync_with_variables_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test prompt retrieval with variable substitution."""
-        # Get prompt metadata to check for variables
-        describe_response = self.client.describe_sync(self.test_prompt_slug)
+        describe_response = prompt_ctx.client.describe_sync(prompt_ctx.test_prompt_slug)
 
         if describe_response.variables:
             # Create variables dict from available variables
-            variables = {
+            variables: dict[str, str] = {
                 var["name"]: f"test_{var['name']}"
-                for var in describe_response.variables[:3]  # Use first 3 variables
+                for var in describe_response.variables[:3]
             }
 
-            prompt, generation = self.client.get_sync(
-                self.test_prompt_slug,
-                variables=variables
+            prompt = prompt_ctx.client.get_sync(
+                prompt_ctx.test_prompt_slug,
+                variables=variables,
             )
 
             # Verify variables were applied
-            self.assertIsNotNone(prompt.variables)
+            assert prompt.variables is not None
             for _key, value in variables.items():
-                self.assertIn(value, prompt.text)
+                assert value in prompt.text
 
-    def test_get_sync_cache_works_real_api(self):
+    def test_get_sync_cache_works_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test that caching works with real API."""
         # Clear cache first
-        self.cache = MemoryCache()
-        self.client._cache = self.cache
+        cache = MemoryCache()
+        prompt_ctx.client._cache = cache
 
         # First request - should hit API
-        prompt1, _ = self.client.get_sync(self.test_prompt_slug)
+        prompt1 = prompt_ctx.client.get_sync(prompt_ctx.test_prompt_slug)
 
         # Verify cache was populated
-        cache_key = (self.test_prompt_slug, None, None)
-        cached_value = self.cache.get(cache_key)
-        self.assertIsNotNone(cached_value)
+        cache_key = (prompt_ctx.test_prompt_slug, None, None)
+        cached_value = cache.get(cache_key)
+        assert cached_value is not None
 
         # Second request - should use cache
-        prompt2, _ = self.client.get_sync(self.test_prompt_slug)
+        prompt2 = prompt_ctx.client.get_sync(prompt_ctx.test_prompt_slug)
 
         # Verify both prompts are the same
-        self.assertEqual(prompt1.slug, prompt2.slug)
-        self.assertEqual(prompt1.text, prompt2.text)
+        assert prompt1.slug == prompt2.slug
+        assert prompt1.text == prompt2.text
 
-    def test_get_sync_not_found_real_api(self):
+    def test_get_sync_not_found_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test 404 error handling with real API."""
-        with self.assertRaises(NotFoundError):
-            self.client.get_sync("nonexistent-prompt-slug-12345")
+        with pytest.raises(NotFoundError):
+            prompt_ctx.client.get_sync("nonexistent-prompt-slug-12345")
 
-    def test_describe_sync_real_api(self):
+    def test_describe_sync_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test describe method with real API."""
-        response = self.client.describe_sync(self.test_prompt_slug)
+        response = prompt_ctx.client.describe_sync(prompt_ctx.test_prompt_slug)
 
         # Verify response
-        self.assertIsInstance(response, DescribePromptResponse)
-        self.assertEqual(response.slug, self.test_prompt_slug)
-        self.assertIsNotNone(response.name)
-        self.assertIsNotNone(response.status)
-        self.assertIsInstance(response.available_versions, list)
-        self.assertIsInstance(response.available_tags, list)
-        self.assertIsInstance(response.variables, list)
+        assert isinstance(response, DescribePromptResponse)
+        assert response.slug == prompt_ctx.test_prompt_slug
+        assert response.name is not None
+        assert response.status is not None
+        assert isinstance(response.available_versions, list)
+        assert isinstance(response.available_tags, list)
+        assert isinstance(response.variables, list)
 
-    def test_list_sync_real_api(self):
+    def test_list_sync_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test list method with real API."""
-        prompts = self.client.list_sync()
+        prompts = prompt_ctx.client.list_sync()
 
         # Verify response
-        self.assertIsInstance(prompts, list)
+        assert isinstance(prompts, list)
         if prompts:  # If there are prompts
-            self.assertIsInstance(prompts[0], PromptListResponse)
-            self.assertIsNotNone(prompts[0].slug)
-            self.assertIsNotNone(prompts[0].name)
-            self.assertIsNotNone(prompts[0].status)
+            assert isinstance(prompts[0], PromptListResponse)
+            assert prompts[0].slug is not None
+            assert prompts[0].name is not None
+            assert prompts[0].status is not None
 
-    def test_fallback_cache_real_api(self):
+    def test_fallback_cache_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test fallback cache with real API."""
         # First, populate the fallback cache with a successful request
-        prompt1, _ = self.client.get_sync(self.test_prompt_slug)
+        prompt1 = prompt_ctx.client.get_sync(prompt_ctx.test_prompt_slug)
 
         # Now use an invalid API key to force an error
         bad_client = PromptsClient(
             api_key="invalid-key",
             cache=MemoryCache(),  # Empty primary cache
-            fallback_cache=self.client._fallback_cache,  # Use populated fallback cache
-            logger=self.logger,
+            fallback_cache=prompt_ctx.fallback_cache,  # Use populated fallback cache
         )
 
         # This should use the fallback cache instead of failing
-        prompt2, _ = bad_client.get_sync(self.test_prompt_slug)
+        prompt2 = bad_client.get_sync(prompt_ctx.test_prompt_slug)
 
         # Verify we got the cached prompt
-        self.assertEqual(prompt1.slug, prompt2.slug)
-        self.assertEqual(prompt1.text, prompt2.text)
+        assert prompt1.slug == prompt2.slug
+        assert prompt1.text == prompt2.text
 
-    def test_cache_disabled_real_api(self):
+    def test_cache_disabled_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test that cache can be disabled."""
         # Populate cache
-        self.client.get_sync(self.test_prompt_slug)
+        prompt_ctx.client.get_sync(prompt_ctx.test_prompt_slug)
 
         # Clear cache counters
-        self.cache = MemoryCache()
-        self.client._cache = self.cache
+        cache = MemoryCache()
+        prompt_ctx.client._cache = cache
 
         # Request with cache disabled should still work
-        prompt, _ = self.client.get_sync(self.test_prompt_slug, cache_enabled=False)
+        prompt_ctx.client.get_sync(prompt_ctx.test_prompt_slug, cache_enabled=False)
 
         # Verify cache was not used
-        cache_key = (self.test_prompt_slug, None, None)
-        self.assertIsNone(self.cache.get(cache_key))
+        cache_key = (prompt_ctx.test_prompt_slug, None, None)
+        assert cache.get(cache_key) is None
 
 
-@unittest.skipUnless(
-    os.getenv("BASALT_RUN_INTEGRATION_TESTS") == "1",
-    "Integration tests disabled. Set BASALT_RUN_INTEGRATION_TESTS=1 to enable."
+@pytest.mark.skipif(
+    os.getenv("BASALT_RUN_INTEGRATION_TESTS") != "1",
+    reason="Integration tests disabled. Set BASALT_RUN_INTEGRATION_TESTS=1"
 )
-class TestPromptsClientIntegrationAsync(unittest.IsolatedAsyncioTestCase):
+class TestPromptsClientIntegrationAsync:
     """Async integration test suite for PromptsClient."""
 
-    @classmethod
-    def setUpClass(cls):
-        """Set up integration test fixtures."""
-        cls.api_key = os.getenv("BASALT_API_KEY")
-        if not cls.api_key:
-            raise unittest.SkipTest("BASALT_API_KEY environment variable not set")
-
-        cls.test_prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG")
-        if not cls.test_prompt_slug:
-            raise unittest.SkipTest("BASALT_TEST_PROMPT_SLUG environment variable not set")
-
-        cls.logger = Logger(log_level="all")
-        cls.cache = MemoryCache()
-        cls.fallback_cache = MemoryCache()
-
-        cls.client = PromptsClient(
-            api_key=cls.api_key,
-            cache=cls.cache,
-            fallback_cache=cls.fallback_cache,
-            logger=cls.logger,
-        )
-
-    async def test_get_async_real_api(self):
+    @pytest.mark.asyncio
+    async def test_get_async_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test asynchronous prompt retrieval with real API."""
-        prompt, generation = await self.client.get(self.test_prompt_slug)
+        prompt = await prompt_ctx.client.get(prompt_ctx.test_prompt_slug)
 
         # Verify prompt object
-        self.assertIsInstance(prompt, Prompt)
-        self.assertEqual(prompt.slug, self.test_prompt_slug)
-        self.assertIsNotNone(prompt.text)
-        self.assertIsNotNone(prompt.model)
+        assert isinstance(prompt, Prompt)
+        assert prompt.slug == prompt_ctx.test_prompt_slug
+        assert prompt.text is not None
+        assert prompt.model is not None
 
-    async def test_describe_async_real_api(self):
+    @pytest.mark.asyncio
+    async def test_describe_async_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test async describe with real API."""
-        response = await self.client.describe(self.test_prompt_slug)
+        response = await prompt_ctx.client.describe(prompt_ctx.test_prompt_slug)
 
-        self.assertIsInstance(response, DescribePromptResponse)
-        self.assertEqual(response.slug, self.test_prompt_slug)
+        assert isinstance(response, DescribePromptResponse)
+        assert response.slug == prompt_ctx.test_prompt_slug
 
-    async def test_list_async_real_api(self):
+    @pytest.mark.asyncio
+    async def test_list_async_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test async list with real API."""
-        prompts = await self.client.list()
+        prompts = await prompt_ctx.client.list()
 
-        self.assertIsInstance(prompts, list)
+        assert isinstance(prompts, list)
         if prompts:
-            self.assertIsInstance(prompts[0], PromptListResponse)
+            assert isinstance(prompts[0], PromptListResponse)
 
-    async def test_get_async_with_variables_real_api(self):
+    @pytest.mark.asyncio
+    async def test_get_async_with_variables_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
         """Test async prompt retrieval with variables."""
-        describe_response = await self.client.describe(self.test_prompt_slug)
+        describe_response = await prompt_ctx.client.describe(prompt_ctx.test_prompt_slug)
 
         if describe_response.variables:
-            variables = {
+            variables: dict[str, str] = {
                 var["name"]: f"test_{var['name']}"
                 for var in describe_response.variables[:2]
             }
 
-            prompt, generation = await self.client.get(
-                self.test_prompt_slug,
-                variables=variables
+            prompt = await prompt_ctx.client.get(
+                prompt_ctx.test_prompt_slug,
+                variables=variables,
             )
 
-            self.assertIsNotNone(prompt.variables)
-
-
-if __name__ == "__main__":
-    unittest.main()
+            assert prompt.variables is not None

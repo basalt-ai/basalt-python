@@ -8,6 +8,7 @@ import requests
 
 from .exceptions import (
     BadRequestError,
+    BasaltAPIError,
     ForbiddenError,
     NetworkError,
     NotFoundError,
@@ -72,8 +73,8 @@ class HTTPClient:
             )
             return HTTPClient._handle_sync_response(response)
 
-        except (BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError):
-            raise
+        except (BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError) as e:
+            raise BasaltAPIError(str(e)) from e  # Wrap to preserve traceback
         except Exception as e:
             raise NetworkError(str(e)) from e
 

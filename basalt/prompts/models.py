@@ -126,16 +126,16 @@ class PromptResponse:
     text: str
     slug: str
     version: str
-    tag: str
     model: PromptModel
     system_text: str
+    tag: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PromptResponse:
         """Create instance from API response dictionary."""
         return cls(
             slug=data["slug"],
-            tag=data["tag"],
+            tag=data.get("tag"),
             text=data["text"],
             model=PromptModel.from_dict(data["model"]),
             system_text=data.get("systemText", ""),

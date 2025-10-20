@@ -5,21 +5,15 @@ This module provides the PromptsClient for interacting with the Basalt Prompts A
 """
 from __future__ import annotations
 
-from datetime import datetime
 from typing import cast
 
 from .._internal.exceptions import BasaltAPIError
 from .._internal.http import HTTPClient
 from ..config import config
-from ..objects.generation import Generation
 from ..objects.prompt import Prompt as PromptObject
-from ..objects.trace import Trace
-from ..resources.monitor import trace_types as resource_trace_types
-from ..resources.monitor.trace_types import TraceParams
 from ..resources.prompts import prompt_types as resource_prompt_types
 from ..resources.prompts.prompt_types import PromptParams
-from ..utils.flusher import Flusher
-from ..utils.protocols import ICache, ILogger
+from ..utils.protocols import ICache
 from .models import (
     DescribePromptResponse,
     Prompt,
@@ -41,7 +35,6 @@ class PromptsClient:
         api_key: str,
         cache: ICache,
         fallback_cache: ICache,
-        logger: ILogger,
         base_url: str | None = None,
     ):
         """
@@ -51,13 +44,11 @@ class PromptsClient:
             api_key: The Basalt API key for authentication.
             cache: Primary cache instance for storing prompt responses.
             fallback_cache: Fallback cache for graceful degradation on API failures.
-            logger: Logger instance for logging operations.
             base_url: Optional base URL for the API (defaults to config value).
         """
         self._api_key = api_key
         self._cache = cache
         self._fallback_cache = fallback_cache
-        self._logger = logger
         self._base_url = base_url or config["api_url"]
         self._http_client = HTTPClient()
 
@@ -71,7 +62,7 @@ class PromptsClient:
         tag: str | None = None,
         variables: dict[str, str] | None = None,
         cache_enabled: bool = True,
-    ) -> tuple[Prompt, Generation]:
+    ) -> Prompt:
         """
         Retrieve a prompt by slug, optionally specifying version and tag.
 
@@ -97,8 +88,7 @@ class PromptsClient:
             if cached:
                 prompt_response = cast(PromptResponse, cached)
                 prompt = self._create_prompt_instance(prompt_response, variables)
-                generation = self._prepare_monitoring(prompt)
-                return prompt, generation
+                return prompt
 
         # Make API request
         try:
@@ -127,20 +117,17 @@ class PromptsClient:
                 self._fallback_cache.put(cache_key, prompt_response, self._cache_duration)
 
             prompt = self._create_prompt_instance(prompt_response, variables)
-            generation = self._prepare_monitoring(prompt)
-            return prompt, generation
+            return prompt
 
         except BasaltAPIError as e:
             # Try fallback cache
             if cache_enabled:
                 fallback = self._fallback_cache.get(cache_key)
                 if fallback:
-                    self._logger.warn(f"API error, using fallback cache: {e.message}")
                     prompt_response = cast(PromptResponse, fallback)
                     prompt = self._create_prompt_instance(prompt_response, variables)
-                    generation = self._prepare_monitoring(prompt)
-                    return prompt, generation
-            raise
+                    return prompt
+            raise BasaltAPIError("Failed to retrieve prompt") from e
 
     def get_sync(
         self,
@@ -149,7 +136,7 @@ class PromptsClient:
         tag: str | None = None,
         variables: dict[str, str] | None = None,
         cache_enabled: bool = True,
-    ) -> tuple[Prompt, Generation]:
+    ) -> Prompt:
         """
         Synchronously retrieve a prompt by slug, optionally specifying version and tag.
 
@@ -175,8 +162,7 @@ class PromptsClient:
             if cached:
                 prompt_response = cast(PromptResponse, cached)
                 prompt = self._create_prompt_instance(prompt_response, variables)
-                generation = self._prepare_monitoring(prompt)
-                return prompt, generation
+                return prompt
 
         # Make API request
         try:
@@ -204,20 +190,18 @@ class PromptsClient:
                 self._fallback_cache.put(cache_key, prompt_response, self._cache_duration)
 
             prompt = self._create_prompt_instance(prompt_response, variables)
-            generation = self._prepare_monitoring(prompt)
-            return prompt, generation
+            return prompt
 
         except BasaltAPIError as e:
             # Try fallback cache
             if cache_enabled:
                 fallback = self._fallback_cache.get(cache_key)
                 if fallback:
-                    self._logger.warn(f"API error, using fallback cache: {e.message}")
                     prompt_response = cast(PromptResponse, fallback)
                     prompt = self._create_prompt_instance(prompt_response, variables)
-                    generation = self._prepare_monitoring(prompt)
-                    return prompt, generation
-            raise
+                    return prompt
+
+            raise BasaltAPIError("Failed to retrieve prompt") from e
 
     async def describe(
         self,
@@ -353,56 +337,6 @@ class PromptsClient:
         prompts_data = response.get("prompts", [])
         return [PromptListResponse.from_dict(p) for p in prompts_data]
 
-    def _prepare_monitoring(self, prompt: Prompt) -> Generation:
-        """
-        Prepare monitoring by creating a trace and generation object.
-
-        Args:
-            prompt: The prompt instance.
-
-        Returns:
-            Generation object for tracking the prompt usage.
-        """
-        # Create a mock API for the flusher (we'll need to refactor this later)
-        from ..utils.api import Api
-        from ..utils.networker import Networker
-
-        networker = Networker()
-        api = Api(
-            root_url=self._base_url,
-            networker=networker,
-            api_key=self._api_key,
-            sdk_version=config["sdk_version"],
-            sdk_type=config["sdk_type"],
-            logger=self._logger,
-        )
-
-        flusher = Flusher(api, self._logger)
-
-        # Create a trace
-        trace = Trace(
-            prompt.slug,
-            TraceParams(input=prompt.text, start_time=datetime.now()),
-            flusher,
-            self._logger,
-        )
-
-        # Create a generation. Cast values to the resource types expected by
-        # GenerationParams to satisfy static type checking.
-        generation = Generation({
-            "name": prompt.slug,
-            "trace": cast(resource_trace_types.Trace, trace),
-            "prompt": {
-                "slug": prompt.slug,
-                "version": prompt.version,
-                "tag": prompt.tag,
-            },
-            "input": prompt.text,
-            "variables": prompt.variables,
-            "options": {"type": "single"},
-        })
-
-        return generation
 
     @staticmethod
     def _create_prompt_instance(
