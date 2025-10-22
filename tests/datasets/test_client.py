@@ -1,7 +1,7 @@
 """Unit tests for the DatasetsClient using pytest."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -16,8 +16,7 @@ class TestDatasetsClientSync:
     @pytest.fixture
     def client(self):
         """Create a DatasetsClient instance for testing."""
-        logger = MagicMock()
-        return DatasetsClient(api_key="test-api-key", logger=logger)
+        return DatasetsClient(api_key="test-api-key")
 
     @patch("basalt.datasets.client.HTTPClient.fetch_sync")
     def test_list_sync_success(self, mock_fetch, client):
@@ -153,8 +152,7 @@ class TestDatasetsClientAsync:
     @pytest.fixture
     def client(self):
         """Create a DatasetsClient instance for testing."""
-        logger = MagicMock()
-        return DatasetsClient(api_key="test-api-key", logger=logger)
+        return DatasetsClient(api_key="test-api-key")
 
     @patch("basalt.datasets.client.HTTPClient.fetch")
     async def test_list_async_success(self, mock_fetch, client):

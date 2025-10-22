@@ -80,7 +80,7 @@ class GetPromptDTO:
     version: str | None = None
 
 
-GetPromptResult = tuple[Exception | None, Prompt | None, Generation | None]
+GetPromptResult = tuple[Exception | None, Prompt | None]
 
 
 # ------------------------------ Describe Prompt ----------------------------- #

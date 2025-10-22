@@ -10,7 +10,6 @@ from typing import Any
 from .._internal.exceptions import BasaltAPIError
 from .._internal.http import HTTPClient
 from ..config import config
-from ..utils.protocols import ILogger
 from .models import Dataset, DatasetRow
 
 
@@ -24,7 +23,6 @@ class DatasetsClient:
     def __init__(
         self,
         api_key: str,
-        logger: ILogger,
         base_url: str | None = None,
     ):
         """
@@ -36,7 +34,6 @@ class DatasetsClient:
             base_url: Optional base URL for the API (defaults to config value).
         """
         self._api_key = api_key
-        self._logger = logger
         self._base_url = base_url or config["api_url"]
         self._http_client = HTTPClient()
 

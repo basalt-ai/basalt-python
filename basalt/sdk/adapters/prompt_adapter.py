@@ -67,11 +67,11 @@ class PromptSDKAdapter(IPromptSDK):
             which raises exceptions instead of returning tuples.
 
         Returns:
-            Tuple[Exception | None, Prompt | None, Generation | None]
+            Tuple[Exception | None, Prompt | None]
         """
         self._emit_deprecation_warning()
         try:
-            new_prompt, generation = await self._client.get(
+            new_prompt = await self._client.get(
                 slug=slug,
                 version=version,
                 tag=tag,
@@ -80,9 +80,9 @@ class PromptSDKAdapter(IPromptSDK):
             )
             # Convert new Prompt dataclass back to old Prompt object
             old_prompt = self._convert_prompt(new_prompt)
-            return None, old_prompt, generation
+            return None, old_prompt
         except Exception as e:
-            return e, None, None
+            return e, None
 
     def get_sync(
         self,
@@ -104,7 +104,7 @@ class PromptSDKAdapter(IPromptSDK):
         """
         self._emit_deprecation_warning()
         try:
-            new_prompt, generation = self._client.get_sync(
+            new_prompt = self._client.get_sync(
                 slug=slug,
                 version=version,
                 tag=tag,
@@ -113,9 +113,9 @@ class PromptSDKAdapter(IPromptSDK):
             )
             # Convert new Prompt dataclass back to old Prompt object
             old_prompt = self._convert_prompt(new_prompt)
-            return None, old_prompt, generation
+            return None, old_prompt
         except Exception as e:
-            return e, None, None
+            return e, None
 
     async def describe(
         self,

@@ -9,7 +9,6 @@ import pytest
 from basalt._internal.exceptions import NotFoundError
 from basalt.datasets.client import DatasetsClient
 from basalt.datasets.models import Dataset, DatasetRow
-from basalt.utils.logger import Logger
 
 
 @pytest.mark.skipif(
@@ -101,7 +100,6 @@ class TestDatasetsClientIntegration:
 class IntegrationContext:
     api_key: str
     test_dataset_slug: str
-    logger: Logger
     client: DatasetsClient
 
 
@@ -116,8 +114,7 @@ def integration_ctx() -> IntegrationContext:
     if not test_dataset_slug:
         pytest.skip("BASALT_TEST_DATASET_SLUG not set")
 
-    logger = Logger(log_level="all")
-    client = DatasetsClient(api_key=api_key, logger=logger)
+    client = DatasetsClient(api_key=api_key)
 
-    return IntegrationContext(api_key=api_key, test_dataset_slug=test_dataset_slug, logger=logger, client=client)
+    return IntegrationContext(api_key=api_key, test_dataset_slug=test_dataset_slug, client=client)
 

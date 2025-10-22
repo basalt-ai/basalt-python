@@ -15,7 +15,7 @@ from ..utils.dtos import (
     ListDatasetsDTO,
     ListDatasetsResult,
 )
-from ..utils.protocols import IApi, IDatasetSDK, ILogger
+from ..utils.protocols import IApi, IDatasetSDK
 
 
 class DatasetSDK(IDatasetSDK):
@@ -26,10 +26,8 @@ class DatasetSDK(IDatasetSDK):
     def __init__(
             self,
             api: IApi,
-            logger: ILogger
     ):
         self._api = api
-        self._logger = logger
 
     async def list(self) -> ListDatasetsResult:
         """
