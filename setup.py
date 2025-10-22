@@ -30,5 +30,5 @@ setup(
 		"aiohttp>=3.8.0",
         "jinja2>=3.1.0",
 	],
-	python_requires=">=3.8"
+	python_requires=">=3.10"
 )
