@@ -68,7 +68,7 @@ def common_client():
 
 
 def test_get_sync_success(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
     cache = common_client["cache"]
     fallback_cache = common_client["fallback_cache"]
 
@@ -92,7 +92,7 @@ def test_get_sync_success(common_client):
             },
         }}
 
-        prompt, generation = client.get_sync("test-slug", version="1.0.0", tag="prod")
+        prompt = client.get_sync("test-slug", version="1.0.0", tag="prod")
 
         # Verify API was called
         mock_fetch.assert_called_once()
@@ -113,7 +113,7 @@ def test_get_sync_success(common_client):
 
 
 def test_get_sync_with_variables(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.return_value = {"prompt": {
@@ -135,7 +135,7 @@ def test_get_sync_with_variables(common_client):
         }}
 
         variables = {"name": "World", "role": "helpful"}
-        prompt, generation = client.get_sync("test-slug", variables=variables)
+        prompt = client.get_sync("test-slug", variables=variables)
 
         # Verify variable substitution
         assert prompt.text == "Hello World"
@@ -144,14 +144,14 @@ def test_get_sync_with_variables(common_client):
 
 
 def test_get_sync_cache_hit(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
     cache = common_client["cache"]
     mock_prompt_response = common_client["mock_prompt_response"]
 
     cache.get.return_value = mock_prompt_response
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        prompt, generation = client.get_sync("test-slug")
+        prompt = client.get_sync("test-slug")
 
         # Verify API was NOT called
         mock_fetch.assert_not_called()
@@ -161,7 +161,7 @@ def test_get_sync_cache_hit(common_client):
 
 
 def test_get_sync_cache_disabled(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
     cache = common_client["cache"]
     fallback_cache = common_client["fallback_cache"]
 
@@ -187,7 +187,7 @@ def test_get_sync_cache_disabled(common_client):
         # Set cache to have a value
         cache.get.return_value = common_client["mock_prompt_response"]
 
-        prompt, generation = client.get_sync("test-slug", cache_enabled=False)
+        prompt = client.get_sync("test-slug", cache_enabled=False)
 
         # Verify API WAS called despite cache
         mock_fetch.assert_called_once()
@@ -198,7 +198,7 @@ def test_get_sync_cache_disabled(common_client):
 
 
 def test_get_sync_fallback_cache(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
     fallback_cache = common_client["fallback_cache"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
@@ -208,7 +208,7 @@ def test_get_sync_fallback_cache(common_client):
         # Set fallback cache to have a value
         fallback_cache.get.return_value = common_client["mock_prompt_response"]
 
-        prompt, generation = client.get_sync("test-slug")
+        prompt = client.get_sync("test-slug")
 
         # Verify fallback cache was used
         fallback_cache.get.assert_called_once()
@@ -216,7 +216,7 @@ def test_get_sync_fallback_cache(common_client):
 
 
 def test_get_sync_error_no_fallback(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.side_effect = NotFoundError("Prompt not found")
@@ -226,7 +226,7 @@ def test_get_sync_error_no_fallback(common_client):
 
 
 def test_describe_sync_success(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.return_value = {"prompt": {
@@ -322,7 +322,7 @@ def test_list_sync_error(common_client):
     ],
 )
 def test_get_sync_parameter_combinations(common_client, slug, version, tag):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.return_value = {"prompt": {
@@ -343,7 +343,7 @@ def test_get_sync_parameter_combinations(common_client, slug, version, tag):
             },
         }}
 
-        prompt, generation = client.get_sync(slug, version=version, tag=tag)
+        prompt = client.get_sync(slug, version=version, tag=tag)
 
         call_kwargs = mock_fetch.call_args[1]
         params = call_kwargs["params"]
@@ -356,7 +356,7 @@ def test_get_sync_parameter_combinations(common_client, slug, version, tag):
 
 @pytest.mark.asyncio
 async def test_get_async_success(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
         mock_fetch.return_value = {"prompt": {
@@ -378,7 +378,7 @@ async def test_get_async_success(common_client):
             },
         }}
 
-        prompt, generation = await client.get("test-slug", version="1.0.0")
+        prompt = await client.get("test-slug", version="1.0.0")
 
         mock_fetch.assert_called_once()
         assert isinstance(prompt, Prompt)
@@ -387,14 +387,14 @@ async def test_get_async_success(common_client):
 
 @pytest.mark.asyncio
 async def test_get_async_cache_hit(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
     cache = common_client["cache"]
     mock_prompt_response = common_client["mock_prompt_response"]
 
     cache.get.return_value = mock_prompt_response
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        prompt, generation = await client.get("test-slug")
+        prompt = await client.get("test-slug")
 
         mock_fetch.assert_not_called()
         assert prompt.slug == "test-slug"
@@ -459,7 +459,7 @@ async def test_list_async_success(common_client):
 
 @pytest.mark.asyncio
 async def test_get_async_with_variables(common_client):
-    client = common_client["client"]
+    client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
         mock_fetch.return_value = {"prompt": {
@@ -481,7 +481,7 @@ async def test_get_async_with_variables(common_client):
         }}
 
         variables = {"name": "Alice", "role": "assistant"}
-        prompt, generation = await client.get("test-slug", variables=variables)
+        prompt = await client.get("test-slug", variables=variables)
 
         assert prompt.text == "Hello Alice"
         assert prompt.system_text == "You are assistant"

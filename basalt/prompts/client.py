@@ -119,7 +119,7 @@ class PromptsClient:
             prompt = self._create_prompt_instance(prompt_response, variables)
             return prompt
 
-        except BasaltAPIError as e:
+        except BasaltAPIError:
             # Try fallback cache
             if cache_enabled:
                 fallback = self._fallback_cache.get(cache_key)
@@ -127,7 +127,7 @@ class PromptsClient:
                     prompt_response = cast(PromptResponse, fallback)
                     prompt = self._create_prompt_instance(prompt_response, variables)
                     return prompt
-            raise BasaltAPIError("Failed to retrieve prompt") from e
+            raise  # Re-raise the original API error
 
     def get_sync(
         self,
@@ -192,7 +192,7 @@ class PromptsClient:
             prompt = self._create_prompt_instance(prompt_response, variables)
             return prompt
 
-        except BasaltAPIError as e:
+        except BasaltAPIError:
             # Try fallback cache
             if cache_enabled:
                 fallback = self._fallback_cache.get(cache_key)
@@ -201,7 +201,7 @@ class PromptsClient:
                     prompt = self._create_prompt_instance(prompt_response, variables)
                     return prompt
 
-            raise BasaltAPIError("Failed to retrieve prompt") from e
+            raise  # Re-raise the original API error
 
     async def describe(
         self,
