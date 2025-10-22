@@ -1,5 +1,6 @@
-from typing import Dict, Optional, Any, cast
-from ..ressources.monitor.log_types import LogParams
+from typing import Dict, Optional, cast, Any
+from ..ressources.monitor.base_log_types import BaseLogParamsWithType, LogType
+from ..ressources.monitor.log_types import LogParams, Input, Output
 from ..ressources.monitor.generation_types import GenerationParams
 from .base_log import BaseLog
 from .generation import Generation
@@ -9,21 +10,33 @@ class Log(BaseLog):
     Class representing a log in the monitoring system.
     """
     def __init__(self, params: LogParams):
-        super().__init__(params)
+        base_log_params = BaseLogParamsWithType(
+            name=params.get("name"),
+            ideal_output=params.get("ideal_output"),
+            start_time=params.get("start_time"),
+            end_time=params.get("end_time"),
+            metadata=params.get("metadata"),
+            parent=params.get("parent"),
+            trace=params.get("trace"),
+            evaluators=params.get("evaluators"),
+            type=LogType(params.get("type")),
+        )
+
+        super().__init__(base_log_params)
         self._input = params.get("input")
         self._output = None
 
     @property
-    def input(self) -> Optional[str]:
+    def input(self) -> Optional['Input']:
         """Get the log input."""
         return self._input
 
     @property
-    def output(self) -> Optional[str]:
+    def output(self) -> Optional['Output']:
         """Get the log output."""
         return self._output
 
-    def start(self, input: Optional[str] = None) -> 'Log':
+    def start(self, input: Optional['Input'] = None) -> 'Log':
         """
         Start the log with an optional input.
 
@@ -39,7 +52,7 @@ class Log(BaseLog):
         super().start()
         return self
 
-    def end(self, output: Optional[str] = None) -> 'Log':
+    def end(self, output: Optional['Output'] = None) -> 'Log':
         """
         End the log with an optional output.
 

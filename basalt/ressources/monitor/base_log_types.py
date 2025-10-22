@@ -33,6 +33,10 @@ class LogType(str, Enum):
 # Type alias for log type strings - use this in TypedDict parameters
 LogTypeStr = Literal['span', 'generation', 'function', 'tool', 'retrieval', 'event']
 
+Input = str | List[Any] | Dict[str, Any]
+Output = str | List[Any] | Dict[str, Any]
+IdealOutput = str | List[Any] | Dict[str, Any]
+
 class _BaseLogParamsRequired(TypedDict):
     """Required fields for BaseLogParams."""
     name: str
@@ -54,13 +58,19 @@ class BaseLogParams(_BaseLogParamsRequired, TypedDict, total=False):
             Every log must be associated with a trace.
         evaluators: The evaluators to attach to the log.
     """
-    ideal_output: Optional[str]
+    input: Optional[Input]
+    output: Optional[Output]
+    ideal_output: Optional[IdealOutput]
     start_time: Optional[Union[datetime, str]]
     end_time: Optional[Union[datetime, str]]
     metadata: Optional[Dict[str, Any]]
     parent: Optional['Log']
     trace: Optional['Trace']
-    evaluators: Optional[List[Evaluator]]
+    evaluators: List[Evaluator]
+
+class BaseLogParamsWithType(BaseLogParams, TypedDict, total=False):
+    """Base parameters for creating a log entry."""
+    type: LogType
 
 @dataclass
 class BaseLog:
@@ -84,6 +94,9 @@ class BaseLog:
             Every log must be associated with a trace.
         evaluators: List of evaluators attached to the log.
     """
+    input: Optional[Input]
+    output: Optional[Output]
+    ideal_output: Optional[IdealOutput]
     name: str
     type: LogType
     id: str = field(default_factory=lambda: str(f'log-{uuid4().hex[:8]}'))
@@ -94,7 +107,7 @@ class BaseLog:
     trace: Optional['Trace'] = None
     evaluators: List[Evaluator] = field(default_factory=list)
 
-    def start(self: SelfType) -> SelfType:
+    def start(self: SelfType, input: Optional[Input] = None) -> SelfType:
         """Marks the log as started and sets the start time if not already set.
 
         Returns:
@@ -135,7 +148,7 @@ class BaseLog:
         """
         ...
 
-    def end(self: SelfType) -> SelfType:
+    def end(self: SelfType, **kwargs) -> SelfType:
         """Marks the log as ended.
 
         Returns:
