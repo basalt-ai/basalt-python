@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..resources.monitor.experiment_types import Experiment
-from ..resources.monitor.generation_types import Generation
 from ..resources.prompts.prompt_types import Prompt
 from .utils import pick_number, pick_typed
 
