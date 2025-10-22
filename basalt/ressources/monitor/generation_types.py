@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Union, Any, TypedDict
 from dataclasses import dataclass, field
 
-from .base_log_types import BaseLog, BaseLogParams, LogType
+from .base_log_types import BaseLog, BaseLogParams, LogType, Input, Output
 
 class _PromptReferenceRequired(TypedDict):
     """Required fields for PromptReference."""
@@ -58,8 +58,6 @@ class GenerationParams(BaseLogParams, total=False):
         ```
     """
     prompt: Optional[PromptReference]
-    input: Optional[str]
-    output: Optional[str]
     variables: Optional[Dict[str, Any]]
     options: Optional[Dict[str, Any]]
     input_tokens: Optional[int]
@@ -110,15 +108,13 @@ class Generation(BaseLog):
         ```
     """
     prompt: Optional[PromptReference] = None
-    input: Optional[str] = None
-    output: Optional[str] = None
     variables: Optional[Dict[str, Any]] = None
     type: LogType = field(default=LogType.GENERATION)
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
     cost: Optional[float] = None
 
-    def start(self, input: Optional[str] = None) -> 'Generation':
+    def start(self, input: Optional[Input] = None) -> 'Generation':
         """Marks the generation as started and sets the input if provided.
 
         Args:
@@ -138,12 +134,20 @@ class Generation(BaseLog):
         """
         ...
 
-    def end(self, output: Optional[Union[str, Dict[str, Any]]] = None) -> 'Generation':
+    def end(self,
+            output: Optional[Output] = None,
+            input_tokens: Optional[int] = None,
+            output_tokens: Optional[int] = None,
+            cost: Optional[float] = None
+    ) -> 'Generation':
         """Marks the generation as ended and sets the output if provided.
 
         Args:
             output (Optional[Union[str, Dict[str, Any]]]): Optional output data from the model.
                 Can be either a string or a dictionary containing output parameters.
+            input_tokens (Optional[int]): Optional number of tokens used for the input.
+            output_tokens (Optional[int]): Optional number of tokens used for the output.
+            cost (Optional[float]): Cost of the generation.
 
         Returns:
             Generation: The generation instance for method chaining.
@@ -157,11 +161,11 @@ class Generation(BaseLog):
             generation.end("The capital of France is Paris.")
 
             # End a generation with output params
-            generation.end({
-                "output": "The capital of France is Paris.",
-                "input_tokens": 10,
-                "output_tokens": 10,
-                "cost": 0.01
+            generation.end(
+                output="The capital of France is Paris.",
+                input_tokens=10,
+                output_tokens=10,
+                cost=0.01
             })
             ```
         """

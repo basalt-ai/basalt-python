@@ -22,19 +22,23 @@ class Organization(TypedDict):
     id: str
     name: str
 
+Input = str | List[Any] | Dict[str, Any]
+Output = str | List[Any] | Dict[str, Any]
+IdealOutput = str | List[Any] | Dict[str, Any]
+
 class TraceParams(TypedDict, total=False):
     """Parameters for creating or updating a trace."""
     name: Optional[str]
-    input: Optional[str]
-    output: Optional[str]
-    ideal_output: Optional[str]
+    input: Optional[Input]
+    output: Optional[Output]
+    ideal_output: Optional[IdealOutput]
     start_time: Optional[datetime]
     end_time: Optional[datetime]
     user: Optional[User]
     organization: Optional['Organization']
     metadata: Optional[Dict[str, Any]]
     experiment: Optional[Experiment]
-    evaluators: Optional[List[Evaluator]]
+    evaluators: List[Evaluator]
     evaluation_config: Optional[EvaluationConfig]
 
 
@@ -76,20 +80,20 @@ class Trace:
         ```
     """
     name: Optional[str]
-    input: Optional[str]
-    output: Optional[str]
-    ideal_output: Optional[str]
+    input: Optional[Input]
+    output: Optional[Output]
+    ideal_output: Optional[IdealOutput]
     start_time: datetime
     end_time: Optional[datetime]
     user: Optional[User]
     organization: Optional[Organization]
     metadata: Optional[Dict[str, Any]]
     experiment: Optional['Experiment']
-    evaluators: Optional[List[Evaluator]]
+    evaluators: List[Evaluator]
     evaluation_config: Optional[EvaluationConfig]
     logs: List['BaseLog'] = field(default_factory=list)
 
-    def start(self, input: Optional[str] = None) -> 'Trace':
+    def start(self, input: Optional[Input] = None) -> 'Trace':
         """Marks the trace as started and sets the input if provided.
 
         Args:
@@ -109,7 +113,7 @@ class Trace:
         """
         ...
 
-    def set_ideal_output(self, ideal_output: str) -> 'Trace':
+    def set_ideal_output(self, ideal_output: IdealOutput) -> 'Trace':
         """Sets the ideal output for the trace."""
         ...
 
@@ -295,7 +299,7 @@ class Trace:
         """
         ...
 
-    async def end(self, output: Optional[str] = None) -> 'Trace':
+    async def end(self, output: Optional[Output] = None) -> 'Trace':
         """Marks the trace as ended and sets the output if provided.
 
         Args:
@@ -309,13 +313,16 @@ class Trace:
             # End a trace without output
             trace.end()
 
-            # End a trace with output
+            # End a trace with text output
             trace.end('The capital of France is Paris.')
+
+            # End a trace with json output
+            trace.end({ "response": "The capital of France is Paris." })
             ```
         """
         ...
 
-    def end_sync(self, output: Optional[str] = None) -> 'Trace':
+    def end_sync(self, output: Optional[Output] = None) -> 'Trace':
         """Marks the trace as ended and sets the output if provided.
 
         Args:
@@ -327,10 +334,12 @@ class Trace:
         Example:
             ```python
             # End a trace without output
-            trace.end()
+            trace.end_sync()
 
             # End a trace with output
-            trace.end('The capital of France is Paris.')
+            trace.end_sync('The capital of France is Paris.')
+
+            trace.end_sync({ "response": 'The capital of France is Paris.' })
             ```
         """
         ...

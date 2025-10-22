@@ -80,9 +80,11 @@ class Flusher:
         # Add generation-specific fields if it's a generation
         if log.type == "generation" and hasattr(log, "prompt"):
             base_dict.update({
+                "input_tokens": log.input_tokens,
+                "output_tokens": log.output_tokens,
+                "cost": log.cost,
                 "prompt": log.prompt,
                 "variables": log.variables if log.variables else [],  # Ensure variables is always a list
-                "options": log.options if hasattr(log, "options") else None
             })
 
         return base_dict

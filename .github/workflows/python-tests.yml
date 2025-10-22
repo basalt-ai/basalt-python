@@ -1,56 +1,55 @@
 name: Python SDK Tests
 
 on:
-  pull_request:
+    pull_request:
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+    # Allows you to run this workflow manually from the Actions tab
+    workflow_dispatch:
 
 jobs:
-  test:
-    permissions:
-      pull-requests: write
+    test:
+        permissions:
+            pull-requests: write
 
-    runs-on: ubuntu-latest
+        runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+        strategy:
+            matrix:
+                python-version: ["3.10", "3.11", "3.12", "3.13"]
 
-    steps:
-    - uses: actions/checkout@v3
+        steps:
+            - uses: actions/checkout@v3
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
+            - name: Set up Python ${{ matrix.python-version }}
+              uses: actions/setup-python@v4
+              with:
+                  python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      working-directory: ./
-      run: |
-        python -m pip install --upgrade pip
-        pip install pytest pytest-cov
-        pip install -e .
-        pip install -r dev-requirements.txt
+            - name: Install dependencies
+              working-directory: ./
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install pytest pytest-cov
+                  pip install -e .
+                  pip install -r dev-requirements.txt
 
-    - name: Run tests
-      working-directory: ./
-      run: |
-        pytest tests/ --cov=basalt --cov-report=term --cov-report=xml
-        echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_OUTPUT
-        echo "COVERAGE_PCT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(f'{float(root.attrib[\"line-rate\"]) * 100:.2f}')")" >> $GITHUB_OUTPUT
-        echo "TEST_COUNT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.find('.//metrics').attrib['tests'])")" >> $GITHUB_OUTPUT
-      id: test_results
+            - name: Run tests
+              working-directory: ./
+              run: |
+                  pytest tests/ --cov=basalt --cov-report=term --cov-report=xml
+                  echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_OUTPUT
+                  echo "COVERAGE_PCT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(f'{float(root.attrib[\"line-rate\"]) * 100:.2f}')")" >> $GITHUB_OUTPUT
+                  echo "TEST_COUNT=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.find('.//metrics').attrib['tests'])")" >> $GITHUB_OUTPUT
+              id: test_results
 
-    - name: Create result file
-      run: |
-        mkdir -p test-results
-        echo "${{ steps.test_results.outputs.COVERAGE_PCT }}" > test-results/coverage.txt
-        echo "${{ steps.test_results.outputs.TEST_COUNT }}" > test-results/test-count.txt
+            - name: Create result file
+              run: |
+                  mkdir -p test-results
+                  echo "${{ steps.test_results.outputs.COVERAGE_PCT }}" > test-results/coverage.txt
+                  echo "${{ steps.test_results.outputs.TEST_COUNT }}" > test-results/test-count.txt
 
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-${{ matrix.python-version }}
-        path: test-results/
-
+            - name: Upload test results
+              uses: actions/upload-artifact@v4
+              with:
+                  name: test-results-${{ matrix.python-version }}
+                  path: test-results/

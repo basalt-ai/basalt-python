@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict, Optional, Any, List
 import uuid
 
-from ..ressources.monitor.base_log_types import BaseLogParams, LogType
+from ..ressources.monitor.base_log_types import BaseLogParamsWithType, LogType
 from ..ressources.monitor.evaluator_types import Evaluator
 from ..ressources.monitor.trace_types import Trace
 from ..ressources.monitor.log_types import Log
@@ -12,17 +12,19 @@ class BaseLog:
     """
     Base class for logs and generations.
     """
-    def __init__(self, params: BaseLogParams):
+    def __init__(self, params: BaseLogParamsWithType):
         self._id = f"log-{uuid.uuid4().hex[:8]}"
         self._type = params.get("type")
         self._name = params.get("name")
+        self._input = params.get("input")
+        self._output = params.get("output")
+        self._ideal_output = params.get("ideal_output")
         self._start_time = params.get("start_time") if params.get("start_time") is not None else datetime.now()
         self._end_time = params.get("end_time")
         self._metadata = params.get("metadata")
         self._trace = params.get("trace")
         self._parent = params.get("parent")
         self._evaluators = params.get("evaluators")
-        self._ideal_output = params.get("ideal_output")
 
         # Add to trace's logs list if trace exists
         if self._trace:
@@ -52,6 +54,16 @@ class BaseLog:
     def name(self) -> str:
         """Get the log name."""
         return self._name
+
+    @property
+    def input(self) -> Optional['Input']:
+        """Get the generation input."""
+        return self._input
+
+    @property
+    def output(self) -> Optional['Output']:
+        """Get the generation output."""
+        return self._output
 
     @property
     def ideal_output(self) -> Optional[str]:

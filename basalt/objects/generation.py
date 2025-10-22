@@ -1,9 +1,8 @@
-from datetime import datetime
-from typing import Dict, Optional, Any, List, Union
+from typing import Dict, Optional, Any, List
 
 from .base_log import BaseLog
 from ..ressources.monitor.generation_types import GenerationParams
-from ..ressources.monitor.base_log_types import BaseLogParams, LogType
+from ..ressources.monitor.base_log_types import LogType, Input, Output, BaseLogParamsWithType
 
 
 class Generation(BaseLog):
@@ -11,23 +10,23 @@ class Generation(BaseLog):
     Class representing a generation in the monitoring system.
     """
     def __init__(self, params: GenerationParams):
-        base_log_params = {
-            "name": params.get("name"),
-            "ideal_output": params.get("ideal_output"),
-            "start_time": params.get("start_time"),
-            "end_time": params.get("end_time"),
-            "metadata": params.get("metadata"),
-            "parent": params.get("parent"),
-            "trace": params.get("trace"),
-            "evaluators": params.get("evaluators"),
-            "type": LogType.GENERATION,
-        }
+        base_log_params = BaseLogParamsWithType(
+            name= params.get("name"),
+            input=params.get("input"),
+            output=params.get("output"),
+            ideal_output=params.get("ideal_output"),
+            start_time=params.get("start_time"),
+            end_time=params.get("end_time"),
+            metadata=params.get("metadata"),
+            parent=params.get("parent"),
+            trace=params.get("trace"),
+            evaluators=params.get("evaluators"),
+            type=LogType.GENERATION
+        )
 
         super().__init__(base_log_params)
 
         self._prompt = params.get("prompt")
-        self._input = params.get("input")
-        self._output = params.get("output")
         self._input_tokens = params.get("input_tokens")
         self._output_tokens = params.get("output_tokens")
         self._cost = params.get("cost")
@@ -50,16 +49,6 @@ class Generation(BaseLog):
     def prompt(self) -> Optional[Dict[str, Any]]:
         """Get the generation prompt."""
         return self._prompt
-
-    @property
-    def input(self) -> Optional[str]:
-        """Get the generation input."""
-        return self._input
-
-    @property
-    def output(self) -> Optional[str]:
-        """Get the generation output."""
-        return self._output
 
     @property
     def input_tokens(self) -> Optional[int]:
@@ -91,7 +80,7 @@ class Generation(BaseLog):
         """Set the generation options."""
         self._options = options
 
-    def start(self, input: Optional[str] = None) -> 'Generation':
+    def start(self, input: Optional['Input'] = None) -> 'Generation':
         """
         Start the generation with an optional input.
 
@@ -107,23 +96,30 @@ class Generation(BaseLog):
         super().start()
         return self
 
-    def end(self, output: Optional[Union[str, Dict[str, Any]]] = None) -> 'Generation':
+    def end(self,
+            output: Optional[Output] = None,
+            input_tokens: Optional[int] = None,
+            output_tokens: Optional[int] = None,
+            cost: Optional[float] = None
+            ) -> 'Generation':
         """
         End the generation with an optional output or update parameters.
 
         Args:
-            output (Optional[Union[str, Dict[str, Any]]]): The output of the generation
-                or a dictionary of parameters to update.
+            output (Optional[Output]): The output of the generation as string, array or a dictionary.
+            input_tokens (Optional[int]): Optional number of tokens used for the input.
+            output_tokens (Optional[int]): Optional number of tokens used for the output.
+            cost (Optional[float]): Cost of the generation.
 
         Returns:
             Generation: The generation instance.
         """
         super().end()
 
-        if isinstance(output, dict):
-            self.update(output)
-        elif isinstance(output, str):
-            self._output = output
+        self._output = output
+        self._input_tokens = input_tokens
+        self._output_tokens = output_tokens
+        self._cost = cost
 
         # If this is a single generation, end the trace as well
         if self._options and self._options.get("type") == "single":

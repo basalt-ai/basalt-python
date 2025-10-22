@@ -88,10 +88,20 @@ class SendTraceEndpoint:
                 else:
                     processed_log["parentId"] = None
 
-								# Rename ideal output
+                # Rename ideal output
                 if "ideal_output" in processed_log:
                   processed_log["idealOutput"] = processed_log["ideal_output"]
                   del processed_log["ideal_output"]
+
+                # Rename input tokens
+                if "input_tokens" in processed_log:
+                    processed_log["inputTokens"] = processed_log["input_tokens"]
+                    del processed_log["input_tokens"]
+
+                # Rename output tokens
+                if "output_tokens" in processed_log:
+                    processed_log["outputTokens"] = processed_log["output_tokens"]
+                    del processed_log["output_tokens"]
 
                 processed_logs.append(processed_log)
 
@@ -124,18 +134,18 @@ class SendTraceEndpoint:
             "path": "/monitor/trace",
             "body": body
         }
-    
+
     def decode_response(self, response: Any) -> Tuple[Optional[Exception], Optional[Output]]:
         """
         Decodes the response from sending a trace.
-        
+
         Args:
             response (Any): The response from the API.
-            
+
         Returns:
             Tuple[Optional[Exception], Optional[Dict[str, Any]]]: The decoded response.
         """
         if not isinstance(response, dict):
             return Exception("Failed to decode response (invalid body format)"), None
-            
+
         return None, response.get("trace", {})
