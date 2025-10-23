@@ -68,13 +68,11 @@ class BasaltFacade(IBasaltSDK):
             api_key=api_key,
             cache=cache,
             fallback_cache=global_fallback_cache,
-            logger=logger,
             base_url=config["api_url"]
         )
 
         datasets_client = DatasetsClient(
             api_key=api_key,
-            logger=logger,
             base_url=config["api_url"]
         )
 
