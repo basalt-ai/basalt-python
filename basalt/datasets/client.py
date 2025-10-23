@@ -62,13 +62,9 @@ class DatasetsClient:
 
         datasets_data = response.get("datasets", [])
         return [
-            Dataset(
-                slug=ds.get("slug", ""),
-                name=ds.get("name", ""),
-                columns=ds.get("columns", []),
-                rows=[],
-            )
+            Dataset.from_dict(ds)
             for ds in datasets_data
+            if isinstance(ds, dict)
         ]
 
     def list_sync(self) -> list[Dataset]:
@@ -95,13 +91,9 @@ class DatasetsClient:
 
         datasets_data = response.get("datasets", [])
         return [
-            Dataset(
-                slug=ds.get("slug", ""),
-                name=ds.get("name", ""),
-                columns=ds.get("columns", []),
-                rows=[],
-            )
+            Dataset.from_dict(ds)
             for ds in datasets_data
+            if isinstance(ds, dict)
         ]
 
     async def get(self, slug: str) -> Dataset:
@@ -130,8 +122,9 @@ class DatasetsClient:
         dataset_data = response.get("dataset", {})
         if response.get("error"):
             raise BasaltAPIError(response["error"])
-
-        return Dataset.from_dict(dataset_data)
+        dataset = Dataset.from_dict(dataset_data)
+        dataset.warning = response.get("warning")
+        return dataset
 
     def get_sync(self, slug: str) -> Dataset:
         """
@@ -159,8 +152,9 @@ class DatasetsClient:
         dataset_data = response.get("dataset", {})
         if response.get("error"):
             raise BasaltAPIError(response["error"])
-
-        return Dataset.from_dict(dataset_data)
+        dataset = Dataset.from_dict(dataset_data)
+        dataset.warning = response.get("warning")
+        return dataset
 
     async def add_row(
         self,
