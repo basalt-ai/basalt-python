@@ -108,6 +108,8 @@ class PromptsClient:
                 headers=self._get_headers(),
             )
 
+            if response is None:
+                raise BasaltAPIError("Empty response from get prompt API")
             prompt_data = response.get("prompt", {})
             prompt_response = PromptResponse.from_dict(prompt_data)
 
@@ -182,6 +184,8 @@ class PromptsClient:
                 headers=self._get_headers(),
             )
 
+            if response is None:
+                raise BasaltAPIError("Empty response from get prompt API")
             prompt_data = response.get("prompt", {})
             prompt_response = PromptResponse.from_dict(prompt_data)
 
@@ -240,6 +244,8 @@ class PromptsClient:
             headers=self._get_headers(),
         )
 
+        if response is None:
+            raise BasaltAPIError("Empty response from describe prompt API")
         prompt_data = response.get("prompt", {})
         return DescribePromptResponse.from_dict(prompt_data)
 
@@ -278,6 +284,8 @@ class PromptsClient:
             headers=self._get_headers(),
         )
 
+        if response is None:
+            raise BasaltAPIError("Empty response from describe prompt API")
         prompt_data = response.get("prompt", {})
         return DescribePromptResponse.from_dict(prompt_data)
 
@@ -307,6 +315,8 @@ class PromptsClient:
             headers=self._get_headers(),
         )
 
+        if response is None:
+            return []
         prompts_data = response.get("prompts", [])
         return [PromptListResponse.from_dict(p) for p in prompts_data]
 
@@ -335,6 +345,9 @@ class PromptsClient:
             params=params,
             headers=self._get_headers(),
         )
+
+        if response is None:
+            return []
 
         prompts_data = response.get("prompts", [])
         return [PromptListResponse.from_dict(p) for p in prompts_data]
@@ -376,6 +389,8 @@ class PromptsClient:
             body=body,
             headers=self._get_headers(),
         )
+        if response is None:
+            raise BasaltAPIError("Empty response from publish prompt API")
 
         return PublishPromptResponse.from_dict(response)
 
@@ -416,6 +431,8 @@ class PromptsClient:
             body=body,
             headers=self._get_headers(),
         )
+        if response is None:
+            raise BasaltAPIError("Empty response from publish prompt API")
 
         return PublishPromptResponse.from_dict(response)
 

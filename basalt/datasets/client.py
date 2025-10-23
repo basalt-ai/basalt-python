@@ -24,6 +24,7 @@ class DatasetsClient:
         self,
         api_key: str,
         base_url: str | None = None,
+        http_client: HTTPClient | None = None,
     ):
         """
         Initialize the DatasetsClient.
@@ -35,7 +36,7 @@ class DatasetsClient:
         """
         self._api_key = api_key
         self._base_url = base_url or config["api_url"]
-        self._http_client = HTTPClient()
+        self._http_client = http_client or HTTPClient()
 
     async def list(self) -> list[Dataset]:
         """
@@ -50,13 +51,13 @@ class DatasetsClient:
         """
         url = f"{self._base_url}/datasets"
 
-        response = await HTTPClient.fetch(
+        response = await self._http_client.fetch(
             url=url,
             method="GET",
             headers=self._get_headers(),
         )
 
-        datasets_data = response.get("datasets", [])
+        datasets_data = (response or {}).get("datasets", [])
         return [
             Dataset(
                 slug=ds["slug"],
@@ -80,13 +81,13 @@ class DatasetsClient:
         """
         url = f"{self._base_url}/datasets"
 
-        response = HTTPClient.fetch_sync(
+        response = self._http_client.fetch_sync(
             url=url,
             method="GET",
             headers=self._get_headers(),
         )
 
-        datasets_data = response.get("datasets", [])
+        datasets_data = (response or {}).get("datasets", [])
         return [
             Dataset(
                 slug=ds["slug"],
@@ -113,12 +114,13 @@ class DatasetsClient:
         """
         url = f"{self._base_url}/datasets/{slug}"
 
-        response = await HTTPClient.fetch(
+        response = await self._http_client.fetch(
             url=url,
             method="GET",
             headers=self._get_headers(),
         )
 
+        response = response or {}
         dataset_data = response.get("dataset", {})
         if response.get("error"):
             raise BasaltAPIError(response["error"])
@@ -141,12 +143,13 @@ class DatasetsClient:
         """
         url = f"{self._base_url}/datasets/{slug}"
 
-        response = HTTPClient.fetch_sync(
+        response = self._http_client.fetch_sync(
             url=url,
             method="GET",
             headers=self._get_headers(),
         )
 
+        response = response or {}
         dataset_data = response.get("dataset", {})
         if response.get("error"):
             raise BasaltAPIError(response["error"])
@@ -190,13 +193,14 @@ class DatasetsClient:
         if metadata is not None:
             body["metadata"] = metadata
 
-        response = await HTTPClient.fetch(
+        response = await self._http_client.fetch(
             url=url,
             method="POST",
             body=body,
             headers=self._get_headers(),
         )
 
+        response = response or {}
         if response.get("error"):
             raise BasaltAPIError(response["error"])
 
@@ -242,13 +246,14 @@ class DatasetsClient:
         if metadata is not None:
             body["metadata"] = metadata
 
-        response = HTTPClient.fetch_sync(
+        response = self._http_client.fetch_sync(
             url=url,
             method="POST",
             body=body,
             headers=self._get_headers(),
         )
 
+        response = response or {}
         if response.get("error"):
             raise BasaltAPIError(response["error"])
 

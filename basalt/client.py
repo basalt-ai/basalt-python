@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from basalt._internal.http import HTTPClient
+
 from .datasets.client import DatasetsClient
 from .instrumentation.openai import OpenAIInstrumentor
 from .prompts.client import PromptsClient
@@ -80,16 +82,20 @@ class Basalt:
         self._cache = MemoryCache()
         self._fallback_cache = MemoryCache()
 
+        http_client = HTTPClient()
+
         # Initialize sub-clients
         self._prompts_client = PromptsClient(
             api_key=api_key,
             cache=self._cache,
             fallback_cache=self._fallback_cache,
             base_url=base_url,
+            http_client=http_client,
         )
         self._datasets_client = DatasetsClient(
             api_key=api_key,
             base_url=base_url,
+            http_client=http_client,
         )
 
     @property
