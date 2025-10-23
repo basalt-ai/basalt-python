@@ -131,7 +131,7 @@ class OpenAIInstrumentor:
 
         # Extract parameters
         model = kwargs.get("model", "unknown")
-        messages = kwargs.get("messages", [])
+        kwargs.get("messages", [])
         temperature = kwargs.get("temperature")
         max_tokens = kwargs.get("max_tokens")
         top_p = kwargs.get("top_p")
@@ -153,7 +153,7 @@ class OpenAIInstrumentor:
         )
 
         with tracer.start_as_current_span(
-            f"openai.chat.completions.create",
+            "openai.chat.completions.create",
             attributes=request_attrs,
         ) as span:
             try:
@@ -167,7 +167,7 @@ class OpenAIInstrumentor:
 
                 return result
 
-            except Exception as e:
+            except Exception:
                 # The span will automatically record the exception
                 raise
 
@@ -194,7 +194,7 @@ class OpenAIInstrumentor:
 
         # Extract parameters
         model = kwargs.get("model", "unknown")
-        messages = kwargs.get("messages", [])
+        kwargs.get("messages", [])
         temperature = kwargs.get("temperature")
         max_tokens = kwargs.get("max_tokens")
         top_p = kwargs.get("top_p")
@@ -217,7 +217,7 @@ class OpenAIInstrumentor:
 
         async def async_wrapper():
             with tracer.start_as_current_span(
-                f"openai.chat.completions.create",
+                "openai.chat.completions.create",
                 attributes=request_attrs,
             ) as span:
                 try:
@@ -231,7 +231,7 @@ class OpenAIInstrumentor:
 
                     return result
 
-                except Exception as e:
+                except Exception:
                     # The span will automatically record the exception
                     raise
 

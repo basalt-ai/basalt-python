@@ -188,7 +188,7 @@ def test_get_sync_cache_disabled(common_client):
         # Set cache to have a value
         cache.get.return_value = common_client["mock_prompt_response"]
 
-        prompt = client.get_sync("test-slug", cache_enabled=False)
+        client.get_sync("test-slug", cache_enabled=False)
 
         # Verify API WAS called despite cache
         mock_fetch.assert_called_once()
@@ -344,7 +344,7 @@ def test_get_sync_parameter_combinations(common_client, slug, version, tag):
             },
         }}
 
-        prompt = client.get_sync(slug, version=version, tag=tag)
+        client.get_sync(slug, version=version, tag=tag)
 
         call_kwargs = mock_fetch.call_args[1]
         params = call_kwargs["params"]
@@ -698,7 +698,7 @@ def test_publish_prompt_sync_parameter_combinations(common_client, slug, new_tag
             "label": new_tag,
         }
 
-        response = client.publish_prompt_sync(
+        client.publish_prompt_sync(
             slug=slug,
             new_tag=new_tag,
             version=version,

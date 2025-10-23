@@ -1,5 +1,5 @@
 """Tests for the HTTP client."""
-from unittest.mock import Mock, patch, PropertyMock
+from unittest.mock import Mock, patch
 
 import pytest
 
