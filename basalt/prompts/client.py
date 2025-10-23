@@ -19,6 +19,7 @@ from .models import (
     Prompt,
     PromptListResponse,
     PromptResponse,
+    PublishPromptResponse,
 )
 
 
@@ -337,6 +338,85 @@ class PromptsClient:
         prompts_data = response.get("prompts", [])
         return [PromptListResponse.from_dict(p) for p in prompts_data]
 
+    async def publish_prompt(
+        self,
+        slug: str,
+        new_tag: str,
+        version: str | None = None,
+        tag: str | None = None,
+    ) -> PublishPromptResponse:
+        """
+        Publish a prompt with a new deployment tag.
+
+        Args:
+            slug: The slug identifier for the prompt.
+            new_tag: The new deployment tag to create.
+            version: The version of the prompt to publish (optional).
+            tag: The existing tag to publish from (optional).
+
+        Returns:
+            PublishPromptResponse containing the deployment tag information.
+
+        Raises:
+            BasaltAPIError: If the API request fails.
+            NetworkError: If a network error occurs.
+        """
+        url = f"{self._base_url}/prompts/{slug}/publish"
+        body = {"newTag": new_tag}
+
+        if version:
+            body["version"] = version
+        if tag:
+            body["tag"] = tag
+
+        response = await HTTPClient.fetch(
+            url=url,
+            method="POST",
+            body=body,
+            headers=self._get_headers(),
+        )
+
+        return PublishPromptResponse.from_dict(response)
+
+    def publish_prompt_sync(
+        self,
+        slug: str,
+        new_tag: str,
+        version: str | None = None,
+        tag: str | None = None,
+    ) -> PublishPromptResponse:
+        """
+        Synchronously publish a prompt with a new deployment tag.
+
+        Args:
+            slug: The slug identifier for the prompt.
+            new_tag: The new deployment tag to create.
+            version: The version of the prompt to publish (optional).
+            tag: The existing tag to publish from (optional).
+
+        Returns:
+            PublishPromptResponse containing the deployment tag information.
+
+        Raises:
+            BasaltAPIError: If the API request fails.
+            NetworkError: If a network error occurs.
+        """
+        url = f"{self._base_url}/prompts/{slug}/publish"
+        body = {"newTag": new_tag}
+
+        if version:
+            body["version"] = version
+        if tag:
+            body["tag"] = tag
+
+        response = HTTPClient.fetch_sync(
+            url=url,
+            method="POST",
+            json=body,
+            headers=self._get_headers(),
+        )
+
+        return PublishPromptResponse.from_dict(response)
 
     @staticmethod
     def _create_prompt_instance(

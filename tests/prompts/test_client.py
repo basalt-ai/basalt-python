@@ -16,6 +16,7 @@ from basalt.prompts.models import (
     PromptModel,
     PromptModelParameters,
     PromptResponse,
+    PublishPromptResponse,
 )
 
 
@@ -520,4 +521,200 @@ def test_headers_include_content_type():
 
     headers = client._get_headers()
     assert headers["Content-Type"] == "application/json"
+
+
+def test_publish_prompt_sync_success(common_client):
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
+        mock_fetch.return_value = {
+            "id": "tag-123",
+            "label": "production",
+        }
+
+        response = client.publish_prompt_sync(
+            slug="test-slug",
+            new_tag="production",
+            version="1.0.0",
+        )
+
+        assert isinstance(response, PublishPromptResponse)
+        assert response.id == "tag-123"
+        assert response.label == "production"
+
+        # Verify API was called correctly
+        mock_fetch.assert_called_once()
+        call_kwargs = mock_fetch.call_args[1]
+        assert "/prompts/test-slug/publish" in call_kwargs["url"]
+        assert call_kwargs["method"] == "POST"
+        assert call_kwargs["json"]["newTag"] == "production"
+        assert call_kwargs["json"]["version"] == "1.0.0"
+
+
+def test_publish_prompt_sync_with_tag(common_client):
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
+        mock_fetch.return_value = {
+            "id": "tag-456",
+            "label": "staging",
+        }
+
+        response = client.publish_prompt_sync(
+            slug="test-slug",
+            new_tag="staging",
+            tag="dev",
+        )
+
+        assert isinstance(response, PublishPromptResponse)
+        assert response.id == "tag-456"
+        assert response.label == "staging"
+
+        # Verify API was called correctly
+        call_kwargs = mock_fetch.call_args[1]
+        assert call_kwargs["json"]["newTag"] == "staging"
+        assert call_kwargs["json"]["tag"] == "dev"
+        assert "version" not in call_kwargs["json"]
+
+
+def test_publish_prompt_sync_minimal(common_client):
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
+        mock_fetch.return_value = {
+            "id": "tag-789",
+            "label": "latest",
+        }
+
+        response = client.publish_prompt_sync(
+            slug="test-slug",
+            new_tag="latest",
+        )
+
+        assert isinstance(response, PublishPromptResponse)
+        assert response.id == "tag-789"
+        assert response.label == "latest"
+
+        # Verify only required fields are in body
+        call_kwargs = mock_fetch.call_args[1]
+        assert call_kwargs["json"]["newTag"] == "latest"
+        assert "version" not in call_kwargs["json"]
+        assert "tag" not in call_kwargs["json"]
+
+
+def test_publish_prompt_sync_error(common_client):
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
+        mock_fetch.side_effect = BadRequestError("Invalid tag name")
+
+        with pytest.raises(BadRequestError):
+            client.publish_prompt_sync(slug="test-slug", new_tag="invalid tag")
+
+
+@pytest.mark.asyncio
+async def test_publish_prompt_async_success(common_client):
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
+        mock_fetch.return_value = {
+            "id": "tag-async-123",
+            "label": "production",
+        }
+
+        response = await client.publish_prompt(
+            slug="test-slug",
+            new_tag="production",
+            version="2.0.0",
+        )
+
+        assert isinstance(response, PublishPromptResponse)
+        assert response.id == "tag-async-123"
+        assert response.label == "production"
+
+        # Verify API was called correctly
+        mock_fetch.assert_called_once()
+        call_kwargs = mock_fetch.call_args[1]
+        assert "/prompts/test-slug/publish" in call_kwargs["url"]
+        assert call_kwargs["method"] == "POST"
+        assert call_kwargs["body"]["newTag"] == "production"
+        assert call_kwargs["body"]["version"] == "2.0.0"
+
+
+@pytest.mark.asyncio
+async def test_publish_prompt_async_with_both_version_and_tag(common_client):
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
+        mock_fetch.return_value = {
+            "id": "tag-both",
+            "label": "release",
+        }
+
+        response = await client.publish_prompt(
+            slug="test-slug",
+            new_tag="release",
+            version="1.5.0",
+            tag="beta",
+        )
+
+        assert isinstance(response, PublishPromptResponse)
+        assert response.id == "tag-both"
+        assert response.label == "release"
+
+        # Verify both version and tag are in body
+        call_kwargs = mock_fetch.call_args[1]
+        assert call_kwargs["body"]["newTag"] == "release"
+        assert call_kwargs["body"]["version"] == "1.5.0"
+        assert call_kwargs["body"]["tag"] == "beta"
+
+
+@pytest.mark.asyncio
+async def test_publish_prompt_async_error(common_client):
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
+        mock_fetch.side_effect = UnauthorizedError("Invalid API key")
+
+        with pytest.raises(UnauthorizedError):
+            await client.publish_prompt(slug="test-slug", new_tag="production")
+
+
+@pytest.mark.parametrize(
+    "slug,new_tag,version,tag",
+    [
+        ("prompt-1", "prod", "1.0.0", None),
+        ("prompt-2", "staging", None, "dev"),
+        ("prompt-3", "release", "2.0.0", "beta"),
+        ("prompt-4", "latest", None, None),
+    ],
+)
+def test_publish_prompt_sync_parameter_combinations(common_client, slug, new_tag, version, tag):
+    client = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
+        mock_fetch.return_value = {
+            "id": "tag-param-test",
+            "label": new_tag,
+        }
+
+        response = client.publish_prompt_sync(
+            slug=slug,
+            new_tag=new_tag,
+            version=version,
+            tag=tag,
+        )
+
+        call_kwargs = mock_fetch.call_args[1]
+        body = call_kwargs["json"]
+
+        assert body["newTag"] == new_tag
+        if version:
+            assert body["version"] == version
+        else:
+            assert "version" not in body
+        if tag:
+            assert body["tag"] == tag
+        else:
+            assert "tag" not in body
 

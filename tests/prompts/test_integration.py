@@ -19,7 +19,7 @@ import pytest
 
 from basalt._internal.exceptions import NotFoundError
 from basalt.prompts.client import PromptsClient
-from basalt.prompts.models import DescribePromptResponse, Prompt, PromptListResponse
+from basalt.prompts.models import DescribePromptResponse, Prompt, PromptListResponse, PublishPromptResponse
 from basalt.utils.memcache import MemoryCache
 
 
@@ -215,6 +215,55 @@ class TestPromptsClientIntegration:
         cache_key = (prompt_ctx.test_prompt_slug, None, None)
         assert cache.get(cache_key) is None
 
+    def test_publish_prompt_sync_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
+        """Test synchronous prompt publishing with real API."""
+        # Get available versions first
+        describe_response = prompt_ctx.client.describe_sync(prompt_ctx.test_prompt_slug)
+
+        if not describe_response.available_versions:
+            pytest.skip("No versions available for test prompt")
+
+        version = describe_response.available_versions[0]
+
+        # Generate a unique tag name for testing
+        import time
+        test_tag = f"test-tag-{int(time.time())}"
+
+        # Publish the prompt
+        response = prompt_ctx.client.publish_prompt_sync(
+            slug=prompt_ctx.test_prompt_slug,
+            new_tag=test_tag,
+            version=version,
+        )
+
+        # Verify response
+        assert isinstance(response, PublishPromptResponse)
+        assert response.id is not None
+        assert response.label == test_tag
+
+    def test_publish_prompt_sync_with_tag_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
+        """Test publishing from an existing tag."""
+        describe_response = prompt_ctx.client.describe_sync(prompt_ctx.test_prompt_slug)
+
+        if not describe_response.available_tags:
+            pytest.skip("No tags available for test prompt")
+
+        tag = describe_response.available_tags[0]
+
+        # Generate a unique tag name
+        import time
+        new_tag = f"test-from-tag-{int(time.time())}"
+
+        # Publish from existing tag
+        response = prompt_ctx.client.publish_prompt_sync(
+            slug=prompt_ctx.test_prompt_slug,
+            new_tag=new_tag,
+            tag=tag,
+        )
+
+        assert isinstance(response, PublishPromptResponse)
+        assert response.label == new_tag
+
 
 @pytest.mark.skipif(
     os.getenv("BASALT_RUN_INTEGRATION_TESTS") != "1",
@@ -268,3 +317,59 @@ class TestPromptsClientIntegrationAsync:
             )
 
             assert prompt.variables is not None
+
+    @pytest.mark.asyncio
+    async def test_publish_prompt_async_real_api(self, prompt_ctx: PromptIntegrationContext) -> None:
+        """Test asynchronous prompt publishing with real API."""
+        describe_response = await prompt_ctx.client.describe(prompt_ctx.test_prompt_slug)
+
+        if not describe_response.available_versions:
+            pytest.skip("No versions available for test prompt")
+
+        version = describe_response.available_versions[0]
+
+        # Generate a unique tag name
+        import time
+        test_tag = f"test-async-{int(time.time())}"
+
+        # Publish the prompt
+        response = await prompt_ctx.client.publish_prompt(
+            slug=prompt_ctx.test_prompt_slug,
+            new_tag=test_tag,
+            version=version,
+        )
+
+        # Verify response
+        assert isinstance(response, PublishPromptResponse)
+        assert response.id is not None
+        assert response.label == test_tag
+
+    @pytest.mark.asyncio
+    async def test_publish_prompt_async_with_both_version_and_tag_real_api(
+        self, prompt_ctx: PromptIntegrationContext
+    ) -> None:
+        """Test publishing with both version and tag specified."""
+        describe_response = await prompt_ctx.client.describe(prompt_ctx.test_prompt_slug)
+
+        if not describe_response.available_versions:
+            pytest.skip("No versions available for test prompt")
+        if not describe_response.available_tags:
+            pytest.skip("No tags available for test prompt")
+
+        version = describe_response.available_versions[0]
+        tag = describe_response.available_tags[0]
+
+        # Generate a unique tag name
+        import time
+        new_tag = f"test-both-{int(time.time())}"
+
+        # Publish with both version and tag
+        response = await prompt_ctx.client.publish_prompt(
+            slug=prompt_ctx.test_prompt_slug,
+            new_tag=new_tag,
+            version=version,
+            tag=tag,
+        )
+
+        assert isinstance(response, PublishPromptResponse)
+        assert response.label == new_tag

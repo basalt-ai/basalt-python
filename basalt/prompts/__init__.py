@@ -13,6 +13,7 @@ from .models import (
     PromptModelParameters,
     PromptParams,
     PromptResponse,
+    PublishPromptResponse,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "PromptResponse",
     "DescribePromptResponse",
     "PromptListResponse",
+    "PublishPromptResponse",
 ]

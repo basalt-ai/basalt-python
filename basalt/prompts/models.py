@@ -134,12 +134,12 @@ class PromptResponse:
     def from_dict(cls, data: dict[str, Any]) -> PromptResponse:
         """Create instance from API response dictionary."""
         return cls(
-            slug=data["slug"],
+            slug=data.get("slug", ""),
             tag=data.get("tag"),
-            text=data["text"],
-            model=PromptModel.from_dict(data["model"]),
+            text=data.get("text", ""),
+            model=PromptModel.from_dict(data.get("model", {})),
             system_text=data.get("systemText", ""),
-            version=data["version"],
+            version=data.get("version", ""),
         )
 
 
@@ -159,8 +159,8 @@ class DescribePromptResponse:
         """Create instance from API response dictionary."""
         return cls(
             slug=data.get("slug", ""),
-            status=data["status"],
-            name=data["name"],
+            status=data.get("status", ""),
+            name=data.get("name", ""),
             description=data.get("description", ""),
             available_versions=data.get("availableVersions", []),
             available_tags=data.get("availableTags", []),
@@ -183,9 +183,24 @@ class PromptListResponse:
         """Create instance from API response dictionary."""
         return cls(
             slug=data.get("slug", ""),
-            status=data["status"],
-            name=data["name"],
+            status=data.get("status", ""),
+            name=data.get("name", ""),
             description=data.get("description", ""),
             available_versions=data.get("availableVersions", []),
             available_tags=data.get("availableTags", []),
+        )
+
+
+@dataclass
+class PublishPromptResponse:
+    """Response from the Publish Prompt API endpoint."""
+    id: str
+    label: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PublishPromptResponse:
+        """Create instance from API response dictionary."""
+        return cls(
+            id=data.get("id", ""),
+            label=data.get("label", ""),
         )

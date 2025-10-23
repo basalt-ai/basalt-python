@@ -212,6 +212,44 @@ def example_6_describe_prompt(client: PromptsClient) -> None:
         logging.error("Basalt API error occurred", exc_info=True)
 
 
+def example_6b_publish_prompt(client: PromptsClient) -> None:
+    """Example 6b: Publish a prompt with a new deployment tag."""
+    logging.info("Publishing a prompt with a new deployment tag")
+
+    prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG")
+    if not prompt_slug:
+        logging.error("BASALT_TEST_PROMPT_SLUG environment variable not set")
+        return
+
+    try:
+        # First describe to get available versions
+        describe = client.describe_sync(prompt_slug)
+
+        if describe.available_versions:
+            version = describe.available_versions[0]
+
+            # Generate a unique tag name
+            import time
+            new_tag = f"example-deployment-{int(time.time())}"
+
+            # Publish the prompt
+            response = client.publish_prompt_sync(
+                slug=prompt_slug,
+                new_tag=new_tag,
+                version=version,
+            )
+
+            logging.info(f"Published prompt with tag: {response.label}")
+            logging.info(f"Deployment tag ID: {response.id}\n\n")
+        else:
+            logging.warning("No available versions found for publishing")
+
+    except NotFoundError:
+        logging.error("Prompt not found", exc_info=True)
+    except BasaltAPIError:
+        logging.error("Basalt API error occurred", exc_info=True)
+
+
 async def example_7_async_list_prompts(client: PromptsClient) -> None:
     """Example 7: List all prompts asynchronously."""
 
@@ -321,6 +359,7 @@ def main() -> None:
         example_4_get_prompt_with_tag(client)
         example_5_get_prompt_with_variables(client)
         example_6_describe_prompt(client)
+        example_6b_publish_prompt(client)
 
         # Run asynchronous examples
         asyncio.run(run_async_examples(client))
