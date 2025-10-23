@@ -16,3 +16,6 @@ class NotFound(FetchError):
 
 class NetworkBaseError(FetchError):
     pass
+
+class UnprocessableEntity(FetchError):
+    pass
