@@ -547,8 +547,8 @@ def test_publish_prompt_sync_success(common_client):
         call_kwargs = mock_fetch.call_args[1]
         assert "/prompts/test-slug/publish" in call_kwargs["url"]
         assert call_kwargs["method"] == "POST"
-        assert call_kwargs["json"]["newTag"] == "production"
-        assert call_kwargs["json"]["version"] == "1.0.0"
+        assert call_kwargs["body"]["newTag"] == "production"
+        assert call_kwargs["body"]["version"] == "1.0.0"
 
 
 def test_publish_prompt_sync_with_tag(common_client):
@@ -572,9 +572,9 @@ def test_publish_prompt_sync_with_tag(common_client):
 
         # Verify API was called correctly
         call_kwargs = mock_fetch.call_args[1]
-        assert call_kwargs["json"]["newTag"] == "staging"
-        assert call_kwargs["json"]["tag"] == "dev"
-        assert "version" not in call_kwargs["json"]
+        assert call_kwargs["body"]["newTag"] == "staging"
+        assert call_kwargs["body"]["tag"] == "dev"
+        assert "version" not in call_kwargs["body"]
 
 
 def test_publish_prompt_sync_minimal(common_client):
@@ -597,9 +597,9 @@ def test_publish_prompt_sync_minimal(common_client):
 
         # Verify only required fields are in body
         call_kwargs = mock_fetch.call_args[1]
-        assert call_kwargs["json"]["newTag"] == "latest"
-        assert "version" not in call_kwargs["json"]
-        assert "tag" not in call_kwargs["json"]
+        assert call_kwargs["body"]["newTag"] == "latest"
+        assert "version" not in call_kwargs["body"]
+        assert "tag" not in call_kwargs["body"]
 
 
 def test_publish_prompt_sync_error(common_client):
@@ -706,7 +706,7 @@ def test_publish_prompt_sync_parameter_combinations(common_client, slug, new_tag
         )
 
         call_kwargs = mock_fetch.call_args[1]
-        body = call_kwargs["json"]
+        body = call_kwargs["body"]
 
         assert body["newTag"] == new_tag
         if version:

@@ -37,6 +37,7 @@ class PromptsClient:
         cache: ICache,
         fallback_cache: ICache,
         base_url: str | None = None,
+        http_client: HTTPClient | None = None,
     ):
         """
         Initialize the PromptsClient.
@@ -51,7 +52,7 @@ class PromptsClient:
         self._cache = cache
         self._fallback_cache = fallback_cache
         self._base_url = base_url or config["api_url"]
-        self._http_client = HTTPClient()
+        self._http_client = http_client or HTTPClient()
 
         # Cache responses for 5 minutes
         self._cache_duration = 5 * 60
@@ -100,7 +101,7 @@ class PromptsClient:
             if tag:
                 params["tag"] = tag
 
-            response = await HTTPClient.fetch(
+            response = await self._http_client.fetch(
                 url=url,
                 method="GET",
                 params=params,
@@ -174,7 +175,7 @@ class PromptsClient:
             if tag:
                 params["tag"] = tag
 
-            response = HTTPClient.fetch_sync(
+            response = self._http_client.fetch_sync(
                 url=url,
                 method="GET",
                 params=params,
@@ -232,7 +233,7 @@ class PromptsClient:
         if tag:
             params["tag"] = tag
 
-        response = await HTTPClient.fetch(
+        response = await self._http_client.fetch(
             url=url,
             method="GET",
             params=params,
@@ -270,7 +271,7 @@ class PromptsClient:
         if tag:
             params["tag"] = tag
 
-        response = HTTPClient.fetch_sync(
+        response = self._http_client.fetch_sync(
             url=url,
             method="GET",
             params=params,
@@ -299,7 +300,7 @@ class PromptsClient:
         if feature_slug:
             params["featureSlug"] = feature_slug
 
-        response = await HTTPClient.fetch(
+        response = await self._http_client.fetch(
             url=url,
             method="GET",
             params=params,
@@ -328,7 +329,7 @@ class PromptsClient:
         if feature_slug:
             params["featureSlug"] = feature_slug
 
-        response = HTTPClient.fetch_sync(
+        response = self._http_client.fetch_sync(
             url=url,
             method="GET",
             params=params,
@@ -369,7 +370,7 @@ class PromptsClient:
         if tag:
             body["tag"] = tag
 
-        response = await HTTPClient.fetch(
+        response = await self._http_client.fetch(
             url=url,
             method="POST",
             body=body,
@@ -409,10 +410,10 @@ class PromptsClient:
         if tag:
             body["tag"] = tag
 
-        response = HTTPClient.fetch_sync(
+        response = self._http_client.fetch_sync(
             url=url,
             method="POST",
-            json=body,
+            body=body,
             headers=self._get_headers(),
         )
 
