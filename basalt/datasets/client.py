@@ -57,12 +57,15 @@ class DatasetsClient:
             headers=self._get_headers(),
         )
 
-        datasets_data = (response or {}).get("datasets", [])
+        if response is None:
+            return []
+
+        datasets_data = response.get("datasets", [])
         return [
             Dataset(
-                slug=ds["slug"],
-                name=ds["name"],
-                columns=ds["columns"],
+                slug=ds.get("slug", ""),
+                name=ds.get("name", ""),
+                columns=ds.get("columns", []),
                 rows=[],
             )
             for ds in datasets_data
@@ -87,12 +90,15 @@ class DatasetsClient:
             headers=self._get_headers(),
         )
 
-        datasets_data = (response or {}).get("datasets", [])
+        if response is None:
+            return []
+
+        datasets_data = response.get("datasets", [])
         return [
             Dataset(
-                slug=ds["slug"],
-                name=ds["name"],
-                columns=ds["columns"],
+                slug=ds.get("slug", ""),
+                name=ds.get("name", ""),
+                columns=ds.get("columns", []),
                 rows=[],
             )
             for ds in datasets_data
