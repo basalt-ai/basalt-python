@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from basalt._internal.exceptions import BadRequestError, NotFoundError, UnauthorizedError
 from basalt.prompts.client import PromptsClient
 from basalt.prompts.models import (
     DescribePromptResponse,
@@ -18,6 +17,7 @@ from basalt.prompts.models import (
     PromptResponse,
     PublishPromptResponse,
 )
+from basalt.types.exceptions import BadRequestError, NotFoundError, UnauthorizedError
 
 
 @pytest.fixture

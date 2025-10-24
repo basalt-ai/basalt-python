@@ -3,14 +3,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from basalt._internal.exceptions import (
+from basalt._internal.http import HTTPClient
+from basalt.types.exceptions import (
     BadRequestError,
     ForbiddenError,
     NetworkError,
     NotFoundError,
     UnauthorizedError,
 )
-from basalt._internal.http import HTTPClient
 
 
 # Helper function to create a mock session

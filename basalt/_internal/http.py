@@ -8,7 +8,7 @@ from typing import Any, Literal
 import aiohttp
 import requests
 
-from .exceptions import (
+from ..types.exceptions import (
     BadRequestError,
     ForbiddenError,
     NetworkError,

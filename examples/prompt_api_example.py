@@ -19,13 +19,13 @@ import os
 import sys
 from pathlib import Path
 
-from basalt._internal.exceptions import (
+from basalt.prompts.client import PromptsClient
+from basalt.prompts.models import Prompt
+from basalt.types.exceptions import (
     BasaltAPIError,
     NotFoundError,
     UnauthorizedError,
 )
-from basalt.prompts.client import PromptsClient
-from basalt.prompts.models import Prompt
 from basalt.utils.memcache import MemoryCache
 
 # Add parent directory to path to import basalt

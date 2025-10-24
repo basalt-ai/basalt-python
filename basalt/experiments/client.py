@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from .._internal.exceptions import BasaltAPIError
 from .._internal.http import HTTPClient
 from ..config import config
+from ..types.exceptions import BasaltAPIError
 from .models import Experiment
 
 

@@ -6,9 +6,9 @@ from unittest.mock import patch
 
 import pytest
 
-from basalt._internal.exceptions import BadRequestError, UnauthorizedError
 from basalt.experiments.client import ExperimentsClient
 from basalt.experiments.models import Experiment
+from basalt.types.exceptions import BadRequestError, UnauthorizedError
 
 
 @pytest.fixture

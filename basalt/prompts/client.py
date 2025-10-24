@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from typing import cast
 
-from .._internal.exceptions import BasaltAPIError
 from .._internal.http import HTTPClient
 from ..config import config
 from ..types.cache import CacheProtocol
+from ..types.exceptions import BasaltAPIError
 from .models import (
     DescribePromptResponse,
     Prompt,

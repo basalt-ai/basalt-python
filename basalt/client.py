@@ -10,7 +10,6 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from basalt._internal.http import HTTPClient
 
 from .datasets.client import DatasetsClient
-from .instrumentation.openai import OpenAIInstrumentor
 from .prompts.client import PromptsClient
 from .tracing.provider import BasaltConfig, setup_tracing
 from .utils.memcache import MemoryCache
@@ -53,7 +52,6 @@ class Basalt:
         config: BasaltConfig | None = None,
         base_url: str | None = None,
         exporter: SpanExporter | None = None,
-        instrument_openai: bool = True,
     ):
         """
         Initialize the Basalt client.
@@ -63,7 +61,6 @@ class Basalt:
             config: Optional tracing configuration. If not provided, default config is used.
             base_url: Optional base URL for the API (defaults to config value).
             exporter: Optional OpenTelemetry SpanExporter for custom tracing backends.
-            instrument_openai: Whether to automatically instrument the OpenAI SDK (default: True).
         """
         self._api_key = api_key
         self._base_url = base_url
@@ -72,11 +69,6 @@ class Basalt:
         self._config = config or BasaltConfig()
         self._tracer_provider = setup_tracing(self._config, exporter)
 
-        # Initialize OpenAI instrumentation
-        self._openai_instrumentor = None
-        if instrument_openai:
-            self._openai_instrumentor = OpenAIInstrumentor(tracer_provider=self._tracer_provider)
-            self._openai_instrumentor.instrument()
 
         # Initialize caches
         self._cache = MemoryCache()

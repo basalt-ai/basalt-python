@@ -19,13 +19,13 @@ import os
 import sys
 from pathlib import Path
 
-from basalt._internal.exceptions import (
+from basalt.datasets.client import DatasetsClient
+from basalt.datasets.models import Dataset
+from basalt.types.exceptions import (
     BasaltAPIError,
     NotFoundError,
     UnauthorizedError,
 )
-from basalt.datasets.client import DatasetsClient
-from basalt.datasets.models import Dataset
 
 # Add parent directory to path to import basalt
 project_root = Path(__file__).parent.parent

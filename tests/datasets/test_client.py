@@ -7,9 +7,9 @@ from unittest.mock import patch
 
 import pytest
 
-from basalt._internal.exceptions import BadRequestError, BasaltAPIError, NotFoundError
 from basalt.datasets.client import DatasetsClient
 from basalt.datasets.models import Dataset, DatasetRow
+from basalt.types.exceptions import BadRequestError, BasaltAPIError, NotFoundError
 
 
 @pytest.fixture
