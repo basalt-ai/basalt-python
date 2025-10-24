@@ -10,10 +10,7 @@ from typing import cast
 from .._internal.exceptions import BasaltAPIError
 from .._internal.http import HTTPClient
 from ..config import config
-from ..objects.prompt import Prompt as PromptObject
-from ..resources.prompts import prompt_types as resource_prompt_types
-from ..resources.prompts.prompt_types import PromptParams
-from ..utils.protocols import ICache
+from ..types.cache import CacheProtocol
 from .models import (
     DescribePromptResponse,
     Prompt,
@@ -34,8 +31,8 @@ class PromptsClient:
     def __init__(
         self,
         api_key: str,
-        cache: ICache,
-        fallback_cache: ICache,
+    cache: CacheProtocol,
+    fallback_cache: CacheProtocol,
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
     ):
@@ -468,46 +465,24 @@ class PromptsClient:
         Returns:
             Prompt instance with compiled variables if provided.
         """
-        # Convert internal PromptModel to resource PromptModel expected by PromptParams
-        prm = prompt_response.model
-        resource_model = resource_prompt_types.PromptModel(
-            provider=prm.provider,
-            model=prm.model,
-            version=prm.version,
-            parameters=resource_prompt_types.PromptModelParameters(
-                temperature=prm.parameters.temperature,
-                max_length=prm.parameters.max_length,
-                response_format=prm.parameters.response_format,
-                top_k=prm.parameters.top_k,
-                top_p=prm.parameters.top_p,
-                frequency_penalty=prm.parameters.frequency_penalty,
-                presence_penalty=prm.parameters.presence_penalty,
-                json_object=prm.parameters.json_object,
-            ),
-        )
-
-        prompt_obj = PromptObject(PromptParams(
+        # Create the Prompt dataclass instance
+        prompt = Prompt(
             slug=prompt_response.slug,
             text=prompt_response.text,
-            tag=prompt_response.tag,
-            model=resource_model,
+            raw_text=prompt_response.text,
+            model=prompt_response.model,
             version=prompt_response.version,
             system_text=prompt_response.system_text,
+            raw_system_text=prompt_response.system_text,
             variables=variables,
-        ))
-
-        # Return the dataclass Prompt, not the PromptObject
-        return Prompt(
-            slug=prompt_obj.slug,
-            text=prompt_obj.text,
-            raw_text=prompt_obj.raw_text,
-            model=prompt_response.model,
-            version=prompt_obj.version,
-            system_text=prompt_obj.system_text,
-            raw_system_text=prompt_obj.raw_system_text,
-            variables=prompt_obj.variables,
-            tag=prompt_obj.tag,
+            tag=prompt_response.tag,
         )
+
+        # Compile variables if provided
+        if variables:
+            prompt.compile_variables(variables)
+
+        return prompt
 
     def _get_headers(self) -> dict[str, str]:
         """

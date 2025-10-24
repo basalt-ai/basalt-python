@@ -1,3 +1,0 @@
-"""
-Datasets resource module
-"""

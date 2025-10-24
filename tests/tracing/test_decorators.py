@@ -17,6 +17,8 @@ def session_tracer_provider():
 
     from basalt.tracing.provider import create_tracer_provider
     provider = create_tracer_provider(config, exporter)
+    # Force reset any existing global provider to ensure isolation for this module
+    trace._TRACER_PROVIDER = None
     trace._set_tracer_provider(provider, log=False)
 
     yield provider, exporter

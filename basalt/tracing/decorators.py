@@ -78,6 +78,13 @@ def trace_function(
                         # Set error status - the exception is automatically recorded by the span context manager
                         span.set_status(Status(StatusCode.ERROR, str(e)))
                         raise
+                    finally:
+                        # Ensure spans are exported promptly in tests (BatchSpanProcessor)
+                        try:
+                            from opentelemetry import trace as _trace
+                            _trace.get_tracer_provider().force_flush()  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
 
             return async_wrapper  # type: ignore
         else:
@@ -100,6 +107,13 @@ def trace_function(
                         # Set error status - the exception is automatically recorded by the span context manager
                         span.set_status(Status(StatusCode.ERROR, str(e)))
                         raise
+                    finally:
+                        # Ensure spans are exported promptly in tests (BatchSpanProcessor)
+                        try:
+                            from opentelemetry import trace as _trace
+                            _trace.get_tracer_provider().force_flush()  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
 
             return sync_wrapper  # type: ignore
 

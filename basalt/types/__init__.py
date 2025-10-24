@@ -9,7 +9,7 @@ Example:
     from basalt.types import Prompt, Dataset, PromptModel
     ```
 """
-from ..datasets.models import Dataset, DatasetRow, DatasetRowValue
+from ..datasets.models import Dataset, DatasetRow
 from ..prompts.models import (
     DescribePromptResponse,
     Prompt,
@@ -32,5 +32,4 @@ __all__ = [
     # Dataset types
     "Dataset",
     "DatasetRow",
-    "DatasetRowValue",
 ]

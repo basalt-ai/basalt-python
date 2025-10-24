@@ -2,10 +2,10 @@ import time
 from collections.abc import Hashable
 from typing import Any
 
-from .protocols import ICache
+from ..types.cache import CacheProtocol
 
 
-class MemoryCache(ICache):
+class MemoryCache(CacheProtocol):
     """
     MemoryCache is a simple in-memory cache that stores values for a given key.
     It implements the ICache protocol.
