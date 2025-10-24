@@ -1,5 +1,14 @@
 from typing import Any, Optional, Protocol, Hashable, Tuple, TypeVar, Dict, Mapping, Literal
-from .dtos import GetPromptResult, DescribeResult, ListResult, ListDatasetsResult, GetDatasetResult, CreateDatasetItemResult, CreateExperimentResult
+from .dtos import (
+	GetPromptResult,
+	DescribeResult,
+	ListResult,
+	ListDatasetsResult,
+	GetDatasetResult,
+	CreateDatasetItemResult,
+	CreateExperimentResult,
+	PublishPromptResult,
+)
 
 from ..ressources.monitor.monitorsdk_types import IMonitorSDK
 
@@ -41,6 +50,8 @@ class IPromptSDK(Protocol):
     def describe_sync(self, slug: str, tag: Optional[str] = None, version: Optional[str] = None) -> DescribeResult: ...
     async def list(self, feature_slug: Optional[str] = None) -> ListResult: ...
     def list_sync(self, feature_slug: Optional[str] = None) -> ListResult: ...
+    async def publish(self, slug: str, new_tag: str, version: Optional[str] = None, tag: Optional[str] = None) -> PublishPromptResult: ...
+    def publish_sync(self, slug: str, new_tag: str, version: Optional[str] = None, tag: Optional[str] = None) -> PublishPromptResult: ...
 
 class IDatasetSDK(Protocol):
     async def list(self) -> ListDatasetsResult: ...

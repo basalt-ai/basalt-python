@@ -2,7 +2,7 @@ import requests
 import aiohttp
 from typing import Any, Dict, Optional, Tuple, Mapping
 
-from .errors import BadRequest, FetchError, Forbidden, NetworkBaseError, NotFound, Unauthorized
+from .errors import BadRequest, FetchError, Forbidden, NetworkBaseError, NotFound, Unauthorized, UnprocessableEntity
 from .protocols import INetworker
 
 class Networker(INetworker):
@@ -78,6 +78,9 @@ class Networker(INetworker):
 
                     if response.status == 404:
                         return NotFound(json_response.get('error', 'Not Found')), None
+
+                    if response.status == 422:
+                        return UnprocessableEntity(json_response.get('error', 'Unprocessable Entity')), None
 
                     response.raise_for_status()
 

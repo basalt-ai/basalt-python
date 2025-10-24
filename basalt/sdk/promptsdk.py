@@ -3,12 +3,25 @@ from typing import Optional, Dict, Tuple, cast
 from ..ressources.monitor.generation_types import GenerationParams, PromptReference
 from ..ressources.monitor.trace_types import TraceParams
 from ..ressources.prompts.prompt_types import Prompt as IPrompt, PromptParams
-from ..utils.dtos import GetPromptDTO, GetPromptResult, PromptResponse, DescribePromptResponse, DescribePromptDTO, DescribeResult, ListResult, PromptListResponse, PromptListDTO
+from ..utils.dtos import (
+	GetPromptDTO,
+	GetPromptResult,
+	PromptResponse,
+	DescribePromptResponse,
+	DescribePromptDTO,
+	DescribeResult,
+	ListResult,
+	PromptListResponse,
+	PromptListDTO,
+	PublishPromptDTO,
+	PublishPromptResult,
+)
 from ..utils.protocols import ICache, IApi, ILogger
 
 from ..endpoints.get_prompt import GetPromptEndpoint
 from ..endpoints.describe_prompt import DescribePromptEndpoint
 from ..endpoints.list_prompts import ListPromptsEndpoint
+from ..endpoints.publish_prompt import PublishPromptEndpoint
 from ..objects.trace import Trace
 from ..objects.generation import Generation
 from ..objects.prompt import Prompt
@@ -325,6 +338,80 @@ class PromptSDK:
             available_versions=prompt.available_versions,
             available_tags=prompt.available_tags
         ) for prompt in result.prompts]
+
+    async def publish(
+        self,
+        slug: str,
+        new_tag: str,
+        version: Optional[str] = None,
+        tag: Optional[str] = None
+    ) -> PublishPromptResult:
+        """
+        Publish a prompt by assigning a tag to a specific version.
+
+        Args:
+            slug (str): The slug identifier for the prompt.
+            new_tag (str): The new tag to assign to the prompt version.
+            version (Optional[str]): The version number to publish.
+            tag (Optional[str]): The existing tag to publish.
+
+        Returns:
+            Tuple[Optional[Exception], Optional[DeploymentTagResponse]]:
+            A tuple containing an optional exception and an optional DeploymentTagResponse.
+        """
+        if not version and not tag:
+            return ValueError("Either version or tag must be provided"), None
+
+        dto = PublishPromptDTO(
+            slug=slug,
+            new_tag=new_tag,
+            version=version,
+            tag=tag
+        )
+
+        err, result = await self._api.invoke(PublishPromptEndpoint, dto)
+
+        if err is not None:
+            return err, None
+
+        return None, result.deploymentTag
+
+    def publish_sync(
+        self,
+        slug: str,
+        new_tag: str,
+        version: Optional[str] = None,
+        tag: Optional[str] = None
+    ) -> PublishPromptResult:
+        """
+        Synchronously publish a prompt by assigning a tag to a specific version.
+
+        Args:
+            slug (str): The slug identifier for the prompt.
+            new_tag (str): The new tag to assign to the prompt version.
+            version (Optional[str]): The version number to publish.
+            tag (Optional[str]): The existing tag to publish.
+
+        Returns:
+            Tuple[Optional[Exception], Optional[DeploymentTagResponse]]:
+            A tuple containing an optional exception and an optional DeploymentTagResponse.
+        """
+        if not version and not tag:
+            return ValueError("Either version or tag must be provided"), None
+
+        dto = PublishPromptDTO(
+            slug=slug,
+            new_tag=new_tag,
+            version=version,
+            tag=tag
+        )
+
+        err, result = self._api.invoke_sync(PublishPromptEndpoint, dto)
+
+        if err is not None:
+            return err, None
+
+        return None, result.deploymentTag
 
     @staticmethod
     def _create_prompt_instance(

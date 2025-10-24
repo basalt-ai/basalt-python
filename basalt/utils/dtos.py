@@ -204,3 +204,30 @@ CreateDatasetItemResult = Tuple[Optional[Exception], Optional[DatasetRowDTO], Op
 
 # Result types for monitor operations
 CreateExperimentResult = Tuple[Optional[Exception], Optional[Experiment]]
+
+# ------------------------------ Publish Prompt ----------------------------- #
+@dataclass
+class PublishPromptDTO:
+    """DTO for publishing a prompt with a tag"""
+    slug: str
+    new_tag: str
+    version: Optional[str] = None
+    tag: Optional[str] = None
+
+
+@dataclass
+class DeploymentTagResponse:
+    """Response for a deployment tag"""
+    id: str
+    label: str
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]):
+        return cls(
+            id=pick_typed(data, "id", str),
+            label=pick_typed(data, "label", str),
+        )
+
+
+# Result type for publish prompt
+PublishPromptResult = Tuple[Optional[Exception], Optional[DeploymentTagResponse]]
