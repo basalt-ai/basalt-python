@@ -35,14 +35,14 @@ def common_client():
     )
 
     mock_prompt_model = PromptModel(
-        provider="openai",
-        model="gpt-4",
+        provider="open-ai",
+        model="gpt-4o",
         version="latest",
         parameters=PromptModelParameters(
-            temperature=0.7,
-            max_length=4096,
-            response_format="text",
-            top_p=1.0,
+            temperature=0.5,
+            max_length=100,
+            response_format="json_object",
+            top_p=0.5,
             top_k=None,
             frequency_penalty=None,
             presence_penalty=None,
@@ -74,21 +74,22 @@ def test_get_sync_success(common_client):
     fallback_cache = common_client["fallback_cache"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"prompt": {
+        mock_fetch.return_value = {"warning": "", "prompt": {
             "text": "Hello {{name}}",
             "slug": "test-slug",
             "version": "1.0.0",
             "tag": "prod",
             "systemText": "You are a helpful assistant",
             "model": {
-                "provider": "openai",
-                "model": "gpt-4",
+                "provider": "open-ai",
+                "client": "open-ai",
+                "model": "gpt-4o",
                 "version": "latest",
                 "parameters": {
-                    "temperature": 0.7,
-                    "maxLength": 4096,
-                    "responseFormat": "text",
-                    "topP": 1.0,
+                    "temperature": 0.5,
+                    "maxLength": 100,
+                    "responseFormat": "json_object",
+                    "topP": 0.5,
                 },
             },
         }}
@@ -117,20 +118,21 @@ def test_get_sync_with_variables(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"prompt": {
+        mock_fetch.return_value = {"warning": "", "prompt": {
             "text": "Hello {{name}}",
             "slug": "test-slug",
             "version": "1.0.0",
             "tag": "prod",
             "systemText": "You are {{role}}",
             "model": {
-                "provider": "openai",
-                "model": "gpt-4",
+                "provider": "open-ai",
+                "client": "open-ai",
+                "model": "gpt-4o",
                 "version": "latest",
                 "parameters": {
-                    "temperature": 0.7,
-                    "maxLength": 4096,
-                    "responseFormat": "text",
+                    "temperature": 0.5,
+                    "maxLength": 100,
+                    "responseFormat": "json_object",
                 },
             },
         }}
@@ -167,20 +169,21 @@ def test_get_sync_cache_disabled(common_client):
     fallback_cache = common_client["fallback_cache"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"prompt": {
+        mock_fetch.return_value = {"warning": "", "prompt": {
             "text": "Hello",
             "slug": "test-slug",
             "version": "1.0.0",
             "tag": "prod",
             "systemText": "",
             "model": {
-                "provider": "openai",
-                "model": "gpt-4",
+                "provider": "open-ai",
+                "client": "open-ai",
+                "model": "gpt-4o",
                 "version": "latest",
                 "parameters": {
-                    "temperature": 0.7,
-                    "maxLength": 4096,
-                    "responseFormat": "text",
+                    "temperature": 0.5,
+                    "maxLength": 100,
+                    "responseFormat": "json_object",
                 },
             },
         }}
@@ -230,24 +233,24 @@ def test_describe_sync_success(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"prompt": {
+        mock_fetch.return_value = {"warning": "", "prompt": {
             "slug": "test-slug",
-            "status": "active",
+            "status": "live",
             "name": "Test Prompt",
             "description": "A test prompt",
             "availableVersions": ["1.0.0", "1.1.0"],
-            "availableTags": ["prod", "dev"],
-            "variables": [{"name": "name", "type": "string"}],
+            "availableTags": ["latest", "production", "staging"],
+            "variables": [{"label": "Name", "type": "string", "description": "This is a description of the variable"}],
         }}
 
         response = client.describe_sync("test-slug", version="1.0.0")
 
         assert isinstance(response, DescribePromptResponse)
         assert response.slug == "test-slug"
-        assert response.status == "active"
+        assert response.status == "live"
         assert response.name == "Test Prompt"
         assert len(response.available_versions) == 2
-        assert len(response.available_tags) == 2
+        assert len(response.available_tags) == 3
 
 
 def test_describe_sync_error(common_client):
@@ -267,19 +270,19 @@ def test_list_sync_success(common_client):
         mock_fetch.return_value = {"prompts": [
             {
                 "slug": "prompt-1",
-                "status": "active",
+                "status": "live",
                 "name": "Prompt 1",
                 "description": "First prompt",
                 "availableVersions": ["1.0.0"],
-                "availableTags": ["prod"],
+                "availableTags": ["latest"],
             },
             {
                 "slug": "prompt-2",
-                "status": "active",
+                "status": "live",
                 "name": "Prompt 2",
                 "description": "Second prompt",
                 "availableVersions": ["2.0.0"],
-                "availableTags": ["dev"],
+                "availableTags": ["production"],
             },
         ]}
 
@@ -326,20 +329,21 @@ def test_get_sync_parameter_combinations(common_client, slug, version, tag):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"prompt": {
+        mock_fetch.return_value = {"warning": "", "prompt": {
             "text": "Test",
             "slug": slug,
             "version": version or "latest",
             "tag": tag or "default",
             "systemText": "",
             "model": {
-                "provider": "openai",
-                "model": "gpt-4",
+                "provider": "open-ai",
+                "client": "open-ai",
+                "model": "gpt-4o",
                 "version": "latest",
                 "parameters": {
-                    "temperature": 0.7,
-                    "maxLength": 4096,
-                    "responseFormat": "text",
+                    "temperature": 0.5,
+                    "maxLength": 100,
+                    "responseFormat": "json_object",
                 },
             },
         }}
@@ -360,21 +364,22 @@ async def test_get_async_success(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {"prompt": {
+        mock_fetch.return_value = {"warning": "", "prompt": {
             "text": "Hello {{name}}",
             "slug": "test-slug",
             "version": "1.0.0",
             "tag": "prod",
             "systemText": "You are a helpful assistant",
             "model": {
-                "provider": "openai",
-                "model": "gpt-4",
+                "provider": "open-ai",
+                "client": "open-ai",
+                "model": "gpt-4o",
                 "version": "latest",
                 "parameters": {
-                    "temperature": 0.7,
-                    "maxLength": 4096,
-                    "responseFormat": "text",
-                    "topP": 1.0,
+                    "temperature": 0.5,
+                    "maxLength": 100,
+                    "responseFormat": "json_object",
+                    "topP": 0.5,
                 },
             },
         }}
@@ -420,13 +425,13 @@ async def test_describe_async_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {"prompt": {
+        mock_fetch.return_value = {"warning": "", "prompt": {
             "slug": "test-slug",
-            "status": "active",
+            "status": "live",
             "name": "Test Prompt",
             "description": "A test prompt",
             "availableVersions": ["1.0.0"],
-            "availableTags": ["prod"],
+            "availableTags": ["latest", "production", "staging"],
             "variables": [],
         }}
 
@@ -444,11 +449,11 @@ async def test_list_async_success(common_client):
         mock_fetch.return_value = {"prompts": [
             {
                 "slug": "prompt-1",
-                "status": "active",
+                "status": "live",
                 "name": "Prompt 1",
                 "description": "First prompt",
                 "availableVersions": ["1.0.0"],
-                "availableTags": ["prod"],
+                "availableTags": ["latest"],
             },
         ]}
 
@@ -463,20 +468,21 @@ async def test_get_async_with_variables(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {"prompt": {
+        mock_fetch.return_value = {"warning": "", "prompt": {
             "text": "Hello {{name}}",
             "slug": "test-slug",
             "version": "1.0.0",
             "tag": "prod",
             "systemText": "You are {{role}}",
             "model": {
-                "provider": "openai",
-                "model": "gpt-4",
+                "provider": "open-ai",
+                "client": "open-ai",
+                "model": "gpt-4o",
                 "version": "latest",
                 "parameters": {
-                    "temperature": 0.7,
-                    "maxLength": 4096,
-                    "responseFormat": "text",
+                    "temperature": 0.5,
+                    "maxLength": 100,
+                    "responseFormat": "json_object",
                 },
             },
         }}
@@ -528,8 +534,10 @@ def test_publish_prompt_sync_success(common_client):
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.return_value = {
-            "id": "tag-123",
-            "label": "production",
+            "deploymentTag": {
+                "id": "tag-123",
+                "label": "production",
+            }
         }
 
         response = client.publish_prompt_sync(
@@ -556,8 +564,10 @@ def test_publish_prompt_sync_with_tag(common_client):
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.return_value = {
-            "id": "tag-456",
-            "label": "staging",
+            "deploymentTag": {
+                "id": "tag-456",
+                "label": "staging",
+            }
         }
 
         response = client.publish_prompt_sync(
@@ -582,8 +592,10 @@ def test_publish_prompt_sync_minimal(common_client):
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.return_value = {
-            "id": "tag-789",
-            "label": "latest",
+            "deploymentTag": {
+                "id": "tag-789",
+                "label": "latest",
+            }
         }
 
         response = client.publish_prompt_sync(
@@ -618,8 +630,10 @@ async def test_publish_prompt_async_success(common_client):
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
         mock_fetch.return_value = {
-            "id": "tag-async-123",
-            "label": "production",
+            "deploymentTag": {
+                "id": "tag-async-123",
+                "label": "production",
+            }
         }
 
         response = await client.publish_prompt(
@@ -647,8 +661,10 @@ async def test_publish_prompt_async_with_both_version_and_tag(common_client):
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
         mock_fetch.return_value = {
-            "id": "tag-both",
-            "label": "release",
+            "deploymentTag": {
+                "id": "tag-both",
+                "label": "release",
+            }
         }
 
         response = await client.publish_prompt(
@@ -694,8 +710,10 @@ def test_publish_prompt_sync_parameter_combinations(common_client, slug, new_tag
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.return_value = {
-            "id": "tag-param-test",
-            "label": new_tag,
+            "deploymentTag": {
+                "id": "tag-param-test",
+                "label": new_tag,
+            }
         }
 
         client.publish_prompt_sync(

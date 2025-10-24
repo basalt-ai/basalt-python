@@ -317,8 +317,13 @@ class PromptsClient:
 
         if response is None:
             return []
+
         prompts_data = response.get("prompts", [])
-        return [PromptListResponse.from_dict(p) for p in prompts_data]
+        return [
+            PromptListResponse.from_dict(p)
+            for p in prompts_data
+            if isinstance(p, dict)
+        ]
 
     def list_sync(self, feature_slug: str | None = None) -> list[PromptListResponse]:
         """
@@ -350,7 +355,11 @@ class PromptsClient:
             return []
 
         prompts_data = response.get("prompts", [])
-        return [PromptListResponse.from_dict(p) for p in prompts_data]
+        return [
+            PromptListResponse.from_dict(p)
+            for p in prompts_data
+            if isinstance(p, dict)
+        ]
 
     async def publish_prompt(
         self,
@@ -389,7 +398,11 @@ class PromptsClient:
             body=body,
             headers=self._get_headers(),
         )
-        if response is None:
+
+        response = response or {}
+        if response.get("error"):
+            raise BasaltAPIError(response["error"])
+        if response is None or not response:
             raise BasaltAPIError("Empty response from publish prompt API")
 
         return PublishPromptResponse.from_dict(response)
@@ -431,7 +444,11 @@ class PromptsClient:
             body=body,
             headers=self._get_headers(),
         )
-        if response is None:
+
+        response = response or {}
+        if response.get("error"):
+            raise BasaltAPIError(response["error"])
+        if response is None or not response:
             raise BasaltAPIError("Empty response from publish prompt API")
 
         return PublishPromptResponse.from_dict(response)
