@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from basalt._internal.http import HTTPResponse
 from basalt.prompts.client import PromptsClient
 from basalt.prompts.models import (
     DescribePromptResponse,
@@ -68,13 +69,17 @@ def common_client():
     }
 
 
+def make_response(payload: dict | None, status: int = 200) -> HTTPResponse:
+    return HTTPResponse(status_code=status, data=payload, headers={})
+
+
 def test_get_sync_success(common_client):
     client: PromptsClient = common_client["client"]
     cache = common_client["cache"]
     fallback_cache = common_client["fallback_cache"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"warning": "", "prompt": {
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
             "text": "Hello {{name}}",
             "slug": "test-slug",
             "version": "1.0.0",
@@ -92,7 +97,7 @@ def test_get_sync_success(common_client):
                     "topP": 0.5,
                 },
             },
-        }}
+        }})
 
         prompt = client.get_sync("test-slug", version="1.0.0", tag="prod")
 
@@ -118,7 +123,7 @@ def test_get_sync_with_variables(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"warning": "", "prompt": {
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
             "text": "Hello {{name}}",
             "slug": "test-slug",
             "version": "1.0.0",
@@ -135,7 +140,7 @@ def test_get_sync_with_variables(common_client):
                     "responseFormat": "json_object",
                 },
             },
-        }}
+        }})
 
         variables = {"name": "World", "role": "helpful"}
         prompt = client.get_sync("test-slug", variables=variables)
@@ -169,7 +174,7 @@ def test_get_sync_cache_disabled(common_client):
     fallback_cache = common_client["fallback_cache"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"warning": "", "prompt": {
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
             "text": "Hello",
             "slug": "test-slug",
             "version": "1.0.0",
@@ -186,7 +191,7 @@ def test_get_sync_cache_disabled(common_client):
                     "responseFormat": "json_object",
                 },
             },
-        }}
+        }})
 
         # Set cache to have a value
         cache.get.return_value = common_client["mock_prompt_response"]
@@ -233,7 +238,7 @@ def test_describe_sync_success(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"warning": "", "prompt": {
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
             "slug": "test-slug",
             "status": "live",
             "name": "Test Prompt",
@@ -241,7 +246,7 @@ def test_describe_sync_success(common_client):
             "availableVersions": ["1.0.0", "1.1.0"],
             "availableTags": ["latest", "production", "staging"],
             "variables": [{"label": "Name", "type": "string", "description": "This is a description of the variable"}],
-        }}
+        }})
 
         response = client.describe_sync("test-slug", version="1.0.0")
 
@@ -267,7 +272,7 @@ def test_list_sync_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"prompts": [
+        mock_fetch.return_value = make_response({"prompts": [
             {
                 "slug": "prompt-1",
                 "status": "live",
@@ -284,7 +289,7 @@ def test_list_sync_success(common_client):
                 "availableVersions": ["2.0.0"],
                 "availableTags": ["production"],
             },
-        ]}
+        ]})
 
         prompts = client.list_sync()
 
@@ -298,7 +303,7 @@ def test_list_sync_with_feature_slug(common_client):
     client = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"prompts": []}
+        mock_fetch.return_value = make_response({"prompts": []})
 
         client.list_sync(feature_slug="my-feature")
 
@@ -329,7 +334,7 @@ def test_get_sync_parameter_combinations(common_client, slug, version, tag):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"warning": "", "prompt": {
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
             "text": "Test",
             "slug": slug,
             "version": version or "latest",
@@ -346,7 +351,7 @@ def test_get_sync_parameter_combinations(common_client, slug, version, tag):
                     "responseFormat": "json_object",
                 },
             },
-        }}
+        }})
 
         client.get_sync(slug, version=version, tag=tag)
 
@@ -364,7 +369,7 @@ async def test_get_async_success(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {"warning": "", "prompt": {
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
             "text": "Hello {{name}}",
             "slug": "test-slug",
             "version": "1.0.0",
@@ -382,7 +387,7 @@ async def test_get_async_success(common_client):
                     "topP": 0.5,
                 },
             },
-        }}
+        }})
 
         prompt = await client.get("test-slug", version="1.0.0")
 
@@ -425,7 +430,7 @@ async def test_describe_async_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {"warning": "", "prompt": {
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
             "slug": "test-slug",
             "status": "live",
             "name": "Test Prompt",
@@ -433,7 +438,7 @@ async def test_describe_async_success(common_client):
             "availableVersions": ["1.0.0"],
             "availableTags": ["latest", "production", "staging"],
             "variables": [],
-        }}
+        }})
 
         response = await client.describe("test-slug")
 
@@ -446,7 +451,7 @@ async def test_list_async_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {"prompts": [
+        mock_fetch.return_value = make_response({"prompts": [
             {
                 "slug": "prompt-1",
                 "status": "live",
@@ -455,7 +460,7 @@ async def test_list_async_success(common_client):
                 "availableVersions": ["1.0.0"],
                 "availableTags": ["latest"],
             },
-        ]}
+        ]})
 
         prompts = await client.list()
 
@@ -468,7 +473,7 @@ async def test_get_async_with_variables(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {"warning": "", "prompt": {
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
             "text": "Hello {{name}}",
             "slug": "test-slug",
             "version": "1.0.0",
@@ -485,7 +490,7 @@ async def test_get_async_with_variables(common_client):
                     "responseFormat": "json_object",
                 },
             },
-        }}
+        }})
 
         variables = {"name": "Alice", "role": "assistant"}
         prompt = await client.get("test-slug", variables=variables)
@@ -533,12 +538,12 @@ def test_publish_prompt_sync_success(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "deploymentTag": {
                 "id": "tag-123",
                 "label": "production",
             }
-        }
+        })
 
         response = client.publish_prompt_sync(
             slug="test-slug",
@@ -563,12 +568,12 @@ def test_publish_prompt_sync_with_tag(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "deploymentTag": {
                 "id": "tag-456",
                 "label": "staging",
             }
-        }
+        })
 
         response = client.publish_prompt_sync(
             slug="test-slug",
@@ -591,12 +596,12 @@ def test_publish_prompt_sync_minimal(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "deploymentTag": {
                 "id": "tag-789",
                 "label": "latest",
             }
-        }
+        })
 
         response = client.publish_prompt_sync(
             slug="test-slug",
@@ -629,12 +634,12 @@ async def test_publish_prompt_async_success(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "deploymentTag": {
                 "id": "tag-async-123",
                 "label": "production",
             }
-        }
+        })
 
         response = await client.publish_prompt(
             slug="test-slug",
@@ -660,12 +665,12 @@ async def test_publish_prompt_async_with_both_version_and_tag(common_client):
     client: PromptsClient = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "deploymentTag": {
                 "id": "tag-both",
                 "label": "release",
             }
-        }
+        })
 
         response = await client.publish_prompt(
             slug="test-slug",
@@ -709,12 +714,12 @@ def test_publish_prompt_sync_parameter_combinations(common_client, slug, new_tag
     client = common_client["client"]
 
     with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "deploymentTag": {
                 "id": "tag-param-test",
                 "label": new_tag,
             }
-        }
+        })
 
         client.publish_prompt_sync(
             slug=slug,
@@ -735,4 +740,3 @@ def test_publish_prompt_sync_parameter_combinations(common_client, slug, new_tag
             assert body["tag"] == tag
         else:
             assert "tag" not in body
-

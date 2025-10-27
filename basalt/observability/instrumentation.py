@@ -8,7 +8,7 @@ import warnings
 from typing import Any
 
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -20,7 +20,7 @@ from opentelemetry.sdk.trace.export import (
 
 from basalt.config import config as basalt_sdk_config
 
-from .config import OpenLLMetryConfig, TelemetryConfig
+from .config import TelemetryConfig
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +93,9 @@ def create_tracer_provider(
     if exporter is None:
         exporter = ConsoleSpanExporter()
         warnings.warn(
-            "No span exporter configured. Using ConsoleSpanExporter for debugging. "
-            "For production, configure an exporter via TelemetryConfig.exporter or set "
-            "BASALT_OTEL_EXPORTER_OTLP_ENDPOINT environment variable.",
+            "No span exporter configured and default Basalt OTEL endpoint unavailable. "
+            "Using ConsoleSpanExporter for debugging. For production, configure an exporter "
+            "via TelemetryConfig.exporter or set BASALT_OTEL_EXPORTER_OTLP_ENDPOINT environment variable.",
             UserWarning,
             stacklevel=3,
         )
@@ -119,7 +119,20 @@ def setup_tracing(
 
     Returns:
         The configured TracerProvider.
+
+    Note:
+        If a TracerProvider is already set globally, this will return the existing
+        provider instead of creating a new one to avoid "Overriding of current
+        TracerProvider is not allowed" errors.
     """
+    # Check if a tracer provider is already set globally
+    existing_provider = trace.get_tracer_provider()
+    # If it's a real TracerProvider (not the default proxy), reuse it
+    if hasattr(existing_provider, 'add_span_processor'):
+        logger.debug("Reusing existing global TracerProvider")
+        return existing_provider  # type: ignore[return-value]
+
+    # Otherwise create and set a new one
     provider = create_tracer_provider(config, exporter)
     trace.set_tracer_provider(provider)
     return provider
@@ -161,9 +174,8 @@ class InstrumentationManager:
         if effective_config.instrument_http:
             self._instrument_http()
 
-        openll_config = effective_config.resolved_openllmetry()
-        if openll_config:
-            self._initialize_openllmetry(openll_config)
+        if effective_config.enable_llm_instrumentation:
+            self._initialize_llm_instrumentation(effective_config)
 
         self._initialized = True
 
@@ -189,12 +201,20 @@ class InstrumentationManager:
 
     def _build_exporter_from_env(self) -> SpanExporter | None:
         """Build an OTLP exporter from environment variables if configured."""
+        # Check for explicit environment variable override first
         endpoint = os.getenv("BASALT_OTEL_EXPORTER_OTLP_ENDPOINT")
+        
+        # Fall back to Basalt's default OTEL collector endpoint
+        if not endpoint:
+            endpoint = basalt_sdk_config.get("otel_endpoint")
+            if endpoint:
+                logger.info("Using default Basalt OTEL endpoint: %s", endpoint)
+
         if not endpoint:
             return None
+
         try:
             exporter = OTLPSpanExporter(endpoint=endpoint)
-            # Info message rather than warning since this is expected configuration
             logger.info("Basalt: Using OTLP exporter with endpoint: %s", endpoint)
             return exporter
         except Exception as exc:
@@ -210,80 +230,115 @@ class InstrumentationManager:
         if self._http_instrumented:
             return
 
-        requests_cls = _safe_import("opentelemetry.instrumentation.requests", "RequestsInstrumentor")
-        if requests_cls:
-            try:
-                self._requests_instrumentor = requests_cls()
-                self._requests_instrumentor.instrument()
-            except Exception:
-                self._requests_instrumentor = None
-
-        aiohttp_cls = _safe_import(
-            "opentelemetry.instrumentation.aiohttp_client", "AioHttpClientInstrumentor"
+        logger.debug(
+            "Skipping automatic HTTP instrumentation. "
+            "The SDK now relies on httpx clients and traces requests via client wrappers. "
+            "Instrument HTTP manually if your application requires transport-level spans."
         )
-        if aiohttp_cls:
-            try:
-                self._aiohttp_instrumentor = aiohttp_cls()
-                self._aiohttp_instrumentor.instrument()
-            except Exception:
-                self._aiohttp_instrumentor = None
+        self._http_instrumented = True
 
-        self._http_instrumented = bool(self._requests_instrumentor or self._aiohttp_instrumentor)
+    def _instrument_llm_providers(self, config: TelemetryConfig) -> None:
+        """
+        Instrument specific LLM providers based on configuration.
 
-    def _instrument_llm_providers(self) -> None:
+        This method directly imports and instruments individual provider instrumentors
+        instead of using Traceloop.init() which instruments everything globally.
+
+        Args:
+            config: Telemetry configuration specifying which providers to instrument.
+        """
+        # Comprehensive map of supported LLM providers and their instrumentors
         provider_map = {
             "openai": ("opentelemetry.instrumentation.openai", "OpenAIInstrumentor"),
             "anthropic": ("opentelemetry.instrumentation.anthropic", "AnthropicInstrumentor"),
             "google_genai": ("opentelemetry.instrumentation.google_genai", "GoogleGenAIInstrumentor"),
+            "cohere": ("opentelemetry.instrumentation.cohere", "CohereInstrumentor"),
+            "bedrock": ("opentelemetry.instrumentation.bedrock", "BedrockInstrumentor"),
+            "vertexai": ("opentelemetry.instrumentation.vertexai", "VertexAIInstrumentor"),
+            "together": ("opentelemetry.instrumentation.together", "TogetherInstrumentor"),
+            "replicate": ("opentelemetry.instrumentation.replicate", "ReplicateInstrumentor"),
+            "langchain": ("opentelemetry.instrumentation.langchain", "LangchainInstrumentor"),
+            "llamaindex": ("opentelemetry.instrumentation.llamaindex", "LlamaIndexInstrumentor"),
+            "haystack": ("opentelemetry.instrumentation.haystack", "HaystackInstrumentor"),
         }
-        for key, module_info in provider_map.items():
-            if key in self._provider_instrumentors:
+
+        for provider_key, (module_name, class_name) in provider_map.items():
+            # Skip if already instrumented
+            if provider_key in self._provider_instrumentors:
                 continue
-            cls = _safe_import(*module_info)
-            if not cls:
+
+            # Check if this provider should be instrumented
+            if not config.should_instrument_provider(provider_key):
+                logger.debug(f"Skipping instrumentation for provider: {provider_key}")
                 continue
+
+            # Try to import the instrumentor
+            instrumentor_cls = _safe_import(module_name, class_name)
+            if not instrumentor_cls:
+                logger.debug(
+                    f"Provider '{provider_key}' instrumentor not available. "
+                    f"Install with: pip install {module_name.replace('.', '-')}"
+                )
+                continue
+
+            # Instrument the provider
             try:
-                instrumentor = cls()
-                instrumentor.instrument()
-                self._provider_instrumentors[key] = instrumentor
-            except Exception:
-                continue
+                instrumentor = instrumentor_cls()
+                # Check if already instrumented to avoid double instrumentation
+                if hasattr(instrumentor, 'is_instrumented_by_opentelemetry'):
+                    if not instrumentor.is_instrumented_by_opentelemetry:
+                        instrumentor.instrument()
+                        self._provider_instrumentors[provider_key] = instrumentor
+                        logger.info(f"Instrumented LLM provider: {provider_key}")
+                    else:
+                        logger.debug(f"LLM provider '{provider_key}' already instrumented")
+                        self._provider_instrumentors[provider_key] = instrumentor
+                else:
+                    # Fallback for instrumentors that don't have the property
+                    instrumentor.instrument()
+                    self._provider_instrumentors[provider_key] = instrumentor
+                    logger.info(f"Instrumented LLM provider: {provider_key}")
+            except Exception as exc:
+                logger.warning(f"Failed to instrument provider '{provider_key}': {exc}")
 
-    def _initialize_openllmetry(self, config: OpenLLMetryConfig) -> None:
-        os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.trace_content else "false"
-        os.environ["TRACELOOP_TELEMETRY"] = "true" if config.telemetry_enabled else "false"
+    def _initialize_llm_instrumentation(self, config: TelemetryConfig) -> None:
+        """
+        Initialize LLM provider instrumentation.
 
-        traceloop_cls = _safe_import("traceloop.sdk", "Traceloop")
-        if traceloop_cls:
-            init_kwargs: dict[str, Any] = {"app_name": config.app_name}
-            if config.disable_batch:
-                init_kwargs["disable_batch"] = True
-            if config.api_endpoint:
-                init_kwargs["otlp_endpoint"] = config.api_endpoint
-            if config.headers:
-                init_kwargs["headers"] = config.headers
-            try:
-                traceloop_cls.init(**init_kwargs)
-            except Exception:
-                pass
+        Instead of using Traceloop.init() which instruments everything globally,
+        this method directly instruments individual LLM providers based on the
+        configuration. This gives you fine-grained control over which providers
+        are instrumented and reduces unnecessary overhead.
 
-        self._instrument_llm_providers()
+        Args:
+            config: Telemetry configuration specifying trace content and provider settings.
+        """
+        # Set environment variable to control trace content for OpenTelemetry instrumentors
+        # This is used by OpenTelemetry instrumentation libraries
+        os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.llm_trace_content else "false"
+
+        # Instrument providers directly without using Traceloop.init()
+        self._instrument_llm_providers(config)
 
     def _uninstrument_http(self) -> None:
-        for instrumentor in (self._requests_instrumentor, self._aiohttp_instrumentor):
-            if instrumentor:
-                try:
-                    instrumentor.uninstrument()
-                except Exception:
-                    pass
         self._requests_instrumentor = None
         self._aiohttp_instrumentor = None
         self._http_instrumented = False
 
     def _uninstrument_llm(self) -> None:
-        for instrumentor in self._provider_instrumentors.values():
+        for provider_key, instrumentor in list(self._provider_instrumentors.items()):
             try:
-                instrumentor.uninstrument()
-            except Exception:
-                pass
+                # Check if it's actually instrumented before trying to uninstrument
+                if hasattr(instrumentor, 'is_instrumented_by_opentelemetry'):
+                    if instrumentor.is_instrumented_by_opentelemetry:
+                        instrumentor.uninstrument()
+                        logger.debug(f"Uninstrumented LLM provider: {provider_key}")
+                    else:
+                        logger.debug(f"LLM provider '{provider_key}' already uninstrumented")
+                else:
+                    # Try to uninstrument anyway if we can't check
+                    instrumentor.uninstrument()
+                    logger.debug(f"Uninstrumented LLM provider: {provider_key}")
+            except Exception as exc:
+                logger.debug(f"Error uninstrumenting LLM provider '{provider_key}': {exc}")
         self._provider_instrumentors.clear()

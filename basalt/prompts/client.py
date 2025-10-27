@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from .._internal.base_client import BaseServiceClient
 from .._internal.http import HTTPClient
 from ..config import config
 from ..types.cache import CacheProtocol
@@ -20,7 +21,7 @@ from .models import (
 )
 
 
-class PromptsClient:
+class PromptsClient(BaseServiceClient):
     """
     Client for interacting with the Basalt Prompts API.
 
@@ -31,8 +32,8 @@ class PromptsClient:
     def __init__(
         self,
         api_key: str,
-    cache: CacheProtocol,
-    fallback_cache: CacheProtocol,
+        cache: CacheProtocol,
+        fallback_cache: CacheProtocol,
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
     ):
@@ -49,7 +50,7 @@ class PromptsClient:
         self._cache = cache
         self._fallback_cache = fallback_cache
         self._base_url = base_url or config["api_url"]
-        self._http_client = http_client or HTTPClient()
+        super().__init__(client_name="prompts", http_client=http_client)
 
         # Cache responses for 5 minutes
         self._cache_duration = 5 * 60
@@ -98,14 +99,20 @@ class PromptsClient:
             if tag:
                 params["tag"] = tag
 
-            response = await self._http_client.fetch(
-                url=url,
+            response = await self._request_async(
+                "get",
                 method="GET",
+                url=url,
                 params=params,
                 headers=self._get_headers(),
+                span_attributes={
+                    "basalt.prompt.slug": slug,
+                    "basalt.prompt.version": version,
+                    "basalt.prompt.tag": tag,
+                },
             )
 
-            if response is None:
+            if response is None or response.body is None:
                 raise BasaltAPIError("Empty response from get prompt API")
             prompt_data = response.get("prompt", {})
             prompt_response = PromptResponse.from_dict(prompt_data)
@@ -174,14 +181,20 @@ class PromptsClient:
             if tag:
                 params["tag"] = tag
 
-            response = self._http_client.fetch_sync(
-                url=url,
+            response = self._request_sync(
+                "get",
                 method="GET",
+                url=url,
                 params=params,
                 headers=self._get_headers(),
+                span_attributes={
+                    "basalt.prompt.slug": slug,
+                    "basalt.prompt.version": version,
+                    "basalt.prompt.tag": tag,
+                },
             )
 
-            if response is None:
+            if response is None or response.body is None:
                 raise BasaltAPIError("Empty response from get prompt API")
             prompt_data = response.get("prompt", {})
             prompt_response = PromptResponse.from_dict(prompt_data)
@@ -234,14 +247,20 @@ class PromptsClient:
         if tag:
             params["tag"] = tag
 
-        response = await self._http_client.fetch(
-            url=url,
+        response = await self._request_async(
+            "describe",
             method="GET",
+            url=url,
             params=params,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.prompt.slug": slug,
+                "basalt.prompt.version": version,
+                "basalt.prompt.tag": tag,
+            },
         )
 
-        if response is None:
+        if response is None or response.body is None:
             raise BasaltAPIError("Empty response from describe prompt API")
         prompt_data = response.get("prompt", {})
         return DescribePromptResponse.from_dict(prompt_data)
@@ -274,14 +293,20 @@ class PromptsClient:
         if tag:
             params["tag"] = tag
 
-        response = self._http_client.fetch_sync(
-            url=url,
+        response = self._request_sync(
+            "describe",
             method="GET",
+            url=url,
             params=params,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.prompt.slug": slug,
+                "basalt.prompt.version": version,
+                "basalt.prompt.tag": tag,
+            },
         )
 
-        if response is None:
+        if response is None or response.body is None:
             raise BasaltAPIError("Empty response from describe prompt API")
         prompt_data = response.get("prompt", {})
         return DescribePromptResponse.from_dict(prompt_data)
@@ -305,14 +330,18 @@ class PromptsClient:
         if feature_slug:
             params["featureSlug"] = feature_slug
 
-        response = await self._http_client.fetch(
-            url=url,
+        response = await self._request_async(
+            "list",
             method="GET",
+            url=url,
             params=params,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.prompt.feature_slug": feature_slug,
+            },
         )
 
-        if response is None:
+        if response is None or response.body is None:
             return []
 
         prompts_data = response.get("prompts", [])
@@ -341,14 +370,18 @@ class PromptsClient:
         if feature_slug:
             params["featureSlug"] = feature_slug
 
-        response = self._http_client.fetch_sync(
-            url=url,
+        response = self._request_sync(
+            "list",
             method="GET",
+            url=url,
             params=params,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.prompt.feature_slug": feature_slug,
+            },
         )
 
-        if response is None:
+        if response is None or response.body is None:
             return []
 
         prompts_data = response.get("prompts", [])
@@ -389,20 +422,29 @@ class PromptsClient:
         if tag:
             body["tag"] = tag
 
-        response = await self._http_client.fetch(
-            url=url,
+        response = await self._request_async(
+            "publish_prompt",
             method="POST",
+            url=url,
             body=body,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.prompt.slug": slug,
+                "basalt.prompt.new_tag": new_tag,
+                "basalt.prompt.version": version,
+                "basalt.prompt.tag": tag,
+            },
         )
 
-        response = response or {}
-        if response.get("error"):
-            raise BasaltAPIError(response["error"])
-        if response is None or not response:
+        if response is None:
+            raise BasaltAPIError("Empty response from publish prompt API")
+        payload = response.json() or {}
+        if payload.get("error"):
+            raise BasaltAPIError(payload["error"])
+        if not payload:
             raise BasaltAPIError("Empty response from publish prompt API")
 
-        return PublishPromptResponse.from_dict(response)
+        return PublishPromptResponse.from_dict(payload)
 
     def publish_prompt_sync(
         self,
@@ -435,20 +477,29 @@ class PromptsClient:
         if tag:
             body["tag"] = tag
 
-        response = self._http_client.fetch_sync(
-            url=url,
+        response = self._request_sync(
+            "publish_prompt",
             method="POST",
+            url=url,
             body=body,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.prompt.slug": slug,
+                "basalt.prompt.new_tag": new_tag,
+                "basalt.prompt.version": version,
+                "basalt.prompt.tag": tag,
+            },
         )
 
-        response = response or {}
-        if response.get("error"):
-            raise BasaltAPIError(response["error"])
-        if response is None or not response:
+        if response is None:
+            raise BasaltAPIError("Empty response from publish prompt API")
+        payload = response.json() or {}
+        if payload.get("error"):
+            raise BasaltAPIError(payload["error"])
+        if not payload:
             raise BasaltAPIError("Empty response from publish prompt API")
 
-        return PublishPromptResponse.from_dict(response)
+        return PublishPromptResponse.from_dict(payload)
 
     @staticmethod
     def _create_prompt_instance(

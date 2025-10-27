@@ -6,7 +6,7 @@ import os
 import unittest
 from unittest import mock
 
-from basalt.observability.config import OpenLLMetryConfig, TelemetryConfig
+from basalt.observability.config import TelemetryConfig
 
 
 class TestTelemetryConfig(unittest.TestCase):
@@ -26,25 +26,19 @@ class TestTelemetryConfig(unittest.TestCase):
         self.assertEqual(config.service_name, "env-service")
         self.assertEqual(config.environment, "staging")
 
-    def test_resolved_openllmetry_applies_defaults(self):
-        config = TelemetryConfig(enable_openllmetry=True)
-
-        resolved = config.resolved_openllmetry()
-
-        self.assertIsNotNone(resolved)
-        if resolved is None:  # pragma: no cover - guard for type checkers
-            return
-        self.assertEqual(resolved.app_name, config.service_name)
-
-
-class TestOpenLLMetryConfig(unittest.TestCase):
-    def test_clone_returns_independent_copy(self):
-        original = OpenLLMetryConfig(
-            headers={"Authorization": "secret"},
+    def test_clone_returns_independent_copy_of_provider_lists(self):
+        """Test that cloning creates independent copies of provider lists."""
+        original = TelemetryConfig(
+            llm_enabled_providers=["openai", "anthropic"],
+            llm_disabled_providers=["langchain"],
         )
 
         clone = original.clone()
-        if clone.headers:
-            clone.headers["Authorization"] = "changed"
+        if clone.llm_enabled_providers:
+            clone.llm_enabled_providers.append("cohere")
+        if clone.llm_disabled_providers:
+            clone.llm_disabled_providers.append("llamaindex")
 
-        self.assertEqual(original.headers, {"Authorization": "secret"})
+        # Original should be unchanged
+        self.assertEqual(original.llm_enabled_providers, ["openai", "anthropic"])
+        self.assertEqual(original.llm_disabled_providers, ["langchain"])

@@ -10,14 +10,32 @@ from typing import Any
 from opentelemetry import trace
 from opentelemetry.trace import Span
 
-from .config import OpenLLMetryConfig, TelemetryConfig
-from .context_managers import SpanHandle, trace_llm_call, trace_retrieval, trace_span
+from .config import TelemetryConfig
+from .context_managers import (
+    EventSpanHandle,
+    LLMSpanHandle,
+    RetrievalSpanHandle,
+    SpanHandle,
+    ToolSpanHandle,
+    trace_event,
+    trace_llm_call,
+    trace_retrieval,
+    trace_span,
+    trace_tool,
+)
 from .decorators import trace_http, trace_llm, trace_operation
 from .instrumentation import InstrumentationManager
+from .trace_context import (
+    TraceContextConfig,
+    TraceExperiment,
+    TraceIdentity,
+    current_trace_defaults,
+    set_trace_defaults,
+    update_default_evaluators,
+)
 
 __all__ = [
     "TelemetryConfig",
-    "OpenLLMetryConfig",
     "InstrumentationManager",
     "trace_operation",
     "trace_llm",
@@ -25,20 +43,88 @@ __all__ = [
     "trace_span",
     "trace_llm_call",
     "trace_retrieval",
+    "trace_tool",
+    "trace_event",
+    "SpanHandle",
+    "LLMSpanHandle",
+    "RetrievalSpanHandle",
+    "ToolSpanHandle",
+    "EventSpanHandle",
+    "TraceContextConfig",
+    "TraceIdentity",
+    "TraceExperiment",
+    "configure_trace_defaults",
+    "clear_trace_defaults",
+    "get_trace_defaults",
+    "add_default_evaluators",
     "init",
     "observe",
     "observe_cm",
     "Observation",
     "current_span",
     "set_trace_user",
+    "set_trace_organization",
     "set_trace_session",
     "set_trace_env",
     "add_trace_tags",
     "add_trace_metadata",
+    "attach_trace_experiment",
+    "add_span_evaluator",
     "flush",
 ]
 
 _instrumentation = InstrumentationManager()
+
+
+def configure_trace_defaults(
+    *,
+    config: TraceContextConfig | None = None,
+    user: TraceIdentity | dict[str, Any] | None = None,
+    organization: TraceIdentity | dict[str, Any] | None = None,
+    experiment: TraceExperiment | dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+    evaluators: Iterable[str] | None = None,
+) -> TraceContextConfig:
+    """
+    Configure global defaults applied to newly created spans.
+
+    Args:
+        config: Optional base configuration to extend.
+        user: Default user identity to attach.
+        organization: Default organization identity to attach.
+        experiment: Default experiment metadata to attach.
+        metadata: Arbitrary metadata key/values added to spans.
+        evaluators: Evaluator slugs automatically attached to spans.
+
+    Returns:
+        The effective configuration that will be applied going forward.
+    """
+    base = config.clone() if config else TraceContextConfig()
+    payload = TraceContextConfig(
+        user=user if user is not None else base.user,
+        organization=organization if organization is not None else base.organization,
+        experiment=experiment if experiment is not None else base.experiment,
+        metadata=metadata if metadata is not None else {str(k): v for k, v in (base.metadata or {}).items()},
+        evaluators=list(evaluators) if evaluators is not None else list(base.evaluators or []),
+    )
+    set_trace_defaults(payload)
+    return current_trace_defaults()
+
+
+def clear_trace_defaults() -> None:
+    """Clear any globally configured trace defaults."""
+    set_trace_defaults(None)
+
+
+def get_trace_defaults() -> TraceContextConfig:
+    """Return the currently active trace defaults."""
+    return current_trace_defaults()
+
+
+def add_default_evaluators(*evaluators: str) -> TraceContextConfig:
+    """Append evaluator slugs to the default trace configuration."""
+    update_default_evaluators([slug for slug in evaluators if slug])
+    return current_trace_defaults()
 
 
 def init(
@@ -56,18 +142,11 @@ def init(
         DeprecationWarning,
         stacklevel=2,
     )
-    openll_config = None
-    if enable_openllmetry:
-        openll_config = OpenLLMetryConfig(
-            app_name=app_name,
-        )
-
     telemetry_config = TelemetryConfig(
         service_name=app_name,
         environment=environment,
         exporter=exporter,
-        enable_openllmetry=enable_openllmetry,
-        openllmetry_config=openll_config,
+        enable_llm_instrumentation=enable_openllmetry,
         instrument_http=instrument_http,
     )
     _instrumentation.initialize(telemetry_config)
@@ -87,8 +166,15 @@ class Observation:
     def event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         self._span.add_event(name=name, attributes=attributes)
 
-    def set_user(self, user_id: str) -> None:
+    def set_user(self, user_id: str, name: str | None = None) -> None:
         self._span.set_attribute("basalt.user.id", user_id)
+        if name:
+            self._span.set_attribute("basalt.user.name", name)
+
+    def set_organization(self, organization_id: str, name: str | None = None) -> None:
+        self._span.set_attribute("basalt.organization.id", organization_id)
+        if name:
+            self._span.set_attribute("basalt.organization.name", name)
 
     def set_session(self, session_id: str) -> None:
         self._span.set_attribute("basalt.session.id", session_id)
@@ -102,6 +188,25 @@ class Observation:
     def add_metadata(self, metadata: dict[str, Any]) -> None:
         for key, value in metadata.items():
             self._span.set_attribute(f"basalt.meta.{key}", value)
+
+    def add_evaluator(self, evaluator_slug: str) -> None:
+        evaluators = _collect_evaluators(self._span)
+        if evaluator_slug not in evaluators:
+            evaluators.append(evaluator_slug)
+        self._span.set_attribute("basalt.trace.evaluators", evaluators)
+
+    def set_experiment(
+        self,
+        experiment_id: str,
+        *,
+        name: str | None = None,
+        feature_slug: str | None = None,
+    ) -> None:
+        self._span.set_attribute("basalt.experiment.id", experiment_id)
+        if name:
+            self._span.set_attribute("basalt.experiment.name", name)
+        if feature_slug:
+            self._span.set_attribute("basalt.experiment.feature_slug", feature_slug)
 
 
 def observe(
@@ -131,15 +236,34 @@ def observe_cm(name: str, attributes: dict[str, Any] | None = None):
         yield Observation(handle)
 
 
+def _collect_evaluators(span: Span) -> list[str]:
+    existing = getattr(span, "attributes", None)
+    if isinstance(existing, dict):
+        evaluators = existing.get("basalt.trace.evaluators")
+        if isinstance(evaluators, (list, tuple)):
+            return [item for item in evaluators if isinstance(item, str)]
+    return []
+
+
 def current_span() -> Span | None:
     span = trace.get_current_span()
     return span if span and span.get_span_context().is_valid else None
 
 
-def set_trace_user(user_id: str) -> None:
+def set_trace_user(user_id: str, name: str | None = None) -> None:
     span = current_span()
     if span:
         span.set_attribute("basalt.user.id", user_id)
+        if name:
+            span.set_attribute("basalt.user.name", name)
+
+
+def set_trace_organization(organization_id: str, name: str | None = None) -> None:
+    span = current_span()
+    if span:
+        span.set_attribute("basalt.organization.id", organization_id)
+        if name:
+            span.set_attribute("basalt.organization.name", name)
 
 
 def set_trace_session(session_id: str) -> None:
@@ -165,6 +289,32 @@ def add_trace_metadata(metadata: dict[str, Any]) -> None:
     if span:
         for key, value in metadata.items():
             span.set_attribute(f"basalt.meta.{key}", value)
+
+
+def attach_trace_experiment(
+    experiment_id: str,
+    *,
+    name: str | None = None,
+    feature_slug: str | None = None,
+) -> None:
+    span = current_span()
+    if not span:
+        return
+    span.set_attribute("basalt.experiment.id", experiment_id)
+    if name:
+        span.set_attribute("basalt.experiment.name", name)
+    if feature_slug:
+        span.set_attribute("basalt.experiment.feature_slug", feature_slug)
+
+
+def add_span_evaluator(evaluator_slug: str) -> None:
+    span = current_span()
+    if not span or not evaluator_slug:
+        return
+    evaluators = _collect_evaluators(span)
+    if evaluator_slug not in evaluators:
+        evaluators.append(evaluator_slug)
+    span.set_attribute("basalt.trace.evaluators", evaluators)
 
 
 def flush() -> None:

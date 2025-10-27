@@ -5,9 +5,18 @@ This module provides the main Basalt client class for interacting with the Basal
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
+from typing import Any
+
 from basalt._internal.http import HTTPClient
+from basalt.observability import configure_trace_defaults
 from basalt.observability.config import TelemetryConfig
 from basalt.observability.instrumentation import InstrumentationManager
+from basalt.observability.trace_context import (
+    TraceContextConfig,
+    TraceExperiment,
+    TraceIdentity,
+)
 
 from .datasets.client import DatasetsClient
 from .prompts.client import PromptsClient
@@ -23,16 +32,13 @@ class Basalt:
 
     Example:
         ```python
-        from basalt import Basalt
-        from basalt.observability.config import TelemetryConfig, OpenLLMetryConfig
+        from basalt import Basalt, TelemetryConfig
 
         telemetry = TelemetryConfig(
             service_name="my-app",
             environment="production",
-            enable_openllmetry=True,
-            openllmetry_config=OpenLLMetryConfig(
-                trace_content=False,
-            ),
+            enable_llm_instrumentation=True,
+            llm_trace_content=False,
         )
         basalt = Basalt(api_key="your-api-key", telemetry_config=telemetry)
         ```
@@ -45,6 +51,12 @@ class Basalt:
         telemetry_config: TelemetryConfig | None = None,
         enable_telemetry: bool = True,
         base_url: str | None = None,
+        trace_context: TraceContextConfig | None = None,
+        trace_user: TraceIdentity | dict[str, str] | None = None,
+        trace_organization: TraceIdentity | dict[str, str] | None = None,
+        trace_experiment: TraceExperiment | dict[str, Any] | None = None,
+        trace_metadata: dict[str, Any] | None = None,
+        trace_evaluators: Iterable[str] | None = None,
     ):
         """
         Initialize the Basalt client.
@@ -54,6 +66,12 @@ class Basalt:
             telemetry_config: Optional telemetry configuration for OpenTelemetry/OpenLLMetry.
             enable_telemetry: Convenience flag to quickly disable all telemetry.
             base_url: Optional base URL for the API (defaults to config value).
+            trace_context: Optional trace defaults applied to every span created via the SDK.
+            trace_user: Convenience shortcut to set the default trace user (overrides trace_context).
+            trace_organization: Convenience shortcut to set the default trace organization.
+            trace_experiment: Default experiment metadata to attach to traces.
+            trace_metadata: Arbitrary metadata dictionary applied to new traces.
+            trace_evaluators: Iterable of evaluator slugs attached to spans by default.
         """
         self._api_key = api_key
         self._base_url = base_url
@@ -66,6 +84,33 @@ class Basalt:
         self._telemetry_config = telemetry_config
         self._instrumentation = InstrumentationManager()
         self._instrumentation.initialize(telemetry_config)
+
+        context_payload: dict[str, Any] = {}
+        if trace_context is not None:
+            if trace_context.user is not None:
+                context_payload["user"] = trace_context.user
+            if trace_context.organization is not None:
+                context_payload["organization"] = trace_context.organization
+            if trace_context.experiment is not None:
+                context_payload["experiment"] = trace_context.experiment
+            if trace_context.metadata is not None:
+                context_payload["metadata"] = dict(trace_context.metadata)
+            if trace_context.evaluators is not None:
+                context_payload["evaluators"] = list(trace_context.evaluators)
+
+        if trace_user is not None:
+            context_payload["user"] = trace_user
+        if trace_organization is not None:
+            context_payload["organization"] = trace_organization
+        if trace_experiment is not None:
+            context_payload["experiment"] = trace_experiment
+        if trace_metadata is not None:
+            context_payload["metadata"] = trace_metadata
+        if trace_evaluators is not None:
+            context_payload["evaluators"] = list(trace_evaluators)
+
+        if context_payload:
+            configure_trace_defaults(**context_payload)
 
         # Initialize caches
         self._cache = MemoryCache()

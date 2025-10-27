@@ -48,4 +48,6 @@ class NotFoundError(BasaltAPIError):
 class NetworkError(BasaltError):
     """Raised when a network error occurs."""
 
-    pass
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)

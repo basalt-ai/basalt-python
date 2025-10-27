@@ -6,9 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
+from basalt._internal.http import HTTPResponse
 from basalt.experiments.client import ExperimentsClient
 from basalt.experiments.models import Experiment
-from basalt.types.exceptions import BadRequestError, UnauthorizedError
+from basalt.types.exceptions import BadRequestError, BasaltAPIError, UnauthorizedError
 
 
 @pytest.fixture
@@ -30,17 +31,21 @@ def common_client():
     }
 
 
+def make_response(payload: dict | None, status: int = 200) -> HTTPResponse:
+    return HTTPResponse(status_code=status, data=payload, headers={})
+
+
 def test_create_sync_success(common_client):
     """Test synchronous experiment creation."""
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "id": "123",
             "name": "My Experiment",
             "featureSlug": "my-feature",
             "createdAt": "2024-03-20T12:00:00Z",
-        }
+        })
 
         experiment = client.create_sync(
             feature_slug="my-feature",
@@ -82,11 +87,11 @@ def test_create_sync_api_error_response(common_client):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "error": "Feature not found",
-        }
+        })
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(BasaltAPIError) as exc_info:
             client.create_sync(
                 feature_slug="nonexistent-feature",
                 name="My Experiment",
@@ -102,17 +107,11 @@ def test_create_sync_empty_response(common_client):
     with patch("basalt.experiments.client.HTTPClient.fetch_sync") as mock_fetch:
         mock_fetch.return_value = None
 
-        experiment = client.create_sync(
-            feature_slug="my-feature",
-            name="My Experiment",
-        )
-
-        # Should return experiment with empty values
-        assert isinstance(experiment, Experiment)
-        assert experiment.id == ""
-        assert experiment.name == ""
-        assert experiment.feature_slug == ""
-        assert experiment.created_at == ""
+        with pytest.raises(BasaltAPIError):
+            client.create_sync(
+                feature_slug="my-feature",
+                name="My Experiment",
+            )
 
 
 @pytest.mark.asyncio
@@ -121,12 +120,12 @@ async def test_create_async_success(common_client):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "id": "456",
             "name": "Async Experiment",
             "featureSlug": "async-feature",
             "createdAt": "2024-03-21T10:30:00Z",
-        }
+        })
 
         experiment = await client.create(
             feature_slug="async-feature",
@@ -170,11 +169,11 @@ async def test_create_async_api_error_response(common_client):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "error": "Unauthorized access",
-        }
+        })
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(BasaltAPIError) as exc_info:
             await client.create(
                 feature_slug="my-feature",
                 name="My Experiment",
@@ -223,12 +222,12 @@ def test_create_sync_parameter_combinations(common_client, feature_slug, name):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "id": "123",
             "name": name,
             "featureSlug": feature_slug,
             "createdAt": "2024-03-20T12:00:00Z",
-        }
+        })
 
         experiment = client.create_sync(feature_slug=feature_slug, name=name)
 

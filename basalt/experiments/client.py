@@ -7,13 +7,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from .._internal.base_client import BaseServiceClient
 from .._internal.http import HTTPClient
 from ..config import config
 from ..types.exceptions import BasaltAPIError
 from .models import Experiment
 
 
-class ExperimentsClient:
+class ExperimentsClient(BaseServiceClient):
     """
     Client for interacting with the Basalt Experiments API.
 
@@ -36,7 +37,7 @@ class ExperimentsClient:
         """
         self._api_key = api_key
         self._base_url = base_url or config["api_url"]
-        self._http_client = http_client or HTTPClient()
+        super().__init__(client_name="experiments", http_client=http_client)
 
     async def create(
         self,
@@ -64,18 +65,26 @@ class ExperimentsClient:
             "name": name,
         }
 
-        response = await self._http_client.fetch(
-            url=url,
+        response = await self._request_async(
+            "create",
             method="POST",
+            url=url,
             body=body,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.experiment.feature_slug": feature_slug,
+                "basalt.experiment.name": name,
+            },
         )
 
-        response = response or {}
-        if response.get("error"):
-            raise BasaltAPIError(response["error"])
+        if response is None:
+            raise BasaltAPIError("Empty response from experiment API")
 
-        return Experiment.from_dict(response)
+        payload = response.json() or {}
+        if payload.get("error"):
+            raise BasaltAPIError(payload["error"])
+
+        return Experiment.from_dict(payload)
 
     def create_sync(
         self,
@@ -103,18 +112,26 @@ class ExperimentsClient:
             "name": name,
         }
 
-        response = self._http_client.fetch_sync(
-            url=url,
+        response = self._request_sync(
+            "create",
             method="POST",
+            url=url,
             body=body,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.experiment.feature_slug": feature_slug,
+                "basalt.experiment.name": name,
+            },
         )
 
-        response = response or {}
-        if response.get("error"):
-            raise BasaltAPIError(response["error"])
+        if response is None:
+            raise BasaltAPIError("Empty response from experiment API")
 
-        return Experiment.from_dict(response)
+        payload = response.json() or {}
+        if payload.get("error"):
+            raise BasaltAPIError(payload["error"])
+
+        return Experiment.from_dict(payload)
 
     def _get_headers(self) -> dict[str, str]:
         """

@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from basalt._internal.http import HTTPResponse
 from basalt.datasets.client import DatasetsClient
 from basalt.datasets.models import Dataset, DatasetRow
 from basalt.types.exceptions import BadRequestError, BasaltAPIError, NotFoundError
@@ -23,12 +24,16 @@ def common_client():
     }
 
 
+def make_response(payload: dict | None, status: int = 200) -> HTTPResponse:
+    return HTTPResponse(status_code=status, data=payload, headers={})
+
+
 def test_list_sync_success(common_client):
     """Test successful datasets listing."""
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"datasets": [
+        mock_fetch.return_value = make_response({"datasets": [
             {
                 "slug": "dataset-1",
                 "name": "Dataset 1",
@@ -44,7 +49,7 @@ def test_list_sync_success(common_client):
                     {"name": "col3", "type": "number"}
                 ],
             },
-        ]}
+        ]})
 
         datasets = client.list_sync()
 
@@ -78,7 +83,7 @@ def test_get_sync_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "warning": "Some rows contained columns that do not exist in the dataset and were omitted.",
             "dataset": {
                 "slug": "test-dataset",
@@ -95,7 +100,7 @@ def test_get_sync_success(common_client):
                     }
                 ],
             },
-        }
+        })
 
         dataset = client.get_sync("test-dataset")
 
@@ -120,7 +125,7 @@ def test_get_sync_with_error_response(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"error": "Dataset not found"}
+        mock_fetch.return_value = make_response({"error": "Dataset not found"})
 
         with pytest.raises(BasaltAPIError):
             client.get_sync("nonexistent")
@@ -142,7 +147,7 @@ def test_add_row_sync_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "datasetRow": {
                 "values": {"col1": "value1", "col2": "value2"},
                 "name": "test-row",
@@ -150,7 +155,7 @@ def test_add_row_sync_success(common_client):
                 "metadata": {"key": "value"},
             },
             "warning": None,
-        }
+        })
 
         row, warning = client.add_row_sync(
             slug="test-dataset",
@@ -183,10 +188,10 @@ def test_add_row_sync_with_warning(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {
+        mock_fetch.return_value = make_response({
             "datasetRow": {"values": {"col1": "value1"}},
             "warning": "Some warning message",
-        }
+        })
 
         row, warning = client.add_row_sync(
             slug="test-dataset",
@@ -201,7 +206,7 @@ def test_add_row_sync_with_error(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = {"error": "Invalid column"}
+        mock_fetch.return_value = make_response({"error": "Invalid column"})
 
         with pytest.raises(BasaltAPIError):
             client.add_row_sync("test-dataset", {"invalid": "col"})
@@ -252,7 +257,7 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = {"datasets": [
+            mock_fetch.return_value = make_response({"datasets": [
                 {
                     "slug": "ds1",
                     "name": "Dataset 1",
@@ -261,7 +266,7 @@ class TestDatasetsClientAsync:
                         {"name": "b", "type": "text"}
                     ],
                 },
-            ]}
+            ]})
 
             datasets = await client.list()
 
@@ -278,7 +283,7 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = {
+            mock_fetch.return_value = make_response({
                 "warning": None,
                 "dataset": {
                     "slug": "test",
@@ -288,7 +293,7 @@ class TestDatasetsClientAsync:
                     ],
                     "rows": [],
                 },
-            }
+            })
 
             dataset = await client.get("test")
 
@@ -305,10 +310,10 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = {
+            mock_fetch.return_value = make_response({
                 "datasetRow": {"values": {"col1": "val1"}},
                 "warning": None
-            }
+            })
 
             row, warning = await client.add_row("test", {"col1": "val1"})
 
@@ -334,7 +339,7 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = {"error": "Not found"}
+            mock_fetch.return_value = make_response({"error": "Not found"})
 
             with pytest.raises(BasaltAPIError):
                 await client.get("missing")
@@ -344,7 +349,7 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = {"error": "Invalid"}
+            mock_fetch.return_value = make_response({"error": "Invalid"})
 
             with pytest.raises(BasaltAPIError):
                 await client.add_row("test", {"col": "val"})

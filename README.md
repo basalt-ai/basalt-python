@@ -17,7 +17,7 @@ pip install basalt-sdk
 To get started, import the `Basalt` class and initialize it with your API key. Telemetry is enabled by default via OpenTelemetry, but can be configured or disabled:
 
 ```python
-from basalt import Basalt, OpenLLMetryConfig, TelemetryConfig
+from basalt import Basalt, TelemetryConfig
 
 # Basic initialization with API key
 basalt = Basalt(api_key="my-dev-api-key")
@@ -29,10 +29,21 @@ basalt = Basalt(api_key="my-dev-api-key", enable_telemetry=False)
 telemetry = TelemetryConfig(
     service_name="my-app",
     environment="staging",
-    enable_openllmetry=True,
-    openllmetry_config=OpenLLMetryConfig(trace_content=False),
+    enable_llm_instrumentation=True,
+    llm_trace_content=False,
+    llm_enabled_providers=["openai", "anthropic"],  # Optional: selective instrumentation
 )
 basalt = Basalt(api_key="my-dev-api-key", telemetry_config=telemetry)
+
+# Configure default trace context when constructing the client
+basalt = Basalt(
+    api_key="my-dev-api-key",
+    trace_user={"id": "user-123", "name": "Ada"},
+    trace_organization={"id": "org-7", "name": "Acme"},
+    trace_experiment={"id": "exp-1", "feature_slug": "agent"},
+    trace_evaluators=["accuracy", "toxicity"],
+    trace_metadata={"env": "staging"},
+)
 
 # Don't forget to shutdown the client when done
 # This flushes any pending telemetry data
@@ -45,16 +56,19 @@ See `examples/telemetry_example.py` for a more complete walkthrough covering dec
 
 The SDK includes comprehensive OpenTelemetry integration for observability:
 
-- `TelemetryConfig` centralizes all observability options (service name/version, exporter overrides, HTTP auto-instrumentation, etc.).
-- `OpenLLMetryConfig` enables Traceloop/OpenLLMetry integrations across all supported LLM providers.
+- `TelemetryConfig` centralizes all observability options including:
+  - Service name/version and deployment environment
+  - Custom exporter configuration
+  - Lightweight tracing wrappers for Basalt API calls (bring your own HTTP instrumentation if you need transport-level spans)
+  - LLM provider instrumentation with fine-grained control over which providers to instrument
 - Quick disable via `enable_telemetry=False` bypasses all instrumentation without touching application code.
 - Built-in decorators and context managers simplify manual span creation:
   - **Decorators**: `@trace_operation`, `@trace_llm`, `@trace_http`
-  - **Context Managers**: `trace_span()`, `trace_llm_call()`, `trace_retrieval()`
+  - **Context Managers**: `trace_span()`, `trace_llm_call()`, `trace_retrieval()`, `trace_tool()`, `trace_event()`
 
 ```python
-from basalt.observability.decorators import trace_operation, trace_llm
-from basalt.observability.context_managers import trace_span, trace_llm_call
+from basalt.observability import trace_event, trace_llm_call, trace_span, trace_tool
+from basalt.observability.decorators import trace_llm, trace_operation
 
 # Using decorators for automatic tracing
 @trace_operation(name="dataset.process")
@@ -79,7 +93,51 @@ def custom_workflow():
         # Make your LLM call
         llm_span.set_completion("Response here")
         llm_span.set_tokens(input=10, output=20)
+
+    with trace_tool("manual.tool") as tool_span:
+        tool_span.set_tool_name("http_fetch")
+        tool_span.set_input({"url": "https://getbasalt.ai"})
+        # Execute your tool call
+        tool_span.set_output({"status": 200})
+
+    with trace_event("workflow.event") as event_span:
+        event_span.set_event_type("checkpoint")
+        event_span.set_payload({"step": 3, "status": "ok"})
 ```
+
+#### Trace context helpers
+
+- Configure defaults once at startup:
+
+  ```python
+  from basalt.observability import (
+      add_default_evaluators,
+      attach_trace_experiment,
+      configure_trace_defaults,
+      set_trace_organization,
+      set_trace_user,
+  )
+
+  configure_trace_defaults(
+      user={"id": "user-123", "name": "Ada"},
+      organization={"id": "org-7", "name": "Acme"},
+      metadata={"env": "staging"},
+      evaluators=["accuracy"],
+  )
+  add_default_evaluators("toxicity")
+  ```
+
+- Enrich the active span at runtime using helpers or span handles:
+
+  ```python
+  with trace_span("custom.section") as span:
+      span.add_evaluator("style-guide")
+      span.set_experiment("exp-1", feature_slug="agent")
+
+  set_trace_user("user-999", name="Grace")
+  set_trace_organization("org-15", name="Basalt Labs")
+  attach_trace_experiment("exp-2", name="A/B test", feature_slug="beta-agent")
+  ```
 
 **Supported environment variables:**
 
@@ -88,9 +146,20 @@ def custom_workflow():
 | `BASALT_TELEMETRY_ENABLED` | Master switch to enable/disable telemetry (default: `true`). |
 | `BASALT_SERVICE_NAME` | Overrides the OTEL `service.name`. |
 | `BASALT_ENVIRONMENT` | Sets `deployment.environment`. |
-| `BASALT_OTEL_EXPORTER_OTLP_ENDPOINT` | Custom OTLP HTTP endpoint for traces. |
+| `BASALT_OTEL_EXPORTER_OTLP_ENDPOINT` | Custom OTLP HTTP endpoint for traces. Overrides the default Basalt OTEL collector endpoint. |
 | `TRACELOOP_TRACE_CONTENT` | Controls whether prompts/completions are logged. |
 | `TRACELOOP_TELEMETRY` | Controls OpenLLMetry anonymous telemetry. |
+
+**Default OTLP Exporter:**
+
+By default, the SDK automatically sends traces to Basalt's OTEL collector:
+- **Production**: `https://otel.getbasalt.ai/v1/traces`
+- **Development**: `http://localhost:4318/v1/traces` (when `BASALT_BUILD=development`)
+
+You can override this by:
+1. Providing a custom `exporter` in `TelemetryConfig`
+2. Setting the `BASALT_OTEL_EXPORTER_OTLP_ENDPOINT` environment variable
+3. Disabling telemetry with `enable_telemetry=False`
 
 ## Prompt SDK
 

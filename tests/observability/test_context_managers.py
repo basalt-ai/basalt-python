@@ -6,13 +6,26 @@ import os
 import unittest
 from unittest import mock
 
-from basalt.observability.context_managers import trace_llm_call, trace_retrieval, trace_span
+from basalt.observability import (
+    clear_trace_defaults,
+    configure_trace_defaults,
+    trace_event,
+    trace_llm_call,
+    trace_retrieval,
+    trace_span,
+    trace_tool,
+)
 from tests.observability.utils import get_exporter
 
 
 class ContextManagerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.exporter = get_exporter()
+        self.exporter.clear()
+        clear_trace_defaults()
+
+    def tearDown(self) -> None:
+        clear_trace_defaults()
         self.exporter.clear()
 
     def test_trace_span_records_custom_attributes(self):
@@ -40,6 +53,7 @@ class ContextManagerTests(unittest.TestCase):
         self.assertEqual(span.attributes["llm.completion"], "Ok")
         self.assertEqual(span.attributes["llm.tokens.input"], 10)
         self.assertEqual(span.attributes["llm.tokens.output"], 1)
+        self.assertEqual(span.attributes["basalt.span.type"], "generation")
 
     def test_trace_retrieval_helpers(self):
         with trace_retrieval("context.retrieval") as span:
@@ -51,3 +65,51 @@ class ContextManagerTests(unittest.TestCase):
         self.assertEqual(span.attributes["retrieval.query"], "hello")
         self.assertEqual(span.attributes["retrieval.results.count"], 3)
         self.assertEqual(span.attributes["retrieval.top_k"], 5)
+        self.assertEqual(span.attributes["basalt.span.type"], "retrieval")
+
+    def test_trace_tool_helpers(self):
+        with trace_tool("context.tool") as span:
+            span.set_tool_name("browser")
+            span.set_input({"query": "hi"})
+            span.set_output({"answer": "ok"})
+
+        span = self.exporter.get_finished_spans()[0]
+        self.assertEqual(span.attributes["basalt.tool.name"], "browser")
+        self.assertEqual(span.attributes["basalt.tool.input"], '{"query": "hi"}')
+        self.assertEqual(span.attributes["basalt.tool.output"], '{"answer": "ok"}')
+        self.assertEqual(span.attributes["basalt.span.type"], "tool")
+
+    def test_trace_event_helpers(self):
+        with trace_event("context.event", attributes={"source": "app"}) as span:
+            span.set_event_type("workflow")
+            span.set_payload({"status": "done"})
+
+        span = self.exporter.get_finished_spans()[0]
+        self.assertEqual(span.attributes["source"], "app")
+        self.assertEqual(span.attributes["basalt.event.type"], "workflow")
+        self.assertEqual(span.attributes["basalt.event.payload"], '{"status": "done"}')
+        self.assertEqual(span.attributes["basalt.span.type"], "event")
+
+    def test_trace_span_applies_default_context(self):
+        configure_trace_defaults(
+            user={"id": "user-1", "name": "Jane"},
+            organization={"id": "org-1", "name": "Org"},
+            experiment={"id": "exp-1", "feature_slug": "feature"},
+            metadata={"env": "test"},
+            evaluators=["eval-default"],
+        )
+
+        with trace_span("context.defaults") as span:
+            span.add_evaluator("eval-inline")
+
+        span = self.exporter.get_finished_spans()[0]
+        self.assertEqual(span.attributes["basalt.user.id"], "user-1")
+        self.assertEqual(span.attributes["basalt.user.name"], "Jane")
+        self.assertEqual(span.attributes["basalt.organization.id"], "org-1")
+        self.assertEqual(span.attributes["basalt.experiment.id"], "exp-1")
+        self.assertEqual(span.attributes["basalt.experiment.feature_slug"], "feature")
+        self.assertEqual(span.attributes["basalt.meta.env"], "test")
+        self.assertEqual(
+            list(span.attributes["basalt.trace.evaluators"]),
+            ["eval-default", "eval-inline"],
+        )

@@ -1,14 +1,14 @@
 """HTTP client for the Basalt SDK."""
 
+from __future__ import annotations
+
 import asyncio
 import time
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass
 from typing import Any, Literal
 
-import aiohttp
-import requests
-
-from basalt.observability.decorators import trace_http
+import httpx
 
 from ..types.exceptions import (
     BadRequestError,
@@ -27,6 +27,38 @@ DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_BACKOFF_FACTOR = 0.5  # seconds
 
 
+@dataclass(slots=True)
+class HTTPResponse(Mapping[str, Any]):
+    """Thin wrapper around an HTTP JSON payload with associated metadata."""
+
+    status_code: int
+    data: dict[str, Any] | None
+    headers: Mapping[str, str]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.data or {})
+
+    def __len__(self) -> int:
+        return len(self.data or {})
+
+    def __getitem__(self, key: str) -> Any:
+        if not self.data:
+            raise KeyError(key)
+        return self.data[key]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        if not self.data:
+            return default
+        return self.data.get(key, default)
+
+    def json(self) -> dict[str, Any] | None:
+        return self.data
+
+    @property
+    def body(self) -> dict[str, Any] | None:
+        return self.data
+
+
 class HTTPClient:
     """
     HTTP client for making requests to the Basalt API.
@@ -41,6 +73,8 @@ class HTTPClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         verify_ssl: bool = True,
         retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
+        async_client: httpx.AsyncClient | None = None,
+        sync_client: httpx.Client | None = None,
     ):
         """
         Initialize HTTPClient with configuration options.
@@ -50,13 +84,18 @@ class HTTPClient:
             max_retries: Maximum number of retry attempts for transient errors (default: 3)
             verify_ssl: Whether to verify SSL certificates (default: True)
             retry_backoff_factor: Exponential backoff factor for retries (default: 0.5)
+            async_client: Optional pre-configured httpx.AsyncClient instance.
+            sync_client: Optional pre-configured httpx.Client instance.
         """
         self.timeout = timeout
         self.max_retries = max_retries
         self.verify_ssl = verify_ssl
         self.retry_backoff_factor = retry_backoff_factor
-        self._session: aiohttp.ClientSession | None = None
-        self._sync_session: requests.Session | None = None
+
+        self._async_client = async_client
+        self._sync_client = sync_client
+        self._owns_async_client = async_client is None
+        self._owns_sync_client = sync_client is None
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -76,31 +115,28 @@ class HTTPClient:
 
     async def aclose(self):
         """Close the async session."""
-        if self._session:
-            await self._session.close()
-            self._session = None
+        if self._async_client and self._owns_async_client:
+            await self._async_client.aclose()
+            self._async_client = None
 
     def close(self):
         """Close the sync session."""
-        if self._sync_session:
-            self._sync_session.close()
-            self._sync_session = None
+        if self._sync_client and self._owns_sync_client:
+            self._sync_client.close()
+            self._sync_client = None
 
-    def _get_sync_session(self) -> requests.Session:
-        """Get or create a sync session."""
-        if self._sync_session is None:
-            self._sync_session = requests.Session()
-        return self._sync_session
+    def _ensure_sync_client(self) -> httpx.Client:
+        """Get or create a sync httpx client."""
+        if self._sync_client is None:
+            self._sync_client = httpx.Client(timeout=self.timeout, verify=self.verify_ssl)
+        return self._sync_client
 
-    async def _get_async_session(self) -> aiohttp.ClientSession:
-        """Get or create an async session."""
-        if self._session is None:
-            connector = aiohttp.TCPConnector(ssl=self.verify_ssl)
-            timeout = aiohttp.ClientTimeout(total=self.timeout)
-            self._session = aiohttp.ClientSession(connector=connector, timeout=timeout)
-        return self._session
+    def _ensure_async_client(self) -> httpx.AsyncClient:
+        """Get or create an async httpx client."""
+        if self._async_client is None:
+            self._async_client = httpx.AsyncClient(timeout=self.timeout, verify=self.verify_ssl)
+        return self._async_client
 
-    @trace_http(name="basalt.http.fetch_async")
     async def fetch(
         self,
         url: str,
@@ -108,9 +144,9 @@ class HTTPClient:
         body: Any | None = None,
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> HTTPResponse | None:
         """
-        Asynchronously fetch data from a URL using aiohttp.
+        Asynchronously fetch data from a URL using httpx.
 
         Args:
             url: The URL to fetch
@@ -134,21 +170,21 @@ class HTTPClient:
                 filtered_params = {k: v for k, v in (params or {}).items() if v is not None}
                 filtered_headers = {k: v for k, v in (headers or {}).items() if v is not None}
 
-                session = await self._get_async_session()
-                async with session.request(
+                client = self._ensure_async_client()
+                response = await client.request(
                     method.upper(),
                     url,
-                    params=filtered_params,
+                    params=filtered_params or None,
                     json=body,
-                    headers=filtered_headers,
-                ) as response:
-                    result = await self._handle_response(response)
-                    return result
+                    headers=filtered_headers or None,
+                    timeout=self.timeout,
+                )
+                return self._handle_response(response)
 
             except (BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError):
                 # Don't retry client errors
                 raise
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (httpx.TimeoutException, asyncio.TimeoutError, httpx.TransportError) as e:
                 # Retry on transient errors
                 if attempt == self.max_retries - 1:
                     raise NetworkError(f"Request failed after {self.max_retries} attempts: {e}") from e
@@ -162,7 +198,6 @@ class HTTPClient:
         # Should never reach here, but just in case
         raise NetworkError(f"Request failed after {self.max_retries} attempts")
 
-    @trace_http(name="basalt.http.fetch_sync")
     def fetch_sync(
         self,
         url: str,
@@ -170,9 +205,9 @@ class HTTPClient:
         body: Any | None = None,
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> HTTPResponse | None:
         """
-        Synchronously fetch data from a URL using requests.
+        Synchronously fetch data from a URL using httpx.
 
         Args:
             url: The URL to fetch
@@ -193,23 +228,24 @@ class HTTPClient:
         """
         for attempt in range(self.max_retries):
             try:
-                session = self._get_sync_session()
-                response = session.request(
+                filtered_params = {k: v for k, v in (params or {}).items() if v is not None}
+                filtered_headers = {k: v for k, v in (headers or {}).items() if v is not None}
+
+                client = self._ensure_sync_client()
+                response = client.request(
                     method.upper(),
                     url,
-                    params=params,
+                    params=filtered_params or None,
                     json=body,
-                    headers=headers,
+                    headers=filtered_headers or None,
                     timeout=self.timeout,
-                    verify=self.verify_ssl,
                 )
-                result = self._handle_sync_response(response)
-                return result
+                return self._handle_response(response)
 
             except (BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError):
                 # Don't retry client errors
                 raise
-            except (requests.RequestException, requests.Timeout) as e:
+            except (httpx.TimeoutException, httpx.TransportError) as e:
                 # Retry on transient errors
                 if attempt == self.max_retries - 1:
                     raise NetworkError(f"Request failed after {self.max_retries} attempts: {e}") from e
@@ -224,108 +260,119 @@ class HTTPClient:
         raise NetworkError(f"Request failed after {self.max_retries} attempts")
 
     @staticmethod
-    async def _handle_response(response: aiohttp.ClientResponse) -> dict[str, Any] | None:
+    def _handle_response(response: httpx.Response) -> HTTPResponse | None:
         """
-        Handles aiohttp response parsing and error raising.
+        Handles httpx response parsing and error raising.
 
         Returns:
-            JSON response as dict, or None for 204 No Content
+            HTTPResponse when JSON content is present, or None for 204/empty body.
         """
-        content_type = response.headers.get('Content-Type', '')
-        json_response: dict[str, Any] = {}
+        status = response.status_code
+        headers_obj = getattr(response, "headers", {})
+        if isinstance(headers_obj, Mapping):
+            raw_content_type = (
+                headers_obj.get("content-type")
+                or headers_obj.get("Content-Type")
+                or ""
+            )
+        else:
+            raw_content_type = str(headers_obj or "")
+        content_type = str(raw_content_type).lower()
+        is_json = "json" in content_type
+        json_response: dict[str, Any] | None = None
         text_response: str = ""
 
-        # For error responses, try to get the response body (JSON or text)
-        if response.status >= 400:
-            if 'application/json' in content_type:
-                try:
-                    json_response = await response.json()
-                except Exception:
-                    # Fall back to text if JSON parsing fails
-                    text_response = await response.text()
-            else:
-                text_response = await response.text()
-
-            HTTPClient._raise_for_status(response.status, json_response, text_response)
-
-        # For successful responses
-        if response.status == 204:
-            # No Content
-            return None
-        elif response.status in [200, 201, 202]:
-            if 'application/json' in content_type:
-                try:
-                    json_response = await response.json()
-                except Exception as exc:
-                    raise NetworkError("Invalid JSON response") from exc
-            elif response.status != 202:
-                # 202 Accepted can have no content
-                raise NetworkError("Expected JSON response")
-
-        return json_response if json_response else None
-
-    @staticmethod
-    def _handle_sync_response(response: requests.Response) -> dict[str, Any] | None:
-        """
-        Handles requests response parsing and error raising.
-
-        Returns:
-            JSON response as dict, or None for 204 No Content
-        """
-        content_type = response.headers.get('Content-Type', '')
-        json_response: dict[str, Any] = {}
-        text_response: str = ""
-
-        # For error responses, try to get the response body (JSON or text)
-        if response.status_code >= 400:
-            if 'application/json' in content_type:
+        # Handle error responses
+        if status >= 400:
+            if is_json:
                 try:
                     json_response = response.json()
                 except Exception:
-                    # Fall back to text if JSON parsing fails
+                    json_response = None
                     text_response = response.text
+                else:
+                    text_response = response.text if json_response is None else ""
             else:
                 text_response = response.text
+            HTTPClient._raise_for_status(status, json_response, text_response)
 
-            HTTPClient._raise_for_status(response.status_code, json_response, text_response)
-
-        # For successful responses
-        if response.status_code == 204:
-            # No Content
-            return None
-        elif response.status_code in [200, 201, 202]:
-            if 'application/json' in content_type:
+        # Handle success responses
+        if status in (202, 204):
+            if response.content in (b"", None):
+                return HTTPResponse(
+                    status_code=status,
+                    data=None,
+                    headers=dict(response.headers),
+                )
+            if is_json:
+                try:
+                    json_response = response.json()
+                except Exception:
+                    return HTTPResponse(
+                        status_code=status,
+                        data=None,
+                        headers=dict(response.headers),
+                    )
+                return HTTPResponse(
+                    status_code=status,
+                    data=json_response if json_response is not None else None,
+                    headers=dict(response.headers),
+                )
+            else:
+                return HTTPResponse(
+                    status_code=status,
+                    data=None,
+                    headers=dict(response.headers),
+                )
+        elif status in (200, 201):
+            # Accept valid JSON from mock even if content is b'{}'
+            try:
+                json_response = response.json()
+                return HTTPResponse(
+                    status_code=status,
+                    data=json_response if json_response is not None else None,
+                    headers=dict(response.headers),
+                )
+            except Exception as exc:
+                raise NetworkError("Invalid JSON response") from exc
+        elif status < 400:
+            if response.content:
+                if not is_json:
+                    raise NetworkError("Expected JSON response")
                 try:
                     json_response = response.json()
                 except Exception as exc:
                     raise NetworkError("Invalid JSON response") from exc
-            elif response.status_code != 202:
-                # 202 Accepted can have no content
-                raise NetworkError("Expected JSON response")
-
-        return json_response if json_response else None
+            return HTTPResponse(
+                status_code=status,
+                data=json_response if json_response else None,
+                headers=dict(response.headers),
+            )
 
     @staticmethod
-    def _raise_for_status(status: int, json_data: dict[str, Any], text_data: str = "") -> None:
+    def _raise_for_status(
+        status: int,
+        json_response: dict[str, Any] | None,
+        text_response: str,
+    ) -> None:
         """
-        Raises appropriate exception based on HTTP status code.
-
-        Args:
-            status: HTTP status code
-            json_data: Parsed JSON response (if available)
-            text_data: Raw text response (fallback if JSON not available)
+        Raises custom exceptions for HTTP error codes.
         """
-        # Try to extract error message from JSON first, then fall back to text
-        error_msg = json_data.get('error') or json_data.get('errors') or text_data or "Unknown Error"
-
-        match status:
-            case 400:
-                raise BadRequestError(error_msg)
-            case 401:
-                raise UnauthorizedError(error_msg)
-            case 403:
-                raise ForbiddenError(error_msg)
-            case 404:
-                raise NotFoundError(error_msg)
-            case _ if status >= 400:
-                raise NetworkError(f"HTTP {status}: {error_msg}")
+        if status == 400:
+            message = None
+            if json_response:
+                if "error" in json_response:
+                    message = json_response["error"]
+                if "errors" in json_response and message is None:
+                    message = json_response["errors"]
+            if message is None:
+                message = text_response or "Unknown Error"
+            raise BadRequestError(message)
+        elif status == 401:
+            raise UnauthorizedError(text_response or "Unauthorized")
+        elif status == 403:
+            raise ForbiddenError(text_response or "Forbidden")
+        elif status == 404:
+            raise NotFoundError(text_response or "Not Found")
+        else:
+            raise NetworkError(text_response or f"HTTP {status}")

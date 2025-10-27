@@ -13,22 +13,18 @@ Example:
     prompt = await basalt.prompts.get("my-prompt")
     ```
 """
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ._version import __version__
 
 # For static analysis / type checkers, expose symbols; at runtime we'll lazily import them.
 if TYPE_CHECKING:
     from .client import Basalt  # pragma: no cover
-    from .observability.config import OpenLLMetryConfig, TelemetryConfig  # pragma: no cover
-else:
-    Basalt: Any = None
-    TelemetryConfig: Any = None
-    OpenLLMetryConfig: Any = None
+    from .observability.config import TelemetryConfig  # pragma: no cover
 
 # Lazily import to avoid importing runtime dependencies (like requests)
 # during build-time metadata inspection.
-__all__ = ["Basalt", "TelemetryConfig", "OpenLLMetryConfig", "__version__"]
+__all__ = ["Basalt", "TelemetryConfig", "__version__"]
 
 
 def __getattr__(name: str):
@@ -38,7 +34,4 @@ def __getattr__(name: str):
     if name == "TelemetryConfig":
         from .observability.config import TelemetryConfig  # imported only when accessed
         return TelemetryConfig
-    if name == "OpenLLMetryConfig":
-        from .observability.config import OpenLLMetryConfig  # imported only when accessed
-        return OpenLLMetryConfig
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

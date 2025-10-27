@@ -7,13 +7,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from .._internal.base_client import BaseServiceClient
 from .._internal.http import HTTPClient
 from ..config import config
 from ..types.exceptions import BasaltAPIError
 from .models import Dataset, DatasetRow
 
 
-class DatasetsClient:
+class DatasetsClient(BaseServiceClient):
     """
     Client for interacting with the Basalt Datasets API.
 
@@ -36,7 +37,7 @@ class DatasetsClient:
         """
         self._api_key = api_key
         self._base_url = base_url or config["api_url"]
-        self._http_client = http_client or HTTPClient()
+        super().__init__(client_name="datasets", http_client=http_client)
 
     async def list(self) -> list[Dataset]:
         """
@@ -51,13 +52,14 @@ class DatasetsClient:
         """
         url = f"{self._base_url}/datasets"
 
-        response = await self._http_client.fetch(
-            url=url,
+        response = await self._request_async(
+            "list",
             method="GET",
+            url=url,
             headers=self._get_headers(),
         )
 
-        if response is None:
+        if response is None or response.body is None:
             return []
 
         datasets_data = response.get("datasets", [])
@@ -80,13 +82,14 @@ class DatasetsClient:
         """
         url = f"{self._base_url}/datasets"
 
-        response = self._http_client.fetch_sync(
-            url=url,
+        response = self._request_sync(
+            "list",
             method="GET",
+            url=url,
             headers=self._get_headers(),
         )
 
-        if response is None:
+        if response is None or response.body is None:
             return []
 
         datasets_data = response.get("datasets", [])
@@ -112,18 +115,24 @@ class DatasetsClient:
         """
         url = f"{self._base_url}/datasets/{slug}"
 
-        response = await self._http_client.fetch(
-            url=url,
+        response = await self._request_async(
+            "get",
             method="GET",
+            url=url,
             headers=self._get_headers(),
+            span_attributes={"basalt.dataset.slug": slug},
         )
 
-        response = response or {}
-        dataset_data = response.get("dataset", {})
-        if response.get("error"):
-            raise BasaltAPIError(response["error"])
+        if response is None:
+            raise BasaltAPIError("Empty response from dataset API")
+
+        payload = response.json() or {}
+        if payload.get("error"):
+            raise BasaltAPIError(payload["error"])
+
+        dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
-        dataset.warning = response.get("warning")
+        dataset.warning = payload.get("warning")
         return dataset
 
     def get_sync(self, slug: str) -> Dataset:
@@ -142,18 +151,24 @@ class DatasetsClient:
         """
         url = f"{self._base_url}/datasets/{slug}"
 
-        response = self._http_client.fetch_sync(
-            url=url,
+        response = self._request_sync(
+            "get",
             method="GET",
+            url=url,
             headers=self._get_headers(),
+            span_attributes={"basalt.dataset.slug": slug},
         )
 
-        response = response or {}
-        dataset_data = response.get("dataset", {})
-        if response.get("error"):
-            raise BasaltAPIError(response["error"])
+        if response is None:
+            raise BasaltAPIError("Empty response from dataset API")
+
+        payload = response.json() or {}
+        if payload.get("error"):
+            raise BasaltAPIError(payload["error"])
+
+        dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
-        dataset.warning = response.get("warning")
+        dataset.warning = payload.get("warning")
         return dataset
 
     async def add_row(
@@ -193,19 +208,27 @@ class DatasetsClient:
         if metadata is not None:
             body["metadata"] = metadata
 
-        response = await self._http_client.fetch(
-            url=url,
+        response = await self._request_async(
+            "add_row",
             method="POST",
+            url=url,
             body=body,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.dataset.slug": slug,
+                "basalt.dataset.row_name": name,
+            },
         )
 
-        response = response or {}
-        if response.get("error"):
-            raise BasaltAPIError(response["error"])
+        if response is None:
+            raise BasaltAPIError("Empty response from dataset add row API")
 
-        row_data = response.get("datasetRow", {})
-        warning = response.get("warning")
+        payload = response.json() or {}
+        if payload.get("error"):
+            raise BasaltAPIError(payload["error"])
+
+        row_data = payload.get("datasetRow", {})
+        warning = payload.get("warning")
 
         return DatasetRow.from_dict(row_data), warning
 
@@ -246,19 +269,27 @@ class DatasetsClient:
         if metadata is not None:
             body["metadata"] = metadata
 
-        response = self._http_client.fetch_sync(
-            url=url,
+        response = self._request_sync(
+            "add_row",
             method="POST",
+            url=url,
             body=body,
             headers=self._get_headers(),
+            span_attributes={
+                "basalt.dataset.slug": slug,
+                "basalt.dataset.row_name": name,
+            },
         )
 
-        response = response or {}
-        if response.get("error"):
-            raise BasaltAPIError(response["error"])
+        if response is None:
+            raise BasaltAPIError("Empty response from dataset add row API")
 
-        row_data = response.get("datasetRow", {})
-        warning = response.get("warning")
+        payload = response.json() or {}
+        if payload.get("error"):
+            raise BasaltAPIError(payload["error"])
+
+        row_data = payload.get("datasetRow", {})
+        warning = payload.get("warning")
 
         return DatasetRow.from_dict(row_data), warning
 
