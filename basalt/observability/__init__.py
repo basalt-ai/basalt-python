@@ -1,31 +1,44 @@
-"""Observability facade for the Basalt SDK.
-
-Provides an OTEL-first developer experience with:
-- init(): tracer provider setup, HTTP auto-instrumentation, optional OpenLLMetry
-- observe decorator: easy function-level spans
-- observe context manager: manual spans with helpers to add attributes/events
-- trace helpers: set user/session/env/tags/metadata on the current trace
-- flush(): force-flush span processors for short-lived apps
-"""
+"""Observability facade for the Basalt SDK."""
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from typing import Any
 
 from opentelemetry import trace
-from opentelemetry.trace import Span, Status, StatusCode
+from opentelemetry.trace import Span
 
-from basalt.tracing.provider import BasaltConfig, get_tracer, setup_tracing
+from .config import OpenLLMetryConfig, TelemetryConfig
+from .context_managers import SpanHandle, trace_llm_call, trace_retrieval, trace_span
+from .decorators import trace_http, trace_llm, trace_operation
+from .instrumentation import InstrumentationManager
 
+__all__ = [
+    "TelemetryConfig",
+    "OpenLLMetryConfig",
+    "InstrumentationManager",
+    "trace_operation",
+    "trace_llm",
+    "trace_http",
+    "trace_span",
+    "trace_llm_call",
+    "trace_retrieval",
+    "init",
+    "observe",
+    "observe_cm",
+    "Observation",
+    "current_span",
+    "set_trace_user",
+    "set_trace_session",
+    "set_trace_env",
+    "add_trace_tags",
+    "add_trace_metadata",
+    "flush",
+]
 
-def _safe_import(module: str, name: str | None = None):
-    try:
-        mod = __import__(module, fromlist=[name] if name else [])
-        return getattr(mod, name) if name else mod
-    except Exception:
-        return None
+_instrumentation = InstrumentationManager()
 
 
 def init(
@@ -34,172 +47,46 @@ def init(
     environment: str | None = None,
     exporter: Any | None = None,
     enable_openllmetry: bool = False,
-    providers: Iterable[str] | None = None,
     instrument_http: bool = True,
 ) -> None:
-    """Initialize OpenTelemetry for Basalt and optional instrumentations.
-
-    Args:
-        app_name: Logical service name to appear in traces.
-        environment: Optional deployment environment (prod/staging/local).
-        exporter: Optional OTEL SpanExporter instance; defaults to console exporter.
-        enable_openllmetry: If True, initialize Traceloop/OpenLLMetry and provider instrumentors.
-        providers: Iterable of provider names to instrument (e.g., ["openai", "anthropic"]).
-        instrument_http: If True, auto-instrument requests and aiohttp-client.
-    """
-    # 1) Tracer provider setup
-    config = BasaltConfig(service_name=app_name, environment=environment)
-    setup_tracing(config, exporter=exporter)
-
-    # 2) HTTP auto-instrumentation
-    if instrument_http:
-        requests_instrumentor_cls = _safe_import(
-            "opentelemetry.instrumentation.requests", "RequestsInstrumentor"
-        )
-        if requests_instrumentor_cls:
-            try:
-                requests_instrumentor_cls().instrument()
-            except Exception:
-                pass
-
-        aiohttp_instrumentor_cls = _safe_import(
-            "opentelemetry.instrumentation.aiohttp_client", "AioHttpClientInstrumentor"
-        )
-        if aiohttp_instrumentor_cls:
-            try:
-                aiohttp_instrumentor_cls().instrument()
-            except Exception:
-                pass
-
-    # 3) Optional OpenLLMetry initialization
+    """Deprecated façade around InstrumentationManager.initialize."""
+    warnings.warn(
+        "basalt.observability.init() is deprecated. "
+        "Pass telemetry_config to Basalt() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    openll_config = None
     if enable_openllmetry:
-        traceloop_cls = _safe_import("traceloop.sdk", "Traceloop")
-        if traceloop_cls:
-            try:
-                traceloop_cls.init(app_name=app_name)
-            except Exception:
-                # proceed even if OpenLLMetry init fails
-                pass
+        openll_config = OpenLLMetryConfig(
+            app_name=app_name,
+        )
 
-        # Instrument known providers if requested
-        providers = list(providers or ["openai"])  # default to openai if not provided
-        for provider in providers:
-            try:
-                if provider == "openai":
-                    openai_instr_cls = _safe_import(
-                        "opentelemetry.instrumentation.openai", "OpenAIInstrumentor"
-                    )
-                    if openai_instr_cls:
-                        openai_instr_cls().instrument()
-                elif provider == "anthropic":
-                    anthropic_instr_cls = _safe_import(
-                        "opentelemetry.instrumentation.anthropic", "AnthropicInstrumentor"
-                    )
-                    if anthropic_instr_cls:
-                        anthropic_instr_cls().instrument()
-                elif provider == "google_genai":
-                    genai_instr_cls = _safe_import(
-                        "opentelemetry.instrumentation.google_genai", "GoogleGenAIInstrumentor"
-                    )
-                    if genai_instr_cls:
-                        genai_instr_cls().instrument()
-            except Exception:
-                # Ignore individual provider failures
-                pass
-
-
-def _apply_attributes(span: Span, attributes: dict[str, Any] | None) -> None:
-    if not attributes:
-        return
-    for k, v in attributes.items():
-        span.set_attribute(k, v)
-
-
-def observe(
-    name: str | None = None,
-    *,
-    attributes: dict[str, Any] | Callable[..., dict[str, Any]] | None = None,
-    capture_io: bool = False,
-):
-    """Decorator to create an observation span for a function.
-
-    Args:
-        name: Optional explicit span name; defaults to module.qualname.
-        attributes: Optional dict or a callable (args, kwargs) -> dict to attach as span attributes.
-        capture_io: If True, attaches simple metadata about args/return (use with care for PII).
-    """
-    def decorator(func):
-        import functools
-        import inspect
-
-        span_name = name or f"{func.__module__}.{func.__qualname__}"
-        is_async = inspect.iscoroutinefunction(func)
-
-        def compute_attrs(args, kwargs) -> dict[str, Any] | None:
-            if callable(attributes):
-                try:
-                    return attributes(*args, **kwargs)  # type: ignore[misc]
-                except Exception:
-                    return None
-            return attributes  # may be None
-
-        if is_async:
-            @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                tracer = get_tracer(func.__module__)
-                with tracer.start_as_current_span(span_name) as span:
-                    _apply_attributes(span, compute_attrs(args, kwargs))
-                    try:
-                        if capture_io:
-                            span.set_attribute("basalt.observe.args_count", len(args))
-                            span.set_attribute("basalt.observe.kwargs_count", len(kwargs))
-                        result = await func(*args, **kwargs)
-                        if capture_io:
-                            span.set_attribute("basalt.observe.return_type", type(result).__name__)
-                        span.set_status(Status(StatusCode.OK))
-                        return result
-                    except Exception as e:
-                        span.set_status(Status(StatusCode.ERROR, str(e)))
-                        raise
-
-            return async_wrapper
-        else:
-            @functools.wraps(func)
-            def sync_wrapper(*args, **kwargs):
-                tracer = get_tracer(func.__module__)
-                with tracer.start_as_current_span(span_name) as span:
-                    _apply_attributes(span, compute_attrs(args, kwargs))
-                    try:
-                        if capture_io:
-                            span.set_attribute("basalt.observe.args_count", len(args))
-                            span.set_attribute("basalt.observe.kwargs_count", len(kwargs))
-                        result = func(*args, **kwargs)
-                        if capture_io:
-                            span.set_attribute("basalt.observe.return_type", type(result).__name__)
-                        span.set_status(Status(StatusCode.OK))
-                        return result
-                    except Exception as e:
-                        span.set_status(Status(StatusCode.ERROR, str(e)))
-                        raise
-
-            return sync_wrapper
-
-    return decorator
+    telemetry_config = TelemetryConfig(
+        service_name=app_name,
+        environment=environment,
+        exporter=exporter,
+        enable_openllmetry=enable_openllmetry,
+        openllmetry_config=openll_config,
+        instrument_http=instrument_http,
+    )
+    _instrumentation.initialize(telemetry_config)
 
 
 class Observation:
-    """Helper to operate on the current observation span."""
+    """Helper to operate on a span handle for backward compatibility."""
 
-    def __init__(self, span: Span):
-        self._span = span
+    def __init__(self, handle: SpanHandle):
+        self._handle = handle
+        self._span = handle.span
 
     def add_attributes(self, attrs: dict[str, Any]) -> None:
-        _apply_attributes(self._span, attrs)
+        for key, value in (attrs or {}).items():
+            self._span.set_attribute(key, value)
 
     def event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
         self._span.add_event(name=name, attributes=attributes)
 
-    # Convenience helpers for common trace-level metadata parity
     def set_user(self, user_id: str) -> None:
         self._span.set_attribute("basalt.user.id", user_id)
 
@@ -213,23 +100,35 @@ class Observation:
         self._span.set_attribute("basalt.trace.tags", list(tags))
 
     def add_metadata(self, metadata: dict[str, Any]) -> None:
-        for k, v in metadata.items():
-            self._span.set_attribute(f"basalt.meta.{k}", v)
+        for key, value in metadata.items():
+            self._span.set_attribute(f"basalt.meta.{key}", value)
+
+
+def observe(
+    name: str | None = None,
+    *,
+    attributes: dict[str, Any] | Callable[..., dict[str, Any]] | None = None,
+    capture_io: bool = False,
+):
+    """Deprecated alias for trace_operation."""
+    warnings.warn(
+        "basalt.observability.observe is deprecated; use trace_operation instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return trace_operation(name=name, attributes=attributes, capture_io=capture_io)
 
 
 @contextmanager
 def observe_cm(name: str, attributes: dict[str, Any] | None = None):
-    """Context manager to create an observation span.
-
-    Usage:
-        with observe_cm("basalt.trace", {"feature_slug": slug}) as obs:
-            obs.add_attributes({"tokens.total": 58})
-            obs.event("evaluation", {"score": 0.9})
-    """
-    tracer = get_tracer(__name__)
-    with tracer.start_as_current_span(name) as span:
-        _apply_attributes(span, attributes)
-        yield Observation(span)
+    """Deprecated context manager alias around trace_span."""
+    warnings.warn(
+        "basalt.observability.observe_cm is deprecated; use trace_span instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    with trace_span(name, attributes=attributes) as handle:
+        yield Observation(handle)
 
 
 def current_span() -> Span | None:
@@ -264,8 +163,8 @@ def add_trace_tags(tags: Iterable[str]) -> None:
 def add_trace_metadata(metadata: dict[str, Any]) -> None:
     span = current_span()
     if span:
-        for k, v in metadata.items():
-            span.set_attribute(f"basalt.meta.{k}", v)
+        for key, value in metadata.items():
+            span.set_attribute(f"basalt.meta.{key}", value)
 
 
 def flush() -> None:
@@ -274,5 +173,4 @@ def flush() -> None:
     try:
         provider.force_flush()  # type: ignore[attr-defined]
     except Exception:
-        # If provider doesn't support force_flush, ignore
         pass

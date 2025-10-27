@@ -8,6 +8,8 @@ from typing import Any, Literal
 import aiohttp
 import requests
 
+from basalt.observability.decorators import trace_http
+
 from ..types.exceptions import (
     BadRequestError,
     ForbiddenError,
@@ -98,6 +100,7 @@ class HTTPClient:
             self._session = aiohttp.ClientSession(connector=connector, timeout=timeout)
         return self._session
 
+    @trace_http(name="basalt.http.fetch_async")
     async def fetch(
         self,
         url: str,
@@ -159,6 +162,7 @@ class HTTPClient:
         # Should never reach here, but just in case
         raise NetworkError(f"Request failed after {self.max_retries} attempts")
 
+    @trace_http(name="basalt.http.fetch_sync")
     def fetch_sync(
         self,
         url: str,

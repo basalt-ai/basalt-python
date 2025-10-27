@@ -1,10 +1,12 @@
 """
 Prompts package for the Basalt SDK.
 
-This package provides the PromptsClient and related models for interacting
-with the Basalt Prompts API.
+This package exposes the PromptsClient and related models for interacting
+with the Basalt Prompts API. The client is lazily imported to avoid
+circular imports during initialization.
 """
-from .client import PromptsClient
+from typing import TYPE_CHECKING, Any
+
 from .models import (
     DescribePromptResponse,
     Prompt,
@@ -15,6 +17,9 @@ from .models import (
     PromptResponse,
     PublishPromptResponse,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .client import PromptsClient
 
 __all__ = [
     "PromptsClient",
@@ -27,3 +32,11 @@ __all__ = [
     "PromptListResponse",
     "PublishPromptResponse",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name == "PromptsClient":
+        from .client import PromptsClient
+
+        return PromptsClient
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

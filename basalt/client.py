@@ -5,13 +5,12 @@ This module provides the main Basalt client class for interacting with the Basal
 """
 from __future__ import annotations
 
-from opentelemetry.sdk.trace.export import SpanExporter
-
 from basalt._internal.http import HTTPClient
+from basalt.observability.config import TelemetryConfig
+from basalt.observability.instrumentation import InstrumentationManager
 
 from .datasets.client import DatasetsClient
 from .prompts.client import PromptsClient
-from .tracing.provider import BasaltConfig, setup_tracing
 from .utils.memcache import MemoryCache
 
 
@@ -25,50 +24,48 @@ class Basalt:
     Example:
         ```python
         from basalt import Basalt
-        from basalt.tracing.provider import BasaltConfig
+        from basalt.observability.config import TelemetryConfig, OpenLLMetryConfig
 
-        # Initialize the client
-        config = BasaltConfig(
+        telemetry = TelemetryConfig(
             service_name="my-app",
-            service_version="1.0.0",
-            environment="production"
+            environment="production",
+            enable_openllmetry=True,
+            openllmetry_config=OpenLLMetryConfig(
+                trace_content=False,
+            ),
         )
-        basalt = Basalt(
-            api_key="your-api-key",
-            config=config
-        )
-
-        # Use the prompts client
-        prompt = await basalt.prompts.get("my-prompt")
-
-        # Use the datasets client
-        datasets = await basalt.datasets.list()
+        basalt = Basalt(api_key="your-api-key", telemetry_config=telemetry)
         ```
     """
 
     def __init__(
         self,
         api_key: str,
-        config: BasaltConfig | None = None,
+        *,
+        telemetry_config: TelemetryConfig | None = None,
+        enable_telemetry: bool = True,
         base_url: str | None = None,
-        exporter: SpanExporter | None = None,
     ):
         """
         Initialize the Basalt client.
 
         Args:
             api_key: The Basalt API key for authentication.
-            config: Optional tracing configuration. If not provided, default config is used.
+            telemetry_config: Optional telemetry configuration for OpenTelemetry/OpenLLMetry.
+            enable_telemetry: Convenience flag to quickly disable all telemetry.
             base_url: Optional base URL for the API (defaults to config value).
-            exporter: Optional OpenTelemetry SpanExporter for custom tracing backends.
         """
         self._api_key = api_key
         self._base_url = base_url
 
-        # Initialize tracing
-        self._config = config or BasaltConfig()
-        self._tracer_provider = setup_tracing(self._config, exporter)
+        if not enable_telemetry:
+            telemetry_config = TelemetryConfig(enabled=False)
+        elif telemetry_config is None:
+            telemetry_config = TelemetryConfig()
 
+        self._telemetry_config = telemetry_config
+        self._instrumentation = InstrumentationManager()
+        self._instrumentation.initialize(telemetry_config)
 
         # Initialize caches
         self._cache = MemoryCache()
@@ -116,5 +113,4 @@ class Basalt:
 
         This ensures all spans are exported before the application exits.
         """
-        from .tracing.provider import shutdown_tracing
-        shutdown_tracing()
+        self._instrumentation.shutdown()
