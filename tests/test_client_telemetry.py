@@ -6,9 +6,9 @@ import unittest
 from unittest import mock
 
 from basalt.client import Basalt
-from basalt.observability.trace_context import TraceContextConfig
 from basalt.observability.config import TelemetryConfig
 from basalt.observability.instrumentation import InstrumentationManager
+from basalt.observability.trace_context import TraceContextConfig
 
 
 class TestBasaltClientTelemetry(unittest.TestCase):

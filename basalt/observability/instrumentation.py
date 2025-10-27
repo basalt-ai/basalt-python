@@ -203,7 +203,7 @@ class InstrumentationManager:
         """Build an OTLP exporter from environment variables if configured."""
         # Check for explicit environment variable override first
         endpoint = os.getenv("BASALT_OTEL_EXPORTER_OTLP_ENDPOINT")
-        
+
         # Fall back to Basalt's default OTEL collector endpoint
         if not endpoint:
             endpoint = basalt_sdk_config.get("otel_endpoint")

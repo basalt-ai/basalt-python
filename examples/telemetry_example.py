@@ -139,7 +139,7 @@ def main() -> None:
     # disabled_client = build_disabled_client()
 
     # Example 3: Client with custom OTLP exporter
-    custom_exporter_client = build_custom_exporter_client()
+    build_custom_exporter_client()
 
     # Example 4: Client with selective provider instrumentation
     # selective_client = build_selective_providers_client()
