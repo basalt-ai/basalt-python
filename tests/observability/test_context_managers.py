@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import unittest
 from unittest import mock
@@ -15,6 +16,7 @@ from basalt.observability import (
     trace_span,
     trace_tool,
 )
+from basalt.observability import semconv
 from tests.observability.utils import get_exporter
 
 
@@ -48,12 +50,27 @@ class ContextManagerTests(unittest.TestCase):
                 span.set_tokens(input=10, output=1)
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertEqual(span.attributes["llm.model"], "gpt-4")
-        self.assertEqual(span.attributes["llm.prompt"], "Hi")
-        self.assertEqual(span.attributes["llm.completion"], "Ok")
-        self.assertEqual(span.attributes["llm.tokens.input"], 10)
-        self.assertEqual(span.attributes["llm.tokens.output"], 1)
-        self.assertEqual(span.attributes["basalt.span.type"], "generation")
+        # Check new GenAI semantic conventions
+        self.assertEqual(span.attributes[semconv.GenAI.REQUEST_MODEL], "gpt-4")
+
+        # Check that prompt is stored as structured messages
+        input_messages = json.loads(span.attributes[semconv.GenAI.INPUT_MESSAGES])
+        self.assertEqual(len(input_messages), 1)
+        self.assertEqual(input_messages[0]["role"], "user")
+        self.assertEqual(input_messages[0]["parts"][0]["content"], "Hi")
+
+        # Check that completion is stored as structured messages
+        output_messages = json.loads(span.attributes[semconv.GenAI.OUTPUT_MESSAGES])
+        self.assertEqual(len(output_messages), 1)
+        self.assertEqual(output_messages[0]["role"], "assistant")
+        self.assertEqual(output_messages[0]["parts"][0]["content"], "Ok")
+
+        # Check token usage
+        self.assertEqual(span.attributes[semconv.GenAI.USAGE_INPUT_TOKENS], 10)
+        self.assertEqual(span.attributes[semconv.GenAI.USAGE_OUTPUT_TOKENS], 1)
+
+        # Check span type
+        self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "generation")
 
     def test_trace_retrieval_helpers(self):
         with trace_retrieval("context.retrieval") as span:
@@ -62,10 +79,11 @@ class ContextManagerTests(unittest.TestCase):
             span.set_top_k(5)
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertEqual(span.attributes["retrieval.query"], "hello")
-        self.assertEqual(span.attributes["retrieval.results.count"], 3)
-        self.assertEqual(span.attributes["retrieval.top_k"], 5)
-        self.assertEqual(span.attributes["basalt.span.type"], "retrieval")
+        # Check new Basalt retrieval semantic conventions
+        self.assertEqual(span.attributes[semconv.BasaltRetrieval.QUERY], "hello")
+        self.assertEqual(span.attributes[semconv.BasaltRetrieval.RESULTS_COUNT], 3)
+        self.assertEqual(span.attributes[semconv.BasaltRetrieval.TOP_K], 5)
+        self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "retrieval")
 
     def test_trace_tool_helpers(self):
         with trace_tool("context.tool") as span:
@@ -74,10 +92,10 @@ class ContextManagerTests(unittest.TestCase):
             span.set_output({"answer": "ok"})
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertEqual(span.attributes["basalt.tool.name"], "browser")
-        self.assertEqual(span.attributes["basalt.tool.input"], '{"query": "hi"}')
-        self.assertEqual(span.attributes["basalt.tool.output"], '{"answer": "ok"}')
-        self.assertEqual(span.attributes["basalt.span.type"], "tool")
+        self.assertEqual(span.attributes[semconv.BasaltTool.NAME], "browser")
+        self.assertEqual(span.attributes[semconv.BasaltTool.INPUT], '{"query": "hi"}')
+        self.assertEqual(span.attributes[semconv.BasaltTool.OUTPUT], '{"answer": "ok"}')
+        self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "tool")
 
     def test_trace_event_helpers(self):
         with trace_event("context.event", attributes={"source": "app"}) as span:
@@ -86,9 +104,9 @@ class ContextManagerTests(unittest.TestCase):
 
         span = self.exporter.get_finished_spans()[0]
         self.assertEqual(span.attributes["source"], "app")
-        self.assertEqual(span.attributes["basalt.event.type"], "workflow")
-        self.assertEqual(span.attributes["basalt.event.payload"], '{"status": "done"}')
-        self.assertEqual(span.attributes["basalt.span.type"], "event")
+        self.assertEqual(span.attributes[semconv.BasaltEvent.TYPE], "workflow")
+        self.assertEqual(span.attributes[semconv.BasaltEvent.PAYLOAD], '{"status": "done"}')
+        self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "event")
 
     def test_trace_span_applies_default_context(self):
         configure_trace_defaults(
@@ -103,13 +121,13 @@ class ContextManagerTests(unittest.TestCase):
             span.add_evaluator("eval-inline")
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertEqual(span.attributes["basalt.user.id"], "user-1")
-        self.assertEqual(span.attributes["basalt.user.name"], "Jane")
-        self.assertEqual(span.attributes["basalt.organization.id"], "org-1")
-        self.assertEqual(span.attributes["basalt.experiment.id"], "exp-1")
-        self.assertEqual(span.attributes["basalt.experiment.feature_slug"], "feature")
-        self.assertEqual(span.attributes["basalt.meta.env"], "test")
+        self.assertEqual(span.attributes[semconv.BasaltUser.ID], "user-1")
+        self.assertEqual(span.attributes[semconv.BasaltUser.NAME], "Jane")
+        self.assertEqual(span.attributes[semconv.BasaltOrganization.ID], "org-1")
+        self.assertEqual(span.attributes[semconv.BasaltExperiment.ID], "exp-1")
+        self.assertEqual(span.attributes[semconv.BasaltExperiment.FEATURE_SLUG], "feature")
+        self.assertEqual(span.attributes[f"{semconv.BASALT_META_PREFIX}env"], "test")
         self.assertEqual(
-            list(span.attributes["basalt.trace.evaluators"]),
+            list(span.attributes[semconv.BasaltTrace.EVALUATORS]),
             ["eval-default", "eval-inline"],
         )

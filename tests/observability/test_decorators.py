@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import unittest
 from unittest import mock
 
+from basalt.observability import semconv
 from basalt.observability.decorators import trace_http, trace_llm, trace_operation
 from tests.observability.utils import get_exporter
 
@@ -29,7 +31,7 @@ class DecoratorTestCase(unittest.TestCase):
         span = spans[0]
         self.assertEqual(span.name, "test.operation")
         self.assertEqual(span.attributes["input"], 5)
-        self.assertEqual(span.attributes["basalt.observe.args_count"], 1)
+        self.assertEqual(span.attributes[semconv.BasaltObserve.ARGS_COUNT], 1)
 
     def test_trace_operation_async(self):
         @trace_operation(name="async.operation")
@@ -55,11 +57,25 @@ class DecoratorTestCase(unittest.TestCase):
 
         span = self.exporter.get_finished_spans()[0]
         self.assertEqual(span.name, "llm.generate")
-        self.assertEqual(span.attributes["llm.model"], "gpt-4")
-        self.assertEqual(span.attributes["llm.prompt"], "Hello?")
-        self.assertEqual(span.attributes["llm.completion"], "done")
-        self.assertEqual(span.attributes["llm.tokens.input"], 5)
-        self.assertEqual(span.attributes["llm.tokens.output"], 2)
+
+        # Check new GenAI semantic conventions
+        self.assertEqual(span.attributes[semconv.GenAI.REQUEST_MODEL], "gpt-4")
+
+        # Check that prompt is stored as structured messages
+        input_messages = json.loads(span.attributes[semconv.GenAI.INPUT_MESSAGES])
+        self.assertEqual(len(input_messages), 1)
+        self.assertEqual(input_messages[0]["role"], "user")
+        self.assertEqual(input_messages[0]["parts"][0]["content"], "Hello?")
+
+        # Check that completion is stored as structured messages
+        output_messages = json.loads(span.attributes[semconv.GenAI.OUTPUT_MESSAGES])
+        self.assertEqual(len(output_messages), 1)
+        self.assertEqual(output_messages[0]["role"], "assistant")
+        self.assertEqual(output_messages[0]["parts"][0]["content"], "done")
+
+        # Check token usage
+        self.assertEqual(span.attributes[semconv.GenAI.USAGE_INPUT_TOKENS], 5)
+        self.assertEqual(span.attributes[semconv.GenAI.USAGE_OUTPUT_TOKENS], 2)
 
     def test_trace_http_captures_basic_fields(self):
         class Response:
@@ -73,6 +89,6 @@ class DecoratorTestCase(unittest.TestCase):
 
         span = self.exporter.get_finished_spans()[0]
         self.assertEqual(span.name, "http.call")
-        self.assertEqual(span.attributes["http.method"], "GET")
-        self.assertEqual(span.attributes["http.url"], "https://example.com")
-        self.assertEqual(span.attributes["http.status_code"], 201)
+        self.assertEqual(span.attributes[semconv.HTTP.METHOD], "GET")
+        self.assertEqual(span.attributes[semconv.HTTP.URL], "https://example.com")
+        self.assertEqual(span.attributes[semconv.HTTP.STATUS_CODE], 201)

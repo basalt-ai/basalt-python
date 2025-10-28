@@ -8,6 +8,7 @@ from typing import Any
 
 from opentelemetry.trace import StatusCode
 
+from . import semconv
 from .context_managers import SpanHandle
 
 
@@ -37,13 +38,13 @@ class BasaltRequestSpan:
 
     def start_attributes(self) -> dict[str, Any]:
         attributes: dict[str, Any] = {
-            "basalt.api.client": self.client,
-            "basalt.api.operation": self.operation,
-            "http.method": self.method.upper(),
-            "http.url": self.url,
+            semconv.BasaltAPI.CLIENT: self.client,
+            semconv.BasaltAPI.OPERATION: self.operation,
+            semconv.HTTP.METHOD: self.method.upper(),
+            semconv.HTTP.URL: self.url,
         }
         if self.cache_hit is not None:
-            attributes["basalt.cache.hit"] = self.cache_hit
+            attributes[semconv.BasaltCache.HIT] = self.cache_hit
         if self.extra_attributes:
             for key, value in self.extra_attributes.items():
                 if value is not None:
@@ -60,13 +61,13 @@ class BasaltRequestSpan:
     ) -> None:
         """Apply final attributes and status once the request completes."""
         duration_ms = round(duration_s * 1000, 2)
-        span.set_attribute("basalt.request.duration_ms", duration_ms)
-        span.set_attribute("http.response_time_ms", duration_ms)
+        span.set_attribute(semconv.BasaltRequest.DURATION_MS, duration_ms)
+        span.set_attribute(semconv.HTTP.RESPONSE_TIME_MS, duration_ms)
         if status_code is not None:
-            span.set_attribute("http.status_code", status_code)
+            span.set_attribute(semconv.HTTP.STATUS_CODE, status_code)
 
         succeeded = error is None and (status_code is None or status_code < 400)
-        span.set_attribute("basalt.request.success", succeeded)
+        span.set_attribute(semconv.BasaltRequest.SUCCESS, succeeded)
 
         if error:
             span.record_exception(error)

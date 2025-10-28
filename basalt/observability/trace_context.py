@@ -9,6 +9,8 @@ from typing import Any
 
 from opentelemetry.trace import Span
 
+from . import semconv
+
 
 @dataclass(frozen=True, slots=True)
 class TraceIdentity:
@@ -107,24 +109,24 @@ def apply_trace_defaults(span: Span, defaults: TraceContextConfig | None = None)
     """Attach the configured defaults to the provided span."""
     context = defaults.clone() if defaults else current_trace_defaults()
     if isinstance(context.user, TraceIdentity):
-        span.set_attribute("basalt.user.id", context.user.id)
+        span.set_attribute(semconv.BasaltUser.ID, context.user.id)
         if context.user.name:
-            span.set_attribute("basalt.user.name", context.user.name)
+            span.set_attribute(semconv.BasaltUser.NAME, context.user.name)
     if isinstance(context.organization, TraceIdentity):
-        span.set_attribute("basalt.organization.id", context.organization.id)
+        span.set_attribute(semconv.BasaltOrganization.ID, context.organization.id)
         if context.organization.name:
-            span.set_attribute("basalt.organization.name", context.organization.name)
+            span.set_attribute(semconv.BasaltOrganization.NAME, context.organization.name)
     if isinstance(context.experiment, TraceExperiment):
-        span.set_attribute("basalt.experiment.id", context.experiment.id)
+        span.set_attribute(semconv.BasaltExperiment.ID, context.experiment.id)
         if context.experiment.name:
-            span.set_attribute("basalt.experiment.name", context.experiment.name)
+            span.set_attribute(semconv.BasaltExperiment.NAME, context.experiment.name)
         if context.experiment.feature_slug:
-            span.set_attribute("basalt.experiment.feature_slug", context.experiment.feature_slug)
+            span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, context.experiment.feature_slug)
     if context.metadata:
         for key, value in context.metadata.items():
-            span.set_attribute(f"basalt.meta.{key}", value)
+            span.set_attribute(f"{semconv.BASALT_META_PREFIX}{key}", value)
     if context.evaluators:
-        span.set_attribute("basalt.trace.evaluators", list(dict.fromkeys(context.evaluators)))
+        span.set_attribute(semconv.BasaltTrace.EVALUATORS, list(dict.fromkeys(context.evaluators)))
 
 
 def update_default_evaluators(new_evaluators: list[str]) -> None:

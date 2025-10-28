@@ -11,6 +11,7 @@ from typing import Any, TypeAlias, TypeVar
 
 from opentelemetry.trace import StatusCode
 
+from . import semconv
 from .context_managers import (
     LLMSpanHandle,
     trace_content_enabled,
@@ -140,10 +141,10 @@ def trace_operation(
                 computed_attrs = _resolve_attributes(attributes, args, kwargs)
                 with trace_span(span_name, attributes=computed_attrs) as span:
                     try:
-                        span.set_attribute("basalt.observe.args_count", len(args))
-                        span.set_attribute("basalt.observe.kwargs_count", len(kwargs))
+                        span.set_attribute(semconv.BasaltObserve.ARGS_COUNT, len(args))
+                        span.set_attribute(semconv.BasaltObserve.KWARGS_COUNT, len(kwargs))
                         result = await func(*args, **kwargs)
-                        span.set_attribute("basalt.observe.return_type", type(result).__name__)
+                        span.set_attribute(semconv.BasaltObserve.RETURN_TYPE, type(result).__name__)
                         span.set_status(StatusCode.OK)
                         return result
                     except Exception as exc:  # pragma: no cover - passthrough
@@ -158,10 +159,10 @@ def trace_operation(
             computed_attrs = _resolve_attributes(attributes, args, kwargs)
             with trace_span(span_name, attributes=computed_attrs) as span:
                 try:
-                    span.set_attribute("basalt.observe.args_count", len(args))
-                    span.set_attribute("basalt.observe.kwargs_count", len(kwargs))
+                    span.set_attribute(semconv.BasaltObserve.ARGS_COUNT, len(args))
+                    span.set_attribute(semconv.BasaltObserve.KWARGS_COUNT, len(kwargs))
                     result = func(*args, **kwargs)
-                    span.set_attribute("basalt.observe.return_type", type(result).__name__)
+                    span.set_attribute(semconv.BasaltObserve.RETURN_TYPE, type(result).__name__)
                     span.set_status(StatusCode.OK)
                     return result
                 except Exception as exc:  # pragma: no cover - passthrough
@@ -342,14 +343,14 @@ def trace_http(
             method = _extract_first(bound, ("method", "http_method", "verb"))
             url = _extract_first(bound, ("url", "uri", "endpoint"))
             if isinstance(method, str):
-                span.set_attribute("http.method", method.upper())
+                span.set_attribute(semconv.HTTP.METHOD, method.upper())
             if isinstance(url, str):
-                span.set_attribute("http.url", url)
+                span.set_attribute(semconv.HTTP.URL, url)
 
         def _finalize(span, status: int | None, duration_s: float) -> None:
-            span.set_attribute("http.response_time_ms", round(duration_s * 1000, 2))
+            span.set_attribute(semconv.HTTP.RESPONSE_TIME_MS, round(duration_s * 1000, 2))
             if status is not None:
-                span.set_attribute("http.status_code", status)
+                span.set_attribute(semconv.HTTP.STATUS_CODE, status)
                 code = StatusCode.ERROR if status >= 400 else StatusCode.OK
                 span.set_status(code)
             else:

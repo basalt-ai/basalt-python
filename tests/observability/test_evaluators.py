@@ -13,6 +13,7 @@ from basalt.observability import (
     configure_trace_defaults,
     get_evaluator_manager,
     register_evaluator,
+    semconv,
     trace_llm_call,
     trace_span,
     unregister_evaluator,
@@ -161,9 +162,9 @@ class EvaluatorTests(unittest.TestCase):
             attach_evaluators_to_span(span, "llm-eval")
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertIn("llm-eval", span.attributes["basalt.trace.evaluators"])
-        self.assertEqual(span.attributes["llm.model"], "gpt-4")
-        self.assertEqual(span.attributes["basalt.span.type"], "generation")
+        self.assertIn("llm-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
+        self.assertEqual(span.attributes[semconv.GenAI.REQUEST_MODEL], "gpt-4")
+        self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "generation")
 
     def test_evaluator_with_llm_span_using_context_manager(self):
         """Test using attach_evaluator context manager with LLM spans."""
@@ -176,8 +177,8 @@ class EvaluatorTests(unittest.TestCase):
                 span.set_completion("Hi there!")
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertIn("llm-ctx-eval", span.attributes["basalt.trace.evaluators"])
-        self.assertEqual(span.attributes["llm.model"], "gpt-4")
+        self.assertIn("llm-ctx-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
+        self.assertEqual(span.attributes[semconv.GenAI.REQUEST_MODEL], "gpt-4")
 
     def test_unregistered_evaluator_defaults_to_100_percent(self):
         """Test that unregistered evaluators are attached with 100% probability."""
