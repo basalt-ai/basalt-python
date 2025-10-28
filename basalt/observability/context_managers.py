@@ -6,12 +6,15 @@ import json
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
 
 from .trace_context import TraceContextConfig, apply_trace_defaults, current_trace_defaults
+
+if TYPE_CHECKING:
+    from .evaluators import EvaluatorManager
 
 SPAN_TYPE_ATTRIBUTE = "basalt.span.type"
 
@@ -47,11 +50,25 @@ def get_tracer(tracer_name: str = "basalt.observability") -> Tracer:
 class SpanHandle:
     """Helper around an OTEL span with convenience methods."""
 
-    def __init__(self, span: Span, defaults: TraceContextConfig | None = None):
+    def __init__(
+        self,
+        span: Span,
+        defaults: TraceContextConfig | None = None,
+        evaluator_manager: EvaluatorManager | None = None,
+    ):
         self._span = span
         self._evaluators: list[str] = []
+        self._evaluator_manager = evaluator_manager
         if defaults and defaults.evaluators:
-            for slug in defaults.evaluators:
+            self._apply_evaluators_with_sampling(defaults.evaluators)
+
+    def _apply_evaluators_with_sampling(self, evaluator_slugs: list[str]) -> None:
+        """Apply evaluators from defaults, respecting sample rates if manager is available."""
+        if self._evaluator_manager:
+            self._evaluator_manager.attach_to_span(self, *evaluator_slugs)
+        else:
+            # Fall back to adding all evaluators without sampling
+            for slug in evaluator_slugs:
                 self._append_evaluator(slug)
 
     def set_attribute(self, key: str, value: Any) -> None:
@@ -181,12 +198,21 @@ def _with_span_handle(
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
     defaults = current_trace_defaults()
+
+    # Get evaluator manager (lazy import to avoid circular dependency)
+    evaluator_manager = None
+    try:
+        from .evaluators import get_evaluator_manager
+        evaluator_manager = get_evaluator_manager()
+    except ImportError:
+        pass
+
     with tracer.start_as_current_span(name) as span:
         _attach_attributes(span, attributes)
         if span_type:
             span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
         apply_trace_defaults(span, defaults)
-        handle = handle_cls(span, defaults)
+        handle = handle_cls(span, defaults, evaluator_manager)
         yield handle  # type: ignore[misc]
 
 

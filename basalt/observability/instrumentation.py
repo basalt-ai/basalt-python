@@ -251,7 +251,11 @@ class InstrumentationManager:
         provider_map = {
             "openai": ("opentelemetry.instrumentation.openai", "OpenAIInstrumentor"),
             "anthropic": ("opentelemetry.instrumentation.anthropic", "AnthropicInstrumentor"),
-            "google_genai": ("opentelemetry.instrumentation.google_genai", "GoogleGenAIInstrumentor"),
+            # NEW Google GenAI SDK (from google import genai)
+            "google_genai": ("opentelemetry.instrumentation.google_genai", "GoogleGenAiSdkInstrumentor"),
+            # OLD Google Generative AI SDK (import google.generativeai)
+            "google_generativeai": ("opentelemetry.instrumentation.google_generativeai",
+                                     "GoogleGenerativeAiInstrumentor"),
             "cohere": ("opentelemetry.instrumentation.cohere", "CohereInstrumentor"),
             "bedrock": ("opentelemetry.instrumentation.bedrock", "BedrockInstrumentor"),
             "vertexai": ("opentelemetry.instrumentation.vertexai", "VertexAIInstrumentor"),

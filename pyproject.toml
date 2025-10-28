@@ -23,14 +23,13 @@ dependencies = [
     "requests>=2.32",
     "aiohttp>=3.8.0",
     "jinja2>=3.1.0",
-    "opentelemetry-instrumentation",
-    "opentelemetry-instrumentation-aiohttp-client",
-    "opentelemetry-instrumentation-requests",
-    "opentelemetry-semantic-conventions",
-    "opentelemetry-api",
-    "opentelemetry-sdk",
-    "opentelemetry-exporter-otlp",
-    "wrapt",
+    "opentelemetry-instrumentation==0.59b0",
+    "opentelemetry-instrumentation-httpx==0.59b0",
+    "opentelemetry-semantic-conventions==0.59b0",
+    "opentelemetry-api==1.38.0",
+    "opentelemetry-sdk==1.38.0",
+    "opentelemetry-exporter-otlp==1.38.0",
+    "wrapt==1.17.3",
     "pytest-asyncio>=1.2.0",
 ]
 
@@ -53,6 +52,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "coverage",
+    "google-genai>=1.46.0",
 ]
 
 
@@ -66,3 +66,8 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "T20"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[dependency-groups]
+dev = [
+    "google-genai>=1.46.0",
+]

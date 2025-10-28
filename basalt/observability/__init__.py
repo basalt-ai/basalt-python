@@ -24,6 +24,15 @@ from .context_managers import (
     trace_tool,
 )
 from .decorators import trace_http, trace_llm, trace_operation
+from .evaluators import (
+    EvaluatorConfig,
+    attach_evaluator,
+    attach_evaluators_to_current_span,
+    attach_evaluators_to_span,
+    get_evaluator_manager,
+    register_evaluator,
+    unregister_evaluator,
+)
 from .instrumentation import InstrumentationManager
 from .trace_context import (
     TraceContextConfig,
@@ -71,6 +80,14 @@ __all__ = [
     "attach_trace_experiment",
     "add_span_evaluator",
     "flush",
+    # Evaluator functions
+    "EvaluatorConfig",
+    "register_evaluator",
+    "unregister_evaluator",
+    "attach_evaluator",
+    "attach_evaluators_to_span",
+    "attach_evaluators_to_current_span",
+    "get_evaluator_manager",
 ]
 
 _instrumentation = InstrumentationManager()

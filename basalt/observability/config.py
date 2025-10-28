@@ -42,7 +42,8 @@ class TelemetryConfig:
     Supported providers:
         - openai: OpenAI API (via opentelemetry-instrumentation-openai)
         - anthropic: Anthropic API (via opentelemetry-instrumentation-anthropic)
-        - google_genai: Google GenAI (via opentelemetry-instrumentation-google-genai)
+        - google_genai: Google GenAI SDK - NEW (via opentelemetry-instrumentation-google-genai)
+        - google_generativeai: Google Generative AI SDK - LEGACY (via opentelemetry-instrumentation-google-generativeai)
         - cohere: Cohere API (via opentelemetry-instrumentation-cohere)
         - bedrock: AWS Bedrock (via opentelemetry-instrumentation-bedrock)
         - vertexai: Google Vertex AI (via opentelemetry-instrumentation-vertexai)
