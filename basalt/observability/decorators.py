@@ -9,11 +9,13 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeAlias, TypeVar
 
+from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 
 from . import semconv
 from .context_managers import (
     LLMSpanHandle,
+    SpanHandle,
     trace_content_enabled,
     trace_llm_call,
     trace_span,
@@ -393,6 +395,107 @@ def trace_http(
                     span.record_exception(exc)
                     _finalize(span, None, time.perf_counter() - start)
                     raise
+
+        return sync_wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
+def evaluator(
+    slug: str,
+    *,
+    sample_rate: float = 1.0,
+    to_evaluate: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> Callable[[F], F]:
+    """
+    Decorator to automatically attach an evaluator to LLM spans.
+
+    This decorator registers the evaluator (if not already registered) and
+    attaches it to the current span when the decorated function is called.
+
+    **IMPORTANT**: This decorator requires manual span creation (e.g., @trace_llm,
+    @trace_operation, or trace_llm_call context manager). It will NOT work with
+    automatic instrumentation (e.g., OpenTelemetry's automatic LLM instrumentation)
+    because the evaluator attachment happens in your application code, not in the
+    instrumented library.
+
+    To use evaluators with automatically instrumented LLM calls, you must wrap them
+    with manual tracing:
+        @evaluator("my-eval")
+        @trace_llm(name="my.llm")
+        def my_llm_call():
+            return openai.chat.completions.create(...)  # Auto-instrumented
+
+    Args:
+        slug: Unique identifier for the evaluator.
+        sample_rate: Probability (0.0-1.0) that this evaluator will be attached to spans.
+                    Default is 1.0 (100% of traces). Use lower values to reduce evaluation costs.
+        to_evaluate: List of attribute names to focus evaluation on.
+                    If None (default), the evaluator will use gen_ai.output.messages
+                    (the standard OpenTelemetry GenAI output attribute) and fall back
+                    to the completion content if not available. Specify attribute names
+                    to focus on specific parts of your trace (e.g., ["completion"],
+                    ["workflow.final_answer"], ["prompt", "completion"]).
+        metadata: Optional metadata associated with this evaluator.
+
+    Example - Basic usage:
+        >>> @evaluator("joke-quality", to_evaluate=["completion"])
+        ... @trace_llm(name="gemini.summarize_joke")
+        ... def summarize_joke_with_gemini(joke: str) -> str:
+        ...     # LLM call logic here
+        ...     return response
+
+    Example - With sample rate (50% of traces):
+        >>> @evaluator("hallucination-check", sample_rate=0.5)
+        ... @trace_llm(name="my.llm.call")
+        ... def call_llm(prompt: str) -> str:
+        ...     # LLM call logic here
+        ...     return response
+
+    Example - Focus on specific workflow attributes:
+        >>> @evaluator("answer-quality", to_evaluate=["workflow.final_answer"])
+        ... @trace_llm(name="workflow.generate_answer")
+        ... def generate_answer(context: str, question: str) -> dict:
+        ...     # The evaluator will focus on the workflow.final_answer attribute
+        ...     return {"workflow.final_answer": answer}
+    """
+
+    def decorator(func: F) -> F:
+        # Register the evaluator on decorator creation
+        from .evaluators import get_evaluator_manager
+
+        manager = get_evaluator_manager()
+        manager.register_evaluator(
+            slug=slug,
+            sample_rate=sample_rate,
+            metadata=metadata,
+            to_evaluate=to_evaluate,
+        )
+
+        is_async = inspect.iscoroutinefunction(func)
+
+        if is_async:
+
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                # Attach evaluator to current span
+                otel_span = trace.get_current_span()
+                if otel_span and otel_span.get_span_context().is_valid:
+                    span_handle = SpanHandle(otel_span)
+                    manager.attach_to_span(span_handle, slug)
+                return await func(*args, **kwargs)
+
+            return async_wrapper  # type: ignore[return-value]
+
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            # Attach evaluator to current span
+            otel_span = trace.get_current_span()
+            if otel_span and otel_span.get_span_context().is_valid:
+                span_handle = SpanHandle(otel_span)
+                manager.attach_to_span(span_handle, slug)
+            return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]
 

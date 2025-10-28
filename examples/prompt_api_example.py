@@ -1,12 +1,22 @@
-"""Basalt Prompt SDK Example (New Exception-Based API).
+"""Basalt Prompt SDK Example with OpenTelemetry.
 
-This script demonstrates how to use the new exception-based Basalt Prompt SDK.
-It showcases both synchronous and asynchronous operations with proper error handling.
+This script demonstrates how to use the Basalt Prompt SDK with OpenTelemetry tracing.
+It showcases:
+- Automatic tracing of API calls
+- Manual tracing with custom spans
+- Both synchronous and asynchronous operations
+- Proper error handling and telemetry shutdown
 
 Before running this script:
 1. Set your API key: export BASALT_API_KEY="your-api-key"
 2. Set a test prompt slug: export BASALT_TEST_PROMPT_SLUG="your-prompt-slug"
 3. Install dependencies: pip install basalt-sdk
+
+OpenTelemetry Configuration:
+- Traces are sent to Basalt's OTEL collector by default
+- Production endpoint: https://otel.getbasalt.ai/v1/traces
+- Development endpoint: http://localhost:4318/v1/traces
+- Configure custom endpoints via BASALT_OTEL_EXPORTER_OTLP_ENDPOINT env var
 
 Reference: See MIGRATION_GUIDE.md for details on the new exception-based API.
 """
@@ -19,14 +29,14 @@ import os
 import sys
 from pathlib import Path
 
-from basalt.prompts.client import PromptsClient
+from basalt import Basalt, TelemetryConfig
+from basalt.observability.context_managers import trace_span
 from basalt.prompts.models import Prompt
 from basalt.types.exceptions import (
     BasaltAPIError,
     NotFoundError,
     UnauthorizedError,
 )
-from basalt.utils.memcache import MemoryCache
 
 # Add parent directory to path to import basalt
 project_root = Path(__file__).parent.parent
@@ -35,11 +45,11 @@ sys.path.insert(0, str(project_root))
 os.environ["BASALT_BUILD"] = "development"
 
 
-def initialize_client() -> PromptsClient:
-    """Initialize the Basalt Prompts client with API key and caching.
+def initialize_client() -> Basalt:
+    """Initialize the Basalt client with API key and OpenTelemetry.
 
     Returns:
-        PromptsClient: Configured prompts client instance.
+        Basalt: Configured Basalt client instance with telemetry enabled.
 
     Raises:
         ValueError: If BASALT_API_KEY environment variable is not set.
@@ -48,25 +58,29 @@ def initialize_client() -> PromptsClient:
     if not api_key:
         raise ValueError("BASALT_API_KEY environment variable not set")
 
-    # Setup caching and logging
-    cache = MemoryCache()
-    fallback_cache = MemoryCache()  # Infinite cache for fallback
-
     logging.basicConfig(level=logging.INFO)
 
-    return PromptsClient(
+    # Configure telemetry with OpenTelemetry
+    telemetry_config = TelemetryConfig(
+        service_name="prompt-api-example",
+        environment="development",
+        enable_llm_instrumentation=True,
+        llm_trace_content=True,  # Include prompt/completion content in traces
+    )
+
+    # Initialize Basalt client with telemetry
+    return Basalt(
         api_key=api_key,
-        cache=cache,
-        fallback_cache=fallback_cache,
+        telemetry_config=telemetry_config,
     )
 
 
-def example_1_list_prompts(client: PromptsClient) -> None:
+def example_1_list_prompts(client: Basalt) -> None:
     """Example 1: List all prompts synchronously."""
     logging.info("Listing prompts synchronously")
 
     try:
-        prompt_list = client.list_sync()
+        prompt_list = client.prompts.list_sync()
 
         if prompt_list:
             for _i, _prompt in enumerate(prompt_list[:3], 1):
@@ -79,7 +93,7 @@ def example_1_list_prompts(client: PromptsClient) -> None:
         logging.error("Basalt API error occurred")
 
 
-def example_2_get_prompt(client: PromptsClient) -> None:
+def example_2_get_prompt(client: Basalt) -> None:
     """Example 2: Get a specific prompt synchronously."""
     logging.info("Getting a specific prompt synchronously")
 
@@ -89,7 +103,7 @@ def example_2_get_prompt(client: PromptsClient) -> None:
         return
 
     try:
-        prompt = client.get_sync(prompt_slug)
+        prompt = client.prompts.get_sync(prompt_slug)
         logging.info(prompt.text[:100] + "..." if len(prompt.text) > 100 else prompt.text + "\n")
     except NotFoundError:
         logging.error("Prompt not found")
@@ -99,7 +113,7 @@ def example_2_get_prompt(client: PromptsClient) -> None:
         logging.error("Basalt API error occurred")
 
 
-def example_3_get_prompt_with_version(client: PromptsClient) -> None:
+def example_3_get_prompt_with_version(client: Basalt) -> None:
     """Example 3: Get a prompt with a specific version."""
     logging.info("Getting a prompt with a specific version")
 
@@ -110,11 +124,11 @@ def example_3_get_prompt_with_version(client: PromptsClient) -> None:
 
     try:
         # First describe to get available versions
-        describe = client.describe_sync(prompt_slug)
+        describe = client.prompts.describe_sync(prompt_slug)
 
         if describe.available_versions:
             version = describe.available_versions[0]
-            prompt = client.get_sync(prompt_slug, version=version)
+            prompt = client.prompts.get_sync(prompt_slug, version=version)
             logging.info(prompt.text[:80] + "..." if len(prompt.text) > 80 else prompt.text)
             logging.info(f"Using version: {version} \n\n")
         else:
@@ -128,7 +142,7 @@ def example_3_get_prompt_with_version(client: PromptsClient) -> None:
 
 
 
-def example_4_get_prompt_with_tag(client: PromptsClient) -> None:
+def example_4_get_prompt_with_tag(client: Basalt) -> None:
     """Example 4: Get a prompt with a specific tag."""
     logging.info("Getting a prompt with a specific tag")
 
@@ -139,12 +153,12 @@ def example_4_get_prompt_with_tag(client: PromptsClient) -> None:
 
     try:
         # First describe to get available tags
-        describe = client.describe_sync(prompt_slug)
+        describe = client.prompts.describe_sync(prompt_slug)
         logging.info(f"Available tags: {describe.available_tags}")
 
         if describe.available_tags:
             tag = describe.available_tags[0]
-            client.get_sync(prompt_slug, tag=tag)
+            client.prompts.get_sync(prompt_slug, tag=tag)
             logging.info(f"Using tag: {tag} \n\n")
         else:
             logging.warning("No available tags found")
@@ -154,7 +168,7 @@ def example_4_get_prompt_with_tag(client: PromptsClient) -> None:
     except BasaltAPIError:
         logging.error("Basalt API error occurred", exc_info=True)
 
-def example_5_get_prompt_with_variables(client: PromptsClient) -> None:
+def example_5_get_prompt_with_variables(client: Basalt) -> None:
     """Example 5: Get a prompt with variable substitution."""
     logging.info("Getting a prompt with variable substitution")
 
@@ -164,7 +178,7 @@ def example_5_get_prompt_with_variables(client: PromptsClient) -> None:
 
     try:
         # First describe to check for variables
-        describe = client.describe_sync(prompt_slug)
+        describe = client.prompts.describe_sync(prompt_slug)
         logging.info(f"Available variables: {describe.variables}")
 
         if describe.variables:
@@ -176,7 +190,7 @@ def example_5_get_prompt_with_variables(client: PromptsClient) -> None:
                     variables[element] = f"test_value_{element}"
 
             if variables:
-                prompt = client.get_sync(prompt_slug, variables=variables)
+                prompt = client.prompts.get_sync(prompt_slug, variables=variables)
                 logging.info(prompt.text[:80] + "..." if len(prompt.text) > 80 else prompt.text + "\n\n")
         else:
             logging.warning("No variables found")
@@ -186,7 +200,7 @@ def example_5_get_prompt_with_variables(client: PromptsClient) -> None:
         logging.error("Basalt API error occurred", exc_info=True)
 
 
-def example_6_describe_prompt(client: PromptsClient) -> None:
+def example_6_describe_prompt(client: Basalt) -> None:
     """Example 6: Describe a prompt to get metadata."""
     logging.info("Describing a prompt to get metadata")
 
@@ -195,7 +209,7 @@ def example_6_describe_prompt(client: PromptsClient) -> None:
         return
 
     try:
-        response = client.describe_sync(prompt_slug)
+        response = client.prompts.describe_sync(prompt_slug)
         logging.info(f"Prompt description: {response}")
 
         if response.variables:
@@ -212,7 +226,7 @@ def example_6_describe_prompt(client: PromptsClient) -> None:
         logging.error("Basalt API error occurred", exc_info=True)
 
 
-def example_6b_publish_prompt(client: PromptsClient) -> None:
+def example_6b_publish_prompt(client: Basalt) -> None:
     """Example 6b: Publish a prompt with a new deployment tag."""
     logging.info("Publishing a prompt with a new deployment tag")
 
@@ -223,7 +237,7 @@ def example_6b_publish_prompt(client: PromptsClient) -> None:
 
     try:
         # First describe to get available versions
-        describe = client.describe_sync(prompt_slug)
+        describe = client.prompts.describe_sync(prompt_slug)
 
         if describe.available_versions:
             version = describe.available_versions[0]
@@ -233,7 +247,7 @@ def example_6b_publish_prompt(client: PromptsClient) -> None:
             new_tag = f"example-deployment-{int(time.time())}"
 
             # Publish the prompt
-            response = client.publish_prompt_sync(
+            response = client.prompts.publish_prompt_sync(
                 slug=prompt_slug,
                 new_tag=new_tag,
                 version=version,
@@ -250,11 +264,51 @@ def example_6b_publish_prompt(client: PromptsClient) -> None:
         logging.error("Basalt API error occurred", exc_info=True)
 
 
-async def example_7_async_list_prompts(client: PromptsClient) -> None:
-    """Example 7: List all prompts asynchronously."""
+def example_7_manual_tracing(client: Basalt) -> None:
+    """Example 7: Manual tracing with custom spans.
+
+    Demonstrates how to use OpenTelemetry context managers for custom tracing.
+    """
+    logging.info("Demonstrating manual tracing with custom spans")
+
+    prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG")
+    if not prompt_slug:
+        logging.warning("BASALT_TEST_PROMPT_SLUG not set, using a default value for demo")
+        prompt_slug = "example-prompt"
+
+    # Create a custom span to trace a business operation
+    with trace_span("process_prompt_workflow", attributes={"workflow.type": "example"}) as span:
+        span.add_event("workflow_started")
+        span.set_attribute("prompt.slug", prompt_slug)
+
+        try:
+            # This operation is automatically traced by the SDK
+            prompt = client.prompts.get_sync(prompt_slug)
+
+            span.add_event("prompt_retrieved", attributes={
+                "prompt.version": prompt.version,
+                "prompt.length": len(prompt.text)
+            })
+
+            # Simulate some processing
+            logging.info(f"Processing prompt: {prompt.slug}")
+            span.set_attribute("processing.status", "completed")
+
+        except NotFoundError:
+            span.add_event("prompt_not_found")
+            span.set_attribute("processing.status", "failed")
+            logging.warning(f"Prompt '{prompt_slug}' not found")
+        except Exception as e:
+            span.record_exception(e)
+            span.set_attribute("processing.status", "error")
+            logging.error(f"Error processing prompt: {e}")
+
+
+async def example_8_async_list_prompts(client: Basalt) -> None:
+    """Example 8: List all prompts asynchronously."""
 
     try:
-        prompt_list = await client.list()
+        prompt_list = await client.prompts.list()
 
         if prompt_list:
             for _i, _prompt in enumerate(prompt_list[:3], 1):
@@ -267,23 +321,23 @@ async def example_7_async_list_prompts(client: PromptsClient) -> None:
         logging.error("Basalt API error occurred", exc_info=True)
 
 
-async def example_8_async_get_prompt(client: PromptsClient) -> None:
-    """Example 8: Get a prompt asynchronously."""
+async def example_9_async_get_prompt(client: Basalt) -> None:
+    """Example 9: Get a prompt asynchronously."""
 
     prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG")
     if not prompt_slug:
         return
 
     try:
-        await client.get(prompt_slug)
+        await client.prompts.get(prompt_slug)
     except NotFoundError:
         logging.error("Prompt not found", exc_info=True)
     except BasaltAPIError:
         logging.error("Basalt API error occurred", exc_info=True)
 
 
-async def example_9_concurrent_operations(client: PromptsClient) -> None:
-    """Example 9: Execute multiple async operations concurrently.
+async def example_10_concurrent_operations(client: Basalt) -> None:
+    """Example 10: Execute multiple async operations concurrently.
 
     Demonstrates concurrent execution of multiple API calls with proper
     error handling and type-safe result processing.
@@ -298,9 +352,9 @@ async def example_9_concurrent_operations(client: PromptsClient) -> None:
     try:
         # Create multiple concurrent tasks
         tasks = [
-            client.list(),
-            client.get(prompt_slug),
-            client.describe(prompt_slug),
+            client.prompts.list(),
+            client.prompts.get(prompt_slug),
+            client.prompts.describe(prompt_slug),
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -338,16 +392,17 @@ async def example_9_concurrent_operations(client: PromptsClient) -> None:
         logging.error(f"Unexpected error during concurrent operations: {type(e).__name__}: {e}", exc_info=True)
 
 
-async def run_async_examples(client: PromptsClient) -> None:
+async def run_async_examples(client: Basalt) -> None:
     """Run all async examples."""
-    await example_7_async_list_prompts(client)
-    await example_8_async_get_prompt(client)
-    await example_9_concurrent_operations(client)
+    await example_8_async_list_prompts(client)
+    await example_9_async_get_prompt(client)
+    await example_10_concurrent_operations(client)
 
 
 def main() -> None:
     """Run all examples."""
 
+    client = None
     try:
         # Initialize client
         client = initialize_client()
@@ -360,6 +415,7 @@ def main() -> None:
         example_5_get_prompt_with_variables(client)
         example_6_describe_prompt(client)
         example_6b_publish_prompt(client)
+        example_7_manual_tracing(client)
 
         # Run asynchronous examples
         asyncio.run(run_async_examples(client))
@@ -370,6 +426,11 @@ def main() -> None:
     except Exception:
         logging.error("An unexpected error occurred", exc_info=True)
         sys.exit(1)
+    finally:
+        # Ensure telemetry data is flushed before exit
+        if client:
+            logging.info("Shutting down client and flushing telemetry data...")
+            client.shutdown()
 
 
 if __name__ == "__main__":

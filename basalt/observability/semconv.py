@@ -473,6 +473,14 @@ class BasaltTrace:
     Examples: ["hallucination", "relevance", "toxicity"]
     """
 
+    EVALUATOR_TO_EVALUATE_PREFIX: Final[str] = "basalt.trace.evaluator"
+    """
+    Prefix for evaluator-specific to_evaluate attributes.
+    Format: basalt.trace.evaluator.{slug}.to_evaluate
+    Type: string[] (list of attribute names)
+    Examples: ["completion", "prompt"]
+    """
+
     TAGS: Final[str] = "basalt.trace.tags"
     """
     Custom tags for categorizing traces.

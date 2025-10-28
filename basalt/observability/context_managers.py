@@ -84,9 +84,15 @@ class SpanHandle:
     def record_exception(self, exc: BaseException) -> None:
         self._span.record_exception(exc)
 
-    def add_evaluator(self, evaluator_slug: str) -> None:
-        """Attach an evaluator slug to the span."""
-        self._append_evaluator(evaluator_slug)
+    def add_evaluator(self, evaluator_slug: str, to_evaluate: list[str] | None = None) -> None:
+        """
+        Attach an evaluator slug to the span.
+
+        Args:
+            evaluator_slug: The evaluator slug to attach.
+            to_evaluate: Optional list of attribute names to focus evaluation on.
+        """
+        self._append_evaluator(evaluator_slug, to_evaluate=to_evaluate)
 
     def set_user(self, user_id: str, name: str | None = None) -> None:
         self._span.set_attribute(semconv.BasaltUser.ID, user_id)
@@ -111,12 +117,16 @@ class SpanHandle:
         if feature_slug:
             self._span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, feature_slug)
 
-    def _append_evaluator(self, evaluator_slug: str) -> None:
+    def _append_evaluator(self, evaluator_slug: str, to_evaluate: list[str] | None = None) -> None:
         if not evaluator_slug or not isinstance(evaluator_slug, str):
             return
         if evaluator_slug not in self._evaluators:
             self._evaluators.append(evaluator_slug)
             self._span.set_attribute(semconv.BasaltTrace.EVALUATORS, list(self._evaluators))
+        # Add to_evaluate attributes if provided
+        if to_evaluate:
+            attr_name = f"{semconv.BasaltTrace.EVALUATOR_TO_EVALUATE_PREFIX}.{evaluator_slug}.to_evaluate"
+            self._span.set_attribute(attr_name, to_evaluate)
 
     @property
     def span(self) -> Span:

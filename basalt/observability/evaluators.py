@@ -1,4 +1,76 @@
-"""Evaluator management for sampling and attaching evaluators to spans."""
+"""
+Evaluator management for sampling and attaching evaluators to spans.
+
+This module provides functionality to register evaluators and attach them to traces
+with optional sampling and attribute targeting.
+
+## Understanding the `to_evaluate` Field
+
+The `to_evaluate` field allows you to specify which attributes in a span the evaluator
+should focus on when performing evaluation. This is particularly useful when you want
+to evaluate specific parts of your LLM workflow or response.
+
+### Default Behavior (when `to_evaluate` is None):
+
+If no `to_evaluate` attributes are specified, the evaluator will use the following
+fallback strategy:
+1. First, try to use `gen_ai.output.messages` (the standard OpenTelemetry GenAI
+   experimental attribute for structured output)
+2. If that's not available, fall back to the completion content from the response
+
+This default behavior ensures evaluators work with standard OpenTelemetry instrumented
+LLM calls without requiring additional configuration.
+
+### Custom Attribute Targeting:
+
+You can specify custom attributes to focus the evaluation on specific parts of your trace:
+
+```python
+# Focus on just the completion
+register_evaluator("quality", to_evaluate=["completion"])
+
+# Focus on both prompt and completion
+register_evaluator("hallucination", to_evaluate=["prompt", "completion"])
+
+# Focus on workflow-specific attributes
+register_evaluator("answer-eval", to_evaluate=["workflow.final_answer"])
+
+# Focus on multiple workflow attributes
+register_evaluator("multi-eval", to_evaluate=["context", "query", "answer"])
+```
+
+### Working with Automatic Instrumentation:
+
+**IMPORTANT**: Evaluators require manual span creation to work properly. They will NOT
+be attached to spans created by automatic instrumentation (e.g., OpenTelemetry's
+automatic LLM instrumentation) because the evaluator attachment happens in your
+application code, not in the instrumented library.
+
+To use evaluators with automatically instrumented LLM calls, you must wrap them with
+manual tracing:
+
+```python
+@evaluator("my-eval")
+@trace_llm(name="my.llm")
+def my_llm_call():
+    return openai.chat.completions.create(...)  # Auto-instrumented call
+```
+
+Without the manual `@trace_llm` wrapper, the evaluator will not be attached to the
+span created by automatic instrumentation.
+
+### Backend Behavior:
+
+When the backend processes a span with evaluators:
+1. It checks if `basalt.trace.evaluator.{slug}.to_evaluate` exists
+2. If it exists, it prioritizes those attributes for evaluation
+3. If it doesn't exist or is None, it uses the default strategy:
+   - Try `gen_ai.output.messages` (OpenTelemetry GenAI semantic convention)
+   - Fall back to completion content if available
+
+This allows the backend to focus on the most relevant data for each evaluator,
+reducing token usage and improving evaluation accuracy.
+"""
 
 from __future__ import annotations
 
@@ -16,11 +88,23 @@ from .context_managers import SpanHandle
 
 @dataclass(frozen=True, slots=True)
 class EvaluatorConfig:
-    """Configuration for an evaluator with sampling support."""
+    """
+    Configuration for an evaluator with sampling support.
+
+    Attributes:
+        slug: Unique identifier for the evaluator.
+        sample_rate: Probability (0.0-1.0) that this evaluator will be attached to spans.
+        metadata: Optional metadata associated with this evaluator.
+        to_evaluate: Optional list of attribute names to focus evaluation on.
+                    If None, the backend will use gen_ai.output.messages (OpenTelemetry GenAI
+                    semantic convention) and fall back to completion content if unavailable.
+                    See module docstring for detailed behavior.
+    """
 
     slug: str
     sample_rate: float = 1.0
     metadata: dict[str, Any] | None = None
+    to_evaluate: list[str] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.slug, str) or not self.slug:
@@ -46,9 +130,15 @@ class EvaluatorManager:
         slug: str,
         sample_rate: float = 1.0,
         metadata: dict[str, Any] | None = None,
+        to_evaluate: list[str] | None = None,
     ) -> None:
         """Register an evaluator with the given slug and sample rate."""
-        config = EvaluatorConfig(slug=slug, sample_rate=sample_rate, metadata=metadata)
+        config = EvaluatorConfig(
+            slug=slug,
+            sample_rate=sample_rate,
+            metadata=metadata,
+            to_evaluate=to_evaluate,
+        )
         self.register(config)
 
     def unregister(self, slug: str) -> None:
@@ -74,7 +164,9 @@ class EvaluatorManager:
         """Attach evaluators to a span, respecting sample rates."""
         for slug in evaluator_slugs:
             if slug and self.should_sample(slug):
-                span_handle.add_evaluator(slug)
+                config = self.get_config(slug)
+                to_evaluate = config.to_evaluate if config else None
+                span_handle.add_evaluator(slug, to_evaluate=to_evaluate)
 
     def list_evaluators(self) -> list[str]:
         """Return a list of all registered evaluator slugs."""
@@ -95,6 +187,7 @@ def register_evaluator(
     slug: str,
     sample_rate: float = 1.0,
     metadata: dict[str, Any] | None = None,
+    to_evaluate: list[str] | None = None,
 ) -> None:
     """
     Register an evaluator with optional sampling configuration.
@@ -102,13 +195,33 @@ def register_evaluator(
     Args:
         slug: Unique identifier for the evaluator.
         sample_rate: Probability (0.0-1.0) that this evaluator will be attached to spans.
+                    Default is 1.0 (100%). Use lower values to reduce evaluation costs.
         metadata: Optional metadata associated with this evaluator.
+        to_evaluate: List of attribute names to focus evaluation on.
+                    If None (default), the backend will use gen_ai.output.messages
+                    (OpenTelemetry GenAI semantic convention) and fall back to completion
+                    content if unavailable. Specify attribute names to focus on specific
+                    parts of your trace (e.g., ["completion"], ["workflow.final_answer"]).
+                    See module docstring for detailed behavior.
 
-    Example:
+    Example - Basic registration:
         >>> register_evaluator("hallucination-check", sample_rate=0.5)
-        >>> register_evaluator("quality-eval", sample_rate=1.0)
+
+    Example - Focus on completion only:
+        >>> register_evaluator("quality-eval", sample_rate=1.0, to_evaluate=["completion"])
+
+    Example - Focus on workflow attributes:
+        >>> register_evaluator(
+        ...     "answer-quality",
+        ...     to_evaluate=["workflow.final_answer", "workflow.confidence"]
+        ... )
+
+    Note:
+        Evaluators require manual span creation (e.g., @trace_llm, trace_llm_call) to work.
+        They will NOT be attached to spans created by automatic instrumentation unless
+        you wrap the instrumented call with manual tracing. See module docstring for details.
     """
-    _evaluator_manager.register_evaluator(slug, sample_rate, metadata)
+    _evaluator_manager.register_evaluator(slug, sample_rate, metadata, to_evaluate)
 
 
 def unregister_evaluator(slug: str) -> None:
@@ -129,14 +242,16 @@ def attach_evaluator(
     """
     Context manager to attach evaluators to the current or specified span.
 
-    Evaluators are attached respecting their configured sample rates. If an evaluator
-    is not registered, it will be attached with 100% probability.
+    Evaluators are attached respecting their configured sample rates and to_evaluate
+    settings. If an evaluator is not registered, it will be attached with 100%
+    probability and default to_evaluate behavior (gen_ai.output.messages with
+    completion fallback).
 
     Args:
         *evaluator_slugs: One or more evaluator slugs to attach.
         span: Optional span handle to attach to. If None, uses current span.
 
-    Example:
+    Example - Basic usage:
         >>> with trace_llm_call("my.llm") as llm_span:
         ...     with attach_evaluator("hallucination-check", "quality-eval"):
         ...         llm_span.set_model("gpt-4")
@@ -144,10 +259,15 @@ def attach_evaluator(
         ...         result = call_llm()
         ...         llm_span.set_completion(result)
 
-    Example with explicit span:
+    Example - With explicit span:
         >>> with trace_llm_call("my.llm") as llm_span:
         ...     with attach_evaluator("hallucination-check", span=llm_span):
         ...         result = call_llm()
+
+    Note:
+        This context manager works with manual span creation only. For automatic
+        instrumentation, wrap your LLM call with manual tracing first.
+        See module docstring for details.
     """
     target_span = span
     if target_span is None:

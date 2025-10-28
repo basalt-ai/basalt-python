@@ -147,8 +147,6 @@ class InstrumentationManager:
         self._config: TelemetryConfig | None = None
         self._tracer_provider: TracerProvider | None = None
         self._http_instrumented = False
-        self._requests_instrumentor: Any | None = None
-        self._aiohttp_instrumentor: Any | None = None
         self._provider_instrumentors: dict[str, Any] = {}
 
     def initialize(self, config: TelemetryConfig | None = None) -> None:
@@ -321,13 +319,13 @@ class InstrumentationManager:
         # Set environment variable to control trace content for OpenTelemetry instrumentors
         # This is used by OpenTelemetry instrumentation libraries
         os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.llm_trace_content else "false"
+        os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "true" if config.llm_trace_content else "false"
+
 
         # Instrument providers directly without using Traceloop.init()
         self._instrument_llm_providers(config)
 
     def _uninstrument_http(self) -> None:
-        self._requests_instrumentor = None
-        self._aiohttp_instrumentor = None
         self._http_instrumented = False
 
     def _uninstrument_llm(self) -> None:

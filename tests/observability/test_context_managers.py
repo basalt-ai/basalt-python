@@ -10,13 +10,13 @@ from unittest import mock
 from basalt.observability import (
     clear_trace_defaults,
     configure_trace_defaults,
+    semconv,
     trace_event,
     trace_llm_call,
     trace_retrieval,
     trace_span,
     trace_tool,
 )
-from basalt.observability import semconv
 from tests.observability.utils import get_exporter
 
 

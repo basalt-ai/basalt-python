@@ -72,7 +72,7 @@ class TelemetryConfig:
     service_version: str | None = basalt_sdk_config.get("sdk_version", "unknown")
     environment: str | None = None
     instrument_http: bool = True
-    """Retained for backwards compatibility; instrument your HTTP stack manually if needed."""
+    """Works with Httpx only, instrument your HTTP stack manually if needed."""
 
     enable_llm_instrumentation: bool = False
     """Enable automatic instrumentation of LLM provider SDKs."""

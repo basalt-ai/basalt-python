@@ -23,7 +23,7 @@ from .context_managers import (
     trace_span,
     trace_tool,
 )
-from .decorators import trace_http, trace_llm, trace_operation
+from .decorators import evaluator, trace_http, trace_llm, trace_operation
 from .evaluators import (
     EvaluatorConfig,
     attach_evaluator,
@@ -49,6 +49,7 @@ __all__ = [
     "trace_operation",
     "trace_llm",
     "trace_http",
+    "evaluator",
     "trace_span",
     "trace_llm_call",
     "trace_retrieval",
