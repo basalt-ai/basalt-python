@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from threading import RLock
 from typing import Any
@@ -37,7 +37,7 @@ class TraceContextConfig:
     organization: TraceIdentity | Mapping[str, Any] | None = None
     experiment: TraceExperiment | Mapping[str, Any] | None = None
     metadata: dict[str, Any] | None = None
-    evaluators: list[str] | None = None
+    evaluators: list[Any] | None = None
 
     def __post_init__(self) -> None:
         self.user = _coerce_identity(self.user)
@@ -129,12 +129,12 @@ def apply_trace_defaults(span: Span, defaults: TraceContextConfig | None = None)
         span.set_attribute(semconv.BasaltTrace.EVALUATORS, list(dict.fromkeys(context.evaluators)))
 
 
-def update_default_evaluators(new_evaluators: list[str]) -> None:
+def update_default_evaluators(new_evaluators: Iterable[Any]) -> None:
     """Add evaluators to the default context without replacing the configuration."""
     global _DEFAULT_CONTEXT
     with _LOCK:
         merged = list(_DEFAULT_CONTEXT.evaluators) if _DEFAULT_CONTEXT.evaluators is not None else []
-        for slug in new_evaluators:
-            if slug not in merged:
-                merged.append(slug)
+        for spec in new_evaluators:
+            if spec not in merged:
+                merged.append(spec)
         _DEFAULT_CONTEXT = replace(_DEFAULT_CONTEXT, evaluators=merged)

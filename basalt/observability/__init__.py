@@ -13,17 +13,44 @@ from opentelemetry.trace import Span
 from .config import TelemetryConfig
 from .context_managers import (
     EventSpanHandle,
+    FunctionSpanHandle,
     LLMSpanHandle,
     RetrievalSpanHandle,
     SpanHandle,
     ToolSpanHandle,
     trace_event,
+    trace_function,
+    trace_generation,
     trace_llm_call,
     trace_retrieval,
     trace_span,
     trace_tool,
 )
-from .decorators import evaluator, trace_http, trace_llm, trace_operation
+from .decorators import (
+    evaluator,
+    trace_operation,
+)
+from .decorators import (
+    trace_event as trace_event_decorator,
+)
+from .decorators import (
+    trace_function as trace_function_decorator,
+)
+from .decorators import (
+    trace_generation as trace_generation_decorator,
+)
+from .decorators import (
+    trace_llm as trace_llm_decorator,
+)
+from .decorators import (
+    trace_retrieval as trace_retrieval_decorator,
+)
+from .decorators import (
+    trace_span as trace_span_decorator,
+)
+from .decorators import (
+    trace_tool as trace_tool_decorator,
+)
 from .evaluators import (
     EvaluatorConfig,
     attach_evaluator,
@@ -43,22 +70,33 @@ from .trace_context import (
     update_default_evaluators,
 )
 
+trace_llm = trace_llm_decorator
+
 __all__ = [
     "TelemetryConfig",
     "InstrumentationManager",
     "trace_operation",
     "trace_llm",
-    "trace_http",
+    "trace_llm_decorator",
     "evaluator",
     "trace_span",
+    "trace_generation",
     "trace_llm_call",
     "trace_retrieval",
+    "trace_function",
     "trace_tool",
     "trace_event",
+    "trace_span_decorator",
+    "trace_generation_decorator",
+    "trace_retrieval_decorator",
+    "trace_function_decorator",
+    "trace_tool_decorator",
+    "trace_event_decorator",
     "SpanHandle",
     "LLMSpanHandle",
     "RetrievalSpanHandle",
     "ToolSpanHandle",
+    "FunctionSpanHandle",
     "EventSpanHandle",
     "TraceContextConfig",
     "TraceIdentity",
@@ -72,6 +110,8 @@ __all__ = [
     "observe_cm",
     "Observation",
     "current_span",
+    "current_span_handle",
+    "update_current_span",
     "set_trace_user",
     "set_trace_organization",
     "set_trace_session",
@@ -139,9 +179,9 @@ def get_trace_defaults() -> TraceContextConfig:
     return current_trace_defaults()
 
 
-def add_default_evaluators(*evaluators: str) -> TraceContextConfig:
-    """Append evaluator slugs to the default trace configuration."""
-    update_default_evaluators([slug for slug in evaluators if slug])
+def add_default_evaluators(*evaluators: Any) -> TraceContextConfig:
+    """Append evaluator specs to the default trace configuration."""
+    update_default_evaluators([spec for spec in evaluators if spec])
     return current_trace_defaults()
 
 
@@ -207,11 +247,8 @@ class Observation:
         for key, value in metadata.items():
             self._span.set_attribute(f"basalt.meta.{key}", value)
 
-    def add_evaluator(self, evaluator_slug: str) -> None:
-        evaluators = _collect_evaluators(self._span)
-        if evaluator_slug not in evaluators:
-            evaluators.append(evaluator_slug)
-        self._span.set_attribute("basalt.trace.evaluators", evaluators)
+    def add_evaluator(self, evaluator: Any) -> None:
+        self._handle.add_evaluators(evaluator)
 
     def set_experiment(
         self,
@@ -254,18 +291,44 @@ def observe_cm(name: str, attributes: dict[str, Any] | None = None):
         yield Observation(handle)
 
 
-def _collect_evaluators(span: Span) -> list[str]:
-    existing = getattr(span, "attributes", None)
-    if isinstance(existing, dict):
-        evaluators = existing.get("basalt.trace.evaluators")
-        if isinstance(evaluators, (list, tuple)):
-            return [item for item in evaluators if isinstance(item, str)]
-    return []
-
-
 def current_span() -> Span | None:
     span = trace.get_current_span()
     return span if span and span.get_span_context().is_valid else None
+
+
+def current_span_handle() -> SpanHandle | None:
+    """Return a SpanHandle wrapper for the active span, if any."""
+    span = current_span()
+    if not span:
+        return None
+    return SpanHandle(span)
+
+
+def update_current_span(
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: dict[str, Any] | None = None,
+    evaluators: Iterable[Any] | None = None,
+) -> SpanHandle | None:
+    """
+    Update the active span with IO payloads and evaluators.
+
+    Returns:
+        The span handle if a span was active, otherwise None.
+    """
+    handle = current_span_handle()
+    if not handle:
+        return None
+    if input_payload is not None:
+        handle.set_input(input_payload)
+    if output_payload is not None:
+        handle.set_output(output_payload)
+    if variables is not None:
+        handle.set_variables(variables)
+    if evaluators:
+        handle.add_evaluators(*evaluators)
+    return handle
 
 
 def set_trace_user(user_id: str, name: str | None = None) -> None:
@@ -325,14 +388,10 @@ def attach_trace_experiment(
         span.set_attribute("basalt.experiment.feature_slug", feature_slug)
 
 
-def add_span_evaluator(evaluator_slug: str) -> None:
-    span = current_span()
-    if not span or not evaluator_slug:
+def add_span_evaluator(evaluator: Any) -> None:
+    if not evaluator:
         return
-    evaluators = _collect_evaluators(span)
-    if evaluator_slug not in evaluators:
-        evaluators.append(evaluator_slug)
-    span.set_attribute("basalt.trace.evaluators", evaluators)
+    update_current_span(evaluators=[evaluator])
 
 
 def flush() -> None:

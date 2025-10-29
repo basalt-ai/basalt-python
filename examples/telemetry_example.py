@@ -25,8 +25,9 @@ from __future__ import annotations
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability.context_managers import trace_llm_call, trace_span
-from basalt.observability.decorators import trace_llm, trace_operation
+from basalt.observability.context_managers import trace_generation, trace_span
+from basalt.observability.decorators import trace_generation as trace_generation_decorator
+from basalt.observability.decorators import trace_span as trace_span_decorator
 
 
 def build_default_client() -> Basalt:
@@ -93,13 +94,15 @@ def build_disabled_providers_client() -> Basalt:
     return Basalt(api_key="fake-key", telemetry_config=telemetry)
 
 
-@trace_operation(name="dataset.process", attributes=lambda slug: {"dataset.slug": slug})
+@trace_span_decorator(
+    name="dataset.process",
+    variables=lambda bound: {"dataset.slug": bound.arguments.get("slug")},
+)
 def process_dataset(slug: str) -> str:
     # Application logic instrumented automatically.
     return f"processed:{slug}"
 
-
-@trace_llm(name="llm.generate")
+@trace_generation_decorator(name="llm.generate")
 def generate_summary(model: str, prompt: str) -> dict:
     # Simulate the response shape of a typical LLM API call.
     return {
@@ -112,11 +115,15 @@ def trace_manual_sections() -> None:
     with trace_span("custom.section", attributes={"feature": "telemetry-demo"}) as span:
         span.add_event("start")
         span.set_attribute("status", "running")
+        span.set_input({"section": "manual"})
 
-        with trace_llm_call("manual.llm") as llm_span:
+        with trace_generation("manual.llm") as llm_span:
             llm_span.set_model("gpt-4")
             llm_span.set_prompt("Tell me a joke")
             llm_span.set_completion("Why did the SDK cross the road?")
+            llm_span.set_output({"answer": "Why did the SDK cross the road?"})
+
+        span.set_output({"status": span.attributes.get("status")})
 
 
 def main() -> None:

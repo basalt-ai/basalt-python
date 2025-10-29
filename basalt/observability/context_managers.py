@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
-from collections.abc import Generator
+import warnings
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
@@ -18,6 +21,51 @@ if TYPE_CHECKING:
     from .evaluators import EvaluatorManager
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class EvaluatorAttachment:
+    """Normalized evaluator payload applied to spans."""
+
+    slug: str
+    to_evaluate: Sequence[str] | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.slug, str) or not self.slug.strip():
+            raise ValueError("Evaluator slug must be a non-empty string.")
+        self.slug = self.slug.strip()
+        if self.to_evaluate is not None:
+            self.to_evaluate = tuple(str(item) for item in self.to_evaluate if item)
+
+
+def _normalize_evaluator_entry(entry: Any) -> EvaluatorAttachment:
+    """Convert assorted evaluator payloads into EvaluatorAttachment objects."""
+    if isinstance(entry, EvaluatorAttachment):
+        return entry
+    if isinstance(entry, str):
+        return EvaluatorAttachment(slug=entry)
+    if isinstance(entry, Mapping):
+        payload = dict(entry)
+        slug = payload.pop("slug", None)
+        if slug is None:
+            raise ValueError("Evaluator mapping must include a 'slug' key.")
+        to_evaluate = payload.pop("to_evaluate", None)
+        if payload:
+            raise ValueError("Unexpected keys in evaluator mapping: {}".format(", ".join(payload.keys())))
+        return EvaluatorAttachment(slug=str(slug), to_evaluate=to_evaluate)
+    raise TypeError(f"Unsupported evaluator specification: {entry!r}")
+
+
+def _normalize_evaluators(evaluators: Sequence[Any] | None) -> list[EvaluatorAttachment]:
+    if not evaluators:
+        return []
+    return [ _normalize_evaluator_entry(entry) for entry in evaluators ]
+
+
+def normalize_evaluator_specs(evaluators: Sequence[Any] | None) -> list[EvaluatorAttachment]:
+    """Public helper to normalize evaluator specifications."""
+    return _normalize_evaluators(evaluators)
 
 
 def _attach_attributes(span: Span, attributes: dict[str, Any] | None) -> None:
@@ -34,6 +82,12 @@ def _serialize_attribute(value: Any) -> Any | None:
         return json.dumps(value)
     except Exception:
         return str(value)
+
+
+def _set_serialized_attribute(span: Span, key: str, value: Any) -> None:
+    serialized = _serialize_attribute(value)
+    if serialized is not None:
+        span.set_attribute(key, serialized)
 
 
 def trace_content_enabled() -> bool:
@@ -56,21 +110,26 @@ class SpanHandle:
         span: Span,
         defaults: TraceContextConfig | None = None,
         evaluator_manager: EvaluatorManager | None = None,
+        parent_span: Span | None = None,
     ):
         self._span = span
-        self._evaluators: list[str] = []
+        self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
+        self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
+        self._evaluators: dict[str, EvaluatorAttachment] = {}
         self._evaluator_manager = evaluator_manager
         if defaults and defaults.evaluators:
-            self._apply_evaluators_with_sampling(defaults.evaluators)
+            normalized = _normalize_evaluators(defaults.evaluators)
+            self._apply_evaluators_with_sampling(normalized)
 
-    def _apply_evaluators_with_sampling(self, evaluator_slugs: list[str]) -> None:
+    def _apply_evaluators_with_sampling(self, evaluators: Sequence[EvaluatorAttachment]) -> None:
         """Apply evaluators from defaults, respecting sample rates if manager is available."""
+        if not evaluators:
+            return
         if self._evaluator_manager:
-            self._evaluator_manager.attach_to_span(self, *evaluator_slugs)
-        else:
-            # Fall back to adding all evaluators without sampling
-            for slug in evaluator_slugs:
-                self._append_evaluator(slug)
+            self._evaluator_manager.attach_to_span(self, *evaluators)
+            return
+        for attachment in evaluators:
+            self._append_evaluator(attachment)
 
     def set_attribute(self, key: str, value: Any) -> None:
         self._span.set_attribute(key, value)
@@ -84,7 +143,60 @@ class SpanHandle:
     def record_exception(self, exc: BaseException) -> None:
         self._span.record_exception(exc)
 
-    def add_evaluator(self, evaluator_slug: str, to_evaluate: list[str] | None = None) -> None:
+    # ------------------------------------------------------------------
+    # IO helpers
+    # ------------------------------------------------------------------
+    def set_input(self, payload: Any) -> None:
+        self._io_payload["input"] = payload
+        if trace_content_enabled():
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.INPUT, payload)
+
+    def set_output(self, payload: Any) -> None:
+        self._io_payload["output"] = payload
+        if trace_content_enabled():
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.OUTPUT, payload)
+
+    def set_variables(self, variables: Mapping[str, Any] | None) -> None:
+        if variables is None:
+            return
+        if not isinstance(variables, Mapping):
+            raise TypeError("Span variables must be provided as a mapping.")
+        self._io_payload["variables"] = dict(variables)
+        if trace_content_enabled():
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, variables)
+            if self._parent_span:
+                _set_serialized_attribute(self._parent_span, semconv.BasaltSpan.VARIABLES, variables)
+
+    def set_io(
+        self,
+        *,
+        input_payload: Any | None = None,
+        output_payload: Any | None = None,
+        variables: Mapping[str, Any] | None = None,
+    ) -> None:
+        if input_payload is not None:
+            self.set_input(input_payload)
+        if output_payload is not None:
+            self.set_output(output_payload)
+        if variables is not None:
+            self.set_variables(variables)
+
+    def io_snapshot(self) -> dict[str, Any]:
+        """Return a shallow copy of the tracked IO payload."""
+        snapshot = dict(self._io_payload)
+        if snapshot["variables"] is not None:
+            snapshot["variables"] = dict(snapshot["variables"])
+        return snapshot
+
+    # ------------------------------------------------------------------
+    # Evaluators
+    # ------------------------------------------------------------------
+    def add_evaluator(
+        self,
+        evaluator_slug: str,
+        *,
+        to_evaluate: Sequence[str] | None = None,
+    ) -> None:
         """
         Attach an evaluator slug to the span.
 
@@ -92,7 +204,12 @@ class SpanHandle:
             evaluator_slug: The evaluator slug to attach.
             to_evaluate: Optional list of attribute names to focus evaluation on.
         """
-        self._append_evaluator(evaluator_slug, to_evaluate=to_evaluate)
+        self._append_evaluator(EvaluatorAttachment(slug=evaluator_slug, to_evaluate=to_evaluate))
+
+    def add_evaluators(self, *evaluators: Any) -> None:
+        """Attach multiple evaluators to the span."""
+        for attachment in _normalize_evaluators(evaluators):
+            self._append_evaluator(attachment)
 
     def set_user(self, user_id: str, name: str | None = None) -> None:
         self._span.set_attribute(semconv.BasaltUser.ID, user_id)
@@ -117,16 +234,21 @@ class SpanHandle:
         if feature_slug:
             self._span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, feature_slug)
 
-    def _append_evaluator(self, evaluator_slug: str, to_evaluate: list[str] | None = None) -> None:
-        if not evaluator_slug or not isinstance(evaluator_slug, str):
+    def _append_evaluator(self, attachment: EvaluatorAttachment) -> None:
+        existing = self._evaluators.get(attachment.slug)
+        if existing and existing == attachment:
             return
-        if evaluator_slug not in self._evaluators:
-            self._evaluators.append(evaluator_slug)
-            self._span.set_attribute(semconv.BasaltTrace.EVALUATORS, list(self._evaluators))
-        # Add to_evaluate attributes if provided
-        if to_evaluate:
-            attr_name = f"{semconv.BasaltTrace.EVALUATOR_TO_EVALUATE_PREFIX}.{evaluator_slug}.to_evaluate"
-            self._span.set_attribute(attr_name, to_evaluate)
+        self._evaluators[attachment.slug] = attachment
+        evaluator_list = list(self._evaluators.keys())
+        # Maintain compatibility with legacy BasaltTrace attribute
+        self._span.set_attribute(semconv.BasaltTrace.EVALUATORS, evaluator_list)
+        self._span.set_attribute(semconv.BasaltSpan.EVALUATORS, evaluator_list)
+        if attachment.to_evaluate:
+            attr_name = (
+                f"{semconv.BasaltTrace.EVALUATOR_TO_EVALUATE_PREFIX}.{attachment.slug}.to_evaluate"
+            )
+            self._span.set_attribute(attr_name, list(attachment.to_evaluate))
+
 
     @property
     def span(self) -> Span:
@@ -161,6 +283,7 @@ class LLMSpanHandle(SpanHandle):
         Note: This uses gen_ai.input.messages for structured messages.
         For simple string prompts, wraps in a message structure.
         """
+        super().set_input(prompt)
         if trace_content_enabled():
             # Store as structured message format per OpenTelemetry spec
             messages = [{"role": "user", "parts": [{"type": "text", "content": prompt}]}]
@@ -172,6 +295,7 @@ class LLMSpanHandle(SpanHandle):
         Note: This uses gen_ai.output.messages for structured messages.
         For simple string completions, wraps in a message structure.
         """
+        super().set_output(completion)
         if trace_content_enabled():
             # Store as structured message format per OpenTelemetry spec
             messages = [
@@ -241,6 +365,7 @@ class RetrievalSpanHandle(SpanHandle):
 
     def set_query(self, query: str) -> None:
         """Set the query text for the retrieval operation."""
+        super().set_input(query)
         self.set_attribute(semconv.BasaltRetrieval.QUERY, query)
 
     def set_results_count(self, count: int) -> None:
@@ -250,6 +375,24 @@ class RetrievalSpanHandle(SpanHandle):
     def set_top_k(self, top_k: int) -> None:
         """Set the top-K parameter for retrieval."""
         self.set_attribute(semconv.BasaltRetrieval.TOP_K, top_k)
+
+
+class FunctionSpanHandle(SpanHandle):
+    """
+    Span handle for compute/function execution spans.
+    """
+
+    def set_function_name(self, function_name: str) -> None:
+        """Set the logical function name being executed."""
+        self.set_attribute(semconv.BasaltFunction.NAME, function_name)
+
+    def set_stage(self, stage: str) -> None:
+        """Set the stage or phase associated with the execution."""
+        self.set_attribute(semconv.BasaltFunction.STAGE, stage)
+
+    def add_metric(self, key: str, value: Any) -> None:
+        """Attach custom metric data to the function execution."""
+        self.set_attribute(f"{semconv.BasaltFunction.METRIC_PREFIX}.{key}", value)
 
 
 class ToolSpanHandle(SpanHandle):
@@ -265,6 +408,7 @@ class ToolSpanHandle(SpanHandle):
 
     def set_input(self, payload: Any) -> None:
         """Set the input payload for the tool."""
+        super().set_input(payload)
         if trace_content_enabled():
             value = _serialize_attribute(payload)
             if value is not None:
@@ -272,6 +416,7 @@ class ToolSpanHandle(SpanHandle):
 
     def set_output(self, payload: Any) -> None:
         """Set the output payload from the tool."""
+        super().set_output(payload)
         if trace_content_enabled():
             value = _serialize_attribute(payload)
             if value is not None:
@@ -291,6 +436,7 @@ class EventSpanHandle(SpanHandle):
 
     def set_payload(self, payload: Any) -> None:
         """Set the event payload."""
+        super().set_input(payload)
         if trace_content_enabled():
             value = _serialize_attribute(payload)
             if value is not None:
@@ -304,6 +450,12 @@ def _with_span_handle(
     tracer_name: str,
     handle_cls: type[SpanHandle],
     span_type: str | None = None,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
+    ensure_output: bool = True,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
     defaults = current_trace_defaults()
@@ -316,38 +468,70 @@ def _with_span_handle(
     except ImportError:
         pass
 
+    parent_span = trace.get_current_span()
+    if parent_span and not parent_span.get_span_context().is_valid:
+        parent_span = None
+
     with tracer.start_as_current_span(name) as span:
         _attach_attributes(span, attributes)
         if span_type:
             span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
         apply_trace_defaults(span, defaults)
-        handle = handle_cls(span, defaults, evaluator_manager)
+        handle = handle_cls(span, defaults, evaluator_manager, parent_span)
+        if input_payload is not None:
+            handle.set_input(input_payload)
+        if variables:
+            handle.set_variables(variables)
+        if evaluators:
+            handle.add_evaluators(*evaluators)
         yield handle  # type: ignore[misc]
+        if output_payload is not None:
+            handle.set_output(output_payload)
+        elif ensure_output and trace_content_enabled():
+            io = handle.io_snapshot()
+            if io.get("output") is None:
+                logger.debug("Span '%s' completed without an output payload.", name)
 
 
 @contextmanager
 def trace_span(
     name: str,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability",
-    span_type: str | None = None,
+    span_type: str | None = "span",
 ) -> Generator[SpanHandle, None, None]:
     """Context manager for a generic span."""
+    if input_payload is None:
+        logger.debug("trace_span '%s' initialized without an input payload.", name)
     with _with_span_handle(
         name,
         attributes,
         tracer_name,
         SpanHandle,
         span_type=span_type,
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
     ) as handle:
         yield handle
 
 
 @contextmanager
-def trace_llm_call(
+def trace_generation(
     name: str,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
     attributes: dict[str, Any] | None = None,
-    tracer_name: str = "basalt.observability.llm",
+    tracer_name: str = "basalt.observability.generation",
 ) -> Generator[LLMSpanHandle, None, None]:
     """Context manager for LLM spans."""
     with _with_span_handle(
@@ -356,6 +540,10 @@ def trace_llm_call(
         tracer_name,
         LLMSpanHandle,
         span_type="generation",
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
     ) as handle:
         yield handle  # type: ignore[misc]
 
@@ -363,6 +551,11 @@ def trace_llm_call(
 @contextmanager
 def trace_retrieval(
     name: str,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.retrieval",
 ) -> Generator[RetrievalSpanHandle, None, None]:
@@ -373,6 +566,36 @@ def trace_retrieval(
         tracer_name,
         RetrievalSpanHandle,
         span_type="retrieval",
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
+    ) as handle:
+        yield handle  # type: ignore[misc]
+
+
+@contextmanager
+def trace_function(
+    name: str,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
+    attributes: dict[str, Any] | None = None,
+    tracer_name: str = "basalt.observability.function",
+) -> Generator[FunctionSpanHandle, None, None]:
+    """Context manager for compute/function spans."""
+    with _with_span_handle(
+        name,
+        attributes,
+        tracer_name,
+        FunctionSpanHandle,
+        span_type="function",
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
     ) as handle:
         yield handle  # type: ignore[misc]
 
@@ -380,6 +603,11 @@ def trace_retrieval(
 @contextmanager
 def trace_tool(
     name: str,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.tool",
 ) -> Generator[ToolSpanHandle, None, None]:
@@ -390,6 +618,10 @@ def trace_tool(
         tracer_name,
         ToolSpanHandle,
         span_type="tool",
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
     ) as handle:
         yield handle  # type: ignore[misc]
 
@@ -397,6 +629,11 @@ def trace_tool(
 @contextmanager
 def trace_event(
     name: str,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.event",
 ) -> Generator[EventSpanHandle, None, None]:
@@ -407,5 +644,40 @@ def trace_event(
         tracer_name,
         EventSpanHandle,
         span_type="event",
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
     ) as handle:
         yield handle  # type: ignore[misc]
+
+
+@contextmanager
+def trace_llm_call(
+    name: str,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
+    attributes: dict[str, Any] | None = None,
+    tracer_name: str = "basalt.observability.llm",
+) -> Generator[LLMSpanHandle, None, None]:
+    """
+    Deprecated alias for ``trace_generation``.
+    """
+    warnings.warn(
+        "trace_llm_call is deprecated; use trace_generation instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    with trace_generation(
+        name,
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
+        attributes=attributes,
+        tracer_name=tracer_name,
+    ) as handle:
+        yield handle

@@ -5,20 +5,35 @@ from __future__ import annotations
 import functools
 import inspect
 import json
-import time
-from collections.abc import Awaitable, Callable
+import warnings
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any, TypeAlias, TypeVar
 
 from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 
-from . import semconv
 from .context_managers import (
     LLMSpanHandle,
     SpanHandle,
     trace_content_enabled,
-    trace_llm_call,
-    trace_span,
+)
+from .context_managers import (
+    trace_event as trace_event_cm,
+)
+from .context_managers import (
+    trace_function as trace_function_cm,
+)
+from .context_managers import (
+    trace_generation as trace_generation_cm,
+)
+from .context_managers import (
+    trace_retrieval as trace_retrieval_cm,
+)
+from .context_managers import (
+    trace_span as trace_span_cm,
+)
+from .context_managers import (
+    trace_tool as trace_tool_cm,
 )
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -51,27 +66,108 @@ def _bind_args(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str
         return None
 
 
+def _resolve_bound_arguments(
+    func: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> inspect.BoundArguments | None:
+    try:
+        signature = inspect.signature(func)
+        return signature.bind_partial(*args, **kwargs)
+    except Exception:
+        return None
+
+
+def _resolve_payload_from_bound(
+    resolver: Any,
+    bound: inspect.BoundArguments | None,
+) -> Any:
+    if resolver is None:
+        if not bound:
+            return None
+        return dict(bound.arguments)
+    if callable(resolver):
+        return resolver(bound)
+    if isinstance(resolver, str):
+        if not bound:
+            return None
+        return bound.arguments.get(resolver)
+    if isinstance(resolver, Sequence) and not isinstance(resolver, (str, bytes)):
+        if not bound:
+            return None
+        return {
+            name: bound.arguments.get(name)
+            for name in resolver
+            if bound.arguments.get(name) is not None
+        }
+    return resolver
+
+
+def _resolve_variables_payload(
+    resolver: Any,
+    bound: inspect.BoundArguments | None,
+) -> Mapping[str, Any] | None:
+    if resolver is None:
+        return None
+    if callable(resolver):
+        payload = resolver(bound)
+        if payload is None:
+            return None
+        if not isinstance(payload, Mapping):
+            raise TypeError("Variables resolver must return a mapping.")
+        return payload
+    if isinstance(resolver, Mapping):
+        return resolver
+    if isinstance(resolver, Sequence) and not isinstance(resolver, (str, bytes)):
+        if not bound:
+            return None
+        return {
+            name: bound.arguments.get(name)
+            for name in resolver
+            if bound.arguments.get(name) is not None
+        }
+    raise TypeError("Unsupported variables resolver type.")
+
+
+def _resolve_evaluators_payload(
+    resolver: Any,
+    bound: inspect.BoundArguments | None,
+    result: Any | None = None,
+) -> list[Any] | None:
+    if resolver is None:
+        return None
+    if callable(resolver):
+        try:
+            value = resolver(bound, result)
+        except TypeError:
+            value = resolver(bound)
+    else:
+        value = resolver
+    if value is None:
+        return None
+    if isinstance(value, (str, Mapping)):
+        return [value]
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return list(value)
+    return [value]
+
+
 def _wrap_with_span(
     span_factory: Callable[..., Any],
     span_name: str,
     attributes: AttributeSpec,
     func: Callable[..., Any],
+    *,
+    input_resolver: Any = None,
+    variables_resolver: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    output_resolver: Callable[[Any], Any] | None = None,
     apply_pre: Callable[[Any, Any], None] | None = None,
     apply_post: Callable[[Any, Any], None] | None = None,
 ) -> Callable[..., Any]:
     """
     Higher-order utility to wrap a function with span instrumentation.
-
-    Parameters:
-        span_factory: Context manager factory (e.g., trace_span, trace_llm_call)
-        span_name: Name for the span
-        attributes: Static attributes or callable to compute them
-        func: Function to wrap
-        apply_pre: Optional callback(span, bound_args) before execution
-        apply_post: Optional callback(span, result) after execution
-
-    Returns:
-        Wrapped function (sync or async based on func)
     """
     is_async = inspect.iscoroutinefunction(func)
 
@@ -80,18 +176,34 @@ def _wrap_with_span(
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
             computed_attrs = _resolve_attributes(attributes, args, kwargs)
-            bound = _bind_args(func, args, kwargs)
-            with span_factory(span_name, attributes=computed_attrs) as span:
+            bound = _resolve_bound_arguments(func, args, kwargs)
+            input_payload = _resolve_payload_from_bound(input_resolver, bound)
+            variables_payload = _resolve_variables_payload(variables_resolver, bound)
+            pre_evaluators = _resolve_evaluators_payload(evaluators, bound)
+
+            with span_factory(
+                span_name,
+                attributes=computed_attrs,
+                input_payload=input_payload,
+                variables=variables_payload,
+                evaluators=pre_evaluators,
+            ) as span:
                 if apply_pre:
                     apply_pre(span, bound)
                 try:
                     result = await func(*args, **kwargs)
+                    transformed = output_resolver(result) if output_resolver else result
+                    span.set_output(transformed)
                     if apply_post:
                         apply_post(span, result)
+                    post_specs = _resolve_evaluators_payload(post_evaluators, bound, result)
+                    if post_specs:
+                        span.add_evaluators(*post_specs)
                     span.set_status(StatusCode.OK)
                     return result
                 except Exception as exc:  # pragma: no cover - passthrough
                     span.record_exception(exc)
+                    span.set_output({"error": str(exc)})
                     span.set_status(StatusCode.ERROR, str(exc))
                     raise
 
@@ -100,22 +212,67 @@ def _wrap_with_span(
     @functools.wraps(func)
     def sync_wrapper(*args, **kwargs):
         computed_attrs = _resolve_attributes(attributes, args, kwargs)
-        bound = _bind_args(func, args, kwargs)
-        with span_factory(span_name, attributes=computed_attrs) as span:
+        bound = _resolve_bound_arguments(func, args, kwargs)
+        input_payload = _resolve_payload_from_bound(input_resolver, bound)
+        variables_payload = _resolve_variables_payload(variables_resolver, bound)
+        pre_evaluators = _resolve_evaluators_payload(evaluators, bound)
+
+        with span_factory(
+            span_name,
+            attributes=computed_attrs,
+            input_payload=input_payload,
+            variables=variables_payload,
+            evaluators=pre_evaluators,
+        ) as span:
             if apply_pre:
                 apply_pre(span, bound)
             try:
                 result = func(*args, **kwargs)
+                transformed = output_resolver(result) if output_resolver else result
+                span.set_output(transformed)
                 if apply_post:
                     apply_post(span, result)
+                post_specs = _resolve_evaluators_payload(post_evaluators, bound, result)
+                if post_specs:
+                    span.add_evaluators(*post_specs)
                 span.set_status(StatusCode.OK)
                 return result
             except Exception as exc:  # pragma: no cover - passthrough
                 span.record_exception(exc)
+                span.set_output({"error": str(exc)})
                 span.set_status(StatusCode.ERROR, str(exc))
                 raise
 
     return sync_wrapper
+
+
+def trace_span(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+) -> Callable[[F], F]:
+    """Decorator for general-purpose spans."""
+
+    def decorator(func: F) -> F:
+        span_name = name or f"{func.__module__}.{func.__qualname__}"
+        return _wrap_with_span(
+            trace_span_cm,
+            span_name,
+            attributes,
+            func,
+            input_resolver=input,
+            variables_resolver=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            output_resolver=output,
+        )  # type: ignore[return-value]
+
+    return decorator
 
 
 def trace_operation(
@@ -124,57 +281,13 @@ def trace_operation(
     attributes: AttributeSpec = None,
     capture_io: bool = False,
 ) -> Callable[[F], F]:
-    """Decorator for general-purpose operation spans."""
-
-    def decorator(func: F) -> F:
-        span_name = name or f"{func.__module__}.{func.__qualname__}"
-
-        if not capture_io:
-            # Simple case: use the utility directly
-            return _wrap_with_span(trace_span, span_name, attributes, func)  # type: ignore[return-value]
-
-        # Custom wrapper needed for capture_io to access args/kwargs
-        is_async = inspect.iscoroutinefunction(func)
-
-        if is_async:
-
-            @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                computed_attrs = _resolve_attributes(attributes, args, kwargs)
-                with trace_span(span_name, attributes=computed_attrs) as span:
-                    try:
-                        span.set_attribute(semconv.BasaltObserve.ARGS_COUNT, len(args))
-                        span.set_attribute(semconv.BasaltObserve.KWARGS_COUNT, len(kwargs))
-                        result = await func(*args, **kwargs)
-                        span.set_attribute(semconv.BasaltObserve.RETURN_TYPE, type(result).__name__)
-                        span.set_status(StatusCode.OK)
-                        return result
-                    except Exception as exc:  # pragma: no cover - passthrough
-                        span.record_exception(exc)
-                        span.set_status(StatusCode.ERROR, str(exc))
-                        raise
-
-            return async_wrapper  # type: ignore[return-value]
-
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            computed_attrs = _resolve_attributes(attributes, args, kwargs)
-            with trace_span(span_name, attributes=computed_attrs) as span:
-                try:
-                    span.set_attribute(semconv.BasaltObserve.ARGS_COUNT, len(args))
-                    span.set_attribute(semconv.BasaltObserve.KWARGS_COUNT, len(kwargs))
-                    result = func(*args, **kwargs)
-                    span.set_attribute(semconv.BasaltObserve.RETURN_TYPE, type(result).__name__)
-                    span.set_status(StatusCode.OK)
-                    return result
-                except Exception as exc:  # pragma: no cover - passthrough
-                    span.record_exception(exc)
-                    span.set_status(StatusCode.ERROR, str(exc))
-                    raise
-
-        return sync_wrapper  # type: ignore[return-value]
-
-    return decorator
+    """Deprecated alias for ``trace_span``."""
+    warnings.warn(
+        "trace_operation is deprecated; use trace_span instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return trace_span(name=name, attributes=attributes)
 
 
 def _extract_first(bound, keys: tuple[str, ...]) -> Any | None:
@@ -184,6 +297,49 @@ def _extract_first(bound, keys: tuple[str, ...]) -> Any | None:
         if key in bound.arguments:
             return bound.arguments[key]
     return None
+
+
+def _default_generation_input(bound: inspect.BoundArguments | None) -> Any:
+    value = _extract_first(bound, ("prompt", "input", "inputs", "messages", "question"))
+    if value is not None:
+        return value
+    return dict(bound.arguments) if bound else None
+
+
+def _default_generation_variables(bound: inspect.BoundArguments | None) -> Mapping[str, Any] | None:
+    value = _extract_first(bound, ("variables", "params", "context"))
+    return value if isinstance(value, Mapping) else None
+
+
+def _default_retrieval_input(bound: inspect.BoundArguments | None) -> Any:
+    value = _extract_first(bound, ("query", "question", "text", "search"))
+    if value is not None:
+        return value
+    return dict(bound.arguments) if bound else None
+
+
+def _default_retrieval_variables(bound: inspect.BoundArguments | None) -> Mapping[str, Any] | None:
+    value = _extract_first(bound, ("filters", "metadata", "options"))
+    return value if isinstance(value, Mapping) else None
+
+
+def _default_tool_input(bound: inspect.BoundArguments | None) -> Any:
+    value = _extract_first(bound, ("tool_input", "payload", "input", "data"))
+    if value is not None:
+        return value
+    return dict(bound.arguments) if bound else None
+
+
+def _default_event_input(bound: inspect.BoundArguments | None) -> Any:
+    value = _extract_first(bound, ("payload", "event", "data"))
+    if value is not None:
+        return value
+    return dict(bound.arguments) if bound else None
+
+
+def _default_function_variables(bound: inspect.BoundArguments | None) -> Mapping[str, Any] | None:
+    value = _extract_first(bound, ("variables", "metadata", "context"))
+    return value if isinstance(value, Mapping) else None
 
 
 def _serialize_prompt(value: Any) -> str | None:
@@ -283,12 +439,17 @@ def _apply_llm_response_metadata(span: LLMSpanHandle, result: Any) -> None:
         span.set_tokens(input=input_tokens, output=output_tokens)
 
 
-def trace_llm(
+def trace_generation(
     name: str | None = None,
     *,
     attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
 ) -> Callable[[F], F]:
-    """Decorator specialized for LLM-centric spans."""
+    """Decorator specialized for LLM generation spans."""
 
     def decorator(func: F) -> F:
         span_name = name or f"{func.__module__}.{func.__qualname__}"
@@ -299,11 +460,19 @@ def trace_llm(
         def apply_post(span, result):
             _apply_llm_response_metadata(span, result)
 
+        input_resolver = input if input is not None else _default_generation_input
+        variables_resolver = variables if variables is not None else _default_generation_variables
+
         return _wrap_with_span(
-            trace_llm_call,
+            trace_generation_cm,
             span_name,
             attributes,
             func,
+            input_resolver=input_resolver,
+            variables_resolver=variables_resolver,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            output_resolver=output,
             apply_pre=apply_pre,
             apply_post=apply_post,
         )  # type: ignore[return-value]
@@ -311,92 +480,194 @@ def trace_llm(
     return decorator
 
 
-def _extract_http_status(response: Any) -> int | None:
-    if response is None:
-        return None
-    if hasattr(response, "status"):
-        status = response.status
-        if isinstance(status, int):
-            return status
-    if hasattr(response, "status_code"):
-        status = response.status_code
-        if isinstance(status, int):
-            return status
-    if isinstance(response, dict):
-        code = response.get("status") or response.get("status_code")
-        if isinstance(code, int):
-            return code
-    return None
-
-
-def trace_http(
+def trace_llm(
     name: str | None = None,
     *,
     attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
 ) -> Callable[[F], F]:
-    """Decorator tailored for HTTP client spans."""
+    """Deprecated alias for :func:`trace_generation`."""
+    warnings.warn(
+        "trace_llm is deprecated; use trace_generation instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return trace_generation(
+        name=name,
+        attributes=attributes,
+        input=input,
+        output=output,
+        variables=variables,
+        evaluators=evaluators,
+        post_evaluators=post_evaluators,
+    )
+
+
+def trace_retrieval(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+) -> Callable[[F], F]:
+    """Decorator for retrieval/vector search spans."""
 
     def decorator(func: F) -> F:
         span_name = name or f"{func.__module__}.{func.__qualname__}"
-        is_async = inspect.iscoroutinefunction(func)
+        input_resolver = input if input is not None else _default_retrieval_input
+        variables_resolver = variables if variables is not None else _default_retrieval_variables
 
-        # HTTP decorator needs custom timing and status handling
-        def _apply_request_attributes(span, bound) -> None:
-            method = _extract_first(bound, ("method", "http_method", "verb"))
-            url = _extract_first(bound, ("url", "uri", "endpoint"))
-            if isinstance(method, str):
-                span.set_attribute(semconv.HTTP.METHOD, method.upper())
-            if isinstance(url, str):
-                span.set_attribute(semconv.HTTP.URL, url)
+        def apply_pre(span, bound):
+            query = _resolve_payload_from_bound(input_resolver, bound)
+            if isinstance(query, str):
+                span.set_query(query)
 
-        def _finalize(span, status: int | None, duration_s: float) -> None:
-            span.set_attribute(semconv.HTTP.RESPONSE_TIME_MS, round(duration_s * 1000, 2))
-            if status is not None:
-                span.set_attribute(semconv.HTTP.STATUS_CODE, status)
-                code = StatusCode.ERROR if status >= 400 else StatusCode.OK
-                span.set_status(code)
-            else:
-                span.set_status(StatusCode.OK)
+        return _wrap_with_span(
+            trace_retrieval_cm,
+            span_name,
+            attributes,
+            func,
+            input_resolver=input_resolver,
+            variables_resolver=variables_resolver,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            output_resolver=output,
+            apply_pre=apply_pre,
+        )  # type: ignore[return-value]
 
-        if is_async:
+    return decorator
 
-            @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                computed_attrs = _resolve_attributes(attributes, args, kwargs)
-                bound = _bind_args(func, args, kwargs)
-                start = time.perf_counter()
-                with trace_span(span_name, attributes=computed_attrs) as span:
-                    _apply_request_attributes(span, bound)
-                    try:
-                        response = await func(*args, **kwargs)
-                        status = _extract_http_status(response)
-                        _finalize(span, status, time.perf_counter() - start)
-                        return response
-                    except Exception as exc:  # pragma: no cover - passthrough
-                        span.record_exception(exc)
-                        _finalize(span, None, time.perf_counter() - start)
-                        raise
 
-            return async_wrapper  # type: ignore[return-value]
+def trace_function(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    function_name: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+    stage: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+) -> Callable[[F], F]:
+    """Decorator for compute/function spans."""
 
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            computed_attrs = _resolve_attributes(attributes, args, kwargs)
-            bound = _bind_args(func, args, kwargs)
-            start = time.perf_counter()
-            with trace_span(span_name, attributes=computed_attrs) as span:
-                _apply_request_attributes(span, bound)
-                try:
-                    response = func(*args, **kwargs)
-                    status = _extract_http_status(response)
-                    _finalize(span, status, time.perf_counter() - start)
-                    return response
-                except Exception as exc:  # pragma: no cover - passthrough
-                    span.record_exception(exc)
-                    _finalize(span, None, time.perf_counter() - start)
-                    raise
+    def decorator(func: F) -> F:
+        span_name = name or f"{func.__module__}.{func.__qualname__}"
+        variables_resolver = variables if variables is not None else _default_function_variables
 
-        return sync_wrapper  # type: ignore[return-value]
+        def resolve_callable(value, bound):
+            if value is None:
+                return None
+            if callable(value):
+                return value(bound)
+            return value
+
+        def apply_pre(span, bound):
+            resolved_name = resolve_callable(function_name, bound) or span_name
+            span.set_function_name(resolved_name)
+            resolved_stage = resolve_callable(stage, bound)
+            if resolved_stage:
+                span.set_stage(resolved_stage)
+
+        return _wrap_with_span(
+            trace_function_cm,
+            span_name,
+            attributes,
+            func,
+            input_resolver=input,
+            variables_resolver=variables_resolver,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            output_resolver=output,
+            apply_pre=apply_pre,
+        )  # type: ignore[return-value]
+
+    return decorator
+
+
+def trace_tool(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    tool_name: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+) -> Callable[[F], F]:
+    """Decorator for tool invocation spans."""
+
+    def decorator(func: F) -> F:
+        span_name = name or f"{func.__module__}.{func.__qualname__}"
+        input_resolver = input if input is not None else _default_tool_input
+
+        def apply_pre(span, bound):
+            value = tool_name(bound) if callable(tool_name) else tool_name
+            if value:
+                span.set_tool_name(value)
+
+        return _wrap_with_span(
+            trace_tool_cm,
+            span_name,
+            attributes,
+            func,
+            input_resolver=input_resolver,
+            variables_resolver=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            output_resolver=output,
+            apply_pre=apply_pre,
+        )  # type: ignore[return-value]
+
+    return decorator
+
+
+def trace_event(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    event_type: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+) -> Callable[[F], F]:
+    """Decorator for custom event spans."""
+
+    def decorator(func: F) -> F:
+        span_name = name or f"{func.__module__}.{func.__qualname__}"
+        input_resolver = input if input is not None else _default_event_input
+
+        def apply_pre(span, bound):
+            payload = _resolve_payload_from_bound(input_resolver, bound)
+            if payload is not None:
+                span.set_payload(payload)
+            value = event_type(bound) if callable(event_type) else event_type
+            if value:
+                span.set_event_type(value)
+
+        return _wrap_with_span(
+            trace_event_cm,
+            span_name,
+            attributes,
+            func,
+            input_resolver=input_resolver,
+            variables_resolver=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            output_resolver=output,
+            apply_pre=apply_pre,
+        )  # type: ignore[return-value]
 
     return decorator
 
@@ -414,8 +685,8 @@ def evaluator(
     This decorator registers the evaluator (if not already registered) and
     attaches it to the current span when the decorated function is called.
 
-    **IMPORTANT**: This decorator requires manual span creation (e.g., @trace_llm,
-    @trace_operation, or trace_llm_call context manager). It will NOT work with
+    **IMPORTANT**: This decorator requires manual span creation (e.g., @trace_generation,
+    @trace_span, or trace_generation context manager). It will NOT work with
     automatic instrumentation (e.g., OpenTelemetry's automatic LLM instrumentation)
     because the evaluator attachment happens in your application code, not in the
     instrumented library.
@@ -423,7 +694,7 @@ def evaluator(
     To use evaluators with automatically instrumented LLM calls, you must wrap them
     with manual tracing:
         @evaluator("my-eval")
-        @trace_llm(name="my.llm")
+        @trace_generation(name="my.llm")
         def my_llm_call():
             return openai.chat.completions.create(...)  # Auto-instrumented
 
@@ -441,21 +712,21 @@ def evaluator(
 
     Example - Basic usage:
         >>> @evaluator("joke-quality", to_evaluate=["completion"])
-        ... @trace_llm(name="gemini.summarize_joke")
+        ... @trace_generation(name="gemini.summarize_joke")
         ... def summarize_joke_with_gemini(joke: str) -> str:
         ...     # LLM call logic here
         ...     return response
 
     Example - With sample rate (50% of traces):
         >>> @evaluator("hallucination-check", sample_rate=0.5)
-        ... @trace_llm(name="my.llm.call")
+        ... @trace_generation(name="my.llm.call")
         ... def call_llm(prompt: str) -> str:
         ...     # LLM call logic here
         ...     return response
 
     Example - Focus on specific workflow attributes:
         >>> @evaluator("answer-quality", to_evaluate=["workflow.final_answer"])
-        ... @trace_llm(name="workflow.generate_answer")
+        ... @trace_generation(name="workflow.generate_answer")
         ... def generate_answer(context: str, question: str) -> dict:
         ...     # The evaluator will focus on the workflow.final_answer attribute
         ...     return {"workflow.final_answer": answer}

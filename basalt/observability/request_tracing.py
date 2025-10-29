@@ -27,14 +27,21 @@ async def trace_async_request(
         Result of ``request_callable``.
     """
     start = time.perf_counter()
+    input_payload = {
+        "method": span_data.method,
+        "url": span_data.url,
+    }
+    variables = dict(span_data.extra_attributes) if span_data.extra_attributes else None
     with trace_span(
         span_data.span_name(),
+        input_payload=input_payload,
+        variables=variables,
         attributes=span_data.start_attributes(),
-        span_type="basalt.http",
     ) as span:
         try:
             result = await request_callable()
         except Exception as exc:  # pragma: no cover - passthrough
+            span.set_output({"error": str(exc)})
             span_data.finalize(
                 span,
                 duration_s=time.perf_counter() - start,
@@ -44,6 +51,7 @@ async def trace_async_request(
             raise
 
         status_code = getattr(result, "status_code", None)
+        span.set_output({"status_code": status_code})
         span_data.finalize(
             span,
             duration_s=time.perf_counter() - start,
@@ -68,14 +76,21 @@ def trace_sync_request(
         Result of ``request_callable``.
     """
     start = time.perf_counter()
+    input_payload = {
+        "method": span_data.method,
+        "url": span_data.url,
+    }
+    variables = dict(span_data.extra_attributes) if span_data.extra_attributes else None
     with trace_span(
         span_data.span_name(),
+        input_payload=input_payload,
+        variables=variables,
         attributes=span_data.start_attributes(),
-        span_type="basalt.http",
     ) as span:
         try:
             result = request_callable()
         except Exception as exc:  # pragma: no cover - passthrough
+            span.set_output({"error": str(exc)})
             span_data.finalize(
                 span,
                 duration_s=time.perf_counter() - start,
@@ -85,6 +100,7 @@ def trace_sync_request(
             raise
 
         status_code = getattr(result, "status_code", None)
+        span.set_output({"status_code": status_code})
         span_data.finalize(
             span,
             duration_s=time.perf_counter() - start,

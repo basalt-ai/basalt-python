@@ -51,12 +51,12 @@ manual tracing:
 
 ```python
 @evaluator("my-eval")
-@trace_llm(name="my.llm")
+@trace_generation(name="my.llm")
 def my_llm_call():
     return openai.chat.completions.create(...)  # Auto-instrumented call
 ```
 
-Without the manual `@trace_llm` wrapper, the evaluator will not be attached to the
+Without the manual `@trace_generation` wrapper, the evaluator will not be attached to the
 span created by automatic instrumentation.
 
 ### Backend Behavior:
@@ -83,7 +83,7 @@ from typing import Any
 
 from opentelemetry import trace
 
-from .context_managers import SpanHandle
+from .context_managers import SpanHandle, normalize_evaluator_specs
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,13 +160,20 @@ class EvaluatorManager:
                 return True
             return random.random() < config.sample_rate
 
-    def attach_to_span(self, span_handle: SpanHandle, *evaluator_slugs: str) -> None:
+    def attach_to_span(self, span_handle: SpanHandle, *evaluators: Any) -> None:
         """Attach evaluators to a span, respecting sample rates."""
-        for slug in evaluator_slugs:
-            if slug and self.should_sample(slug):
-                config = self.get_config(slug)
-                to_evaluate = config.to_evaluate if config else None
-                span_handle.add_evaluator(slug, to_evaluate=to_evaluate)
+        attachments = normalize_evaluator_specs(evaluators)
+        for attachment in attachments:
+            slug = attachment.slug
+            if not slug or not self.should_sample(slug):
+                continue
+
+            config = self.get_config(slug)
+            to_evaluate = attachment.to_evaluate or (config.to_evaluate if config else None)
+            span_handle.add_evaluator(
+                slug,
+                to_evaluate=to_evaluate,
+            )
 
     def list_evaluators(self) -> list[str]:
         """Return a list of all registered evaluator slugs."""
@@ -217,7 +224,7 @@ def register_evaluator(
         ... )
 
     Note:
-        Evaluators require manual span creation (e.g., @trace_llm, trace_llm_call) to work.
+        Evaluators require manual span creation (e.g., @trace_generation, trace_generation) to work.
         They will NOT be attached to spans created by automatic instrumentation unless
         you wrap the instrumented call with manual tracing. See module docstring for details.
     """
@@ -236,7 +243,7 @@ def unregister_evaluator(slug: str) -> None:
 
 @contextmanager
 def attach_evaluator(
-    *evaluator_slugs: str,
+    *evaluators: Any,
     span: SpanHandle | None = None,
 ) -> Generator[None, None, None]:
     """
@@ -248,11 +255,11 @@ def attach_evaluator(
     completion fallback).
 
     Args:
-        *evaluator_slugs: One or more evaluator slugs to attach.
+        *evaluators: One or more evaluator specifications to attach.
         span: Optional span handle to attach to. If None, uses current span.
 
     Example - Basic usage:
-        >>> with trace_llm_call("my.llm") as llm_span:
+        >>> with trace_generation("my.llm") as llm_span:
         ...     with attach_evaluator("hallucination-check", "quality-eval"):
         ...         llm_span.set_model("gpt-4")
         ...         llm_span.set_prompt("Tell me a joke")
@@ -260,7 +267,7 @@ def attach_evaluator(
         ...         llm_span.set_completion(result)
 
     Example - With explicit span:
-        >>> with trace_llm_call("my.llm") as llm_span:
+        >>> with trace_generation("my.llm") as llm_span:
         ...     with attach_evaluator("hallucination-check", span=llm_span):
         ...         result = call_llm()
 
@@ -278,28 +285,28 @@ def attach_evaluator(
             target_span = SpanHandle(otel_span)
 
     if target_span:
-        _evaluator_manager.attach_to_span(target_span, *evaluator_slugs)
+        _evaluator_manager.attach_to_span(target_span, *evaluators)
 
     yield
 
 
-def attach_evaluators_to_span(span_handle: SpanHandle, *evaluator_slugs: str) -> None:
+def attach_evaluators_to_span(span_handle: SpanHandle, *evaluators: Any) -> None:
     """
     Directly attach evaluators to a span handle, respecting sample rates.
 
     Args:
         span_handle: The span handle to attach evaluators to.
-        *evaluator_slugs: One or more evaluator slugs to attach.
+        *evaluators: One or more evaluator specifications to attach.
 
     Example:
-        >>> with trace_llm_call("my.llm") as llm_span:
+        >>> with trace_generation("my.llm") as llm_span:
         ...     attach_evaluators_to_span(llm_span, "hallucination-check", "quality-eval")
         ...     result = call_llm()
     """
-    _evaluator_manager.attach_to_span(span_handle, *evaluator_slugs)
+    _evaluator_manager.attach_to_span(span_handle, *evaluators)
 
 
-def attach_evaluators_to_current_span(*evaluator_slugs: str) -> None:
+def attach_evaluators_to_current_span(*evaluators: Any) -> None:
     """
     Attach evaluators to the current active span, respecting sample rates.
 
@@ -307,7 +314,7 @@ def attach_evaluators_to_current_span(*evaluator_slugs: str) -> None:
     and attaches the specified evaluators to it.
 
     Args:
-        *evaluator_slugs: One or more evaluator slugs to attach.
+        *evaluators: One or more evaluator specifications to attach.
 
     Example:
         >>> # Inside an instrumented function or span context
@@ -316,4 +323,4 @@ def attach_evaluators_to_current_span(*evaluator_slugs: str) -> None:
     otel_span = trace.get_current_span()
     if otel_span and otel_span.get_span_context().is_valid:
         span_handle = SpanHandle(otel_span)
-        _evaluator_manager.attach_to_span(span_handle, *evaluator_slugs)
+        _evaluator_manager.attach_to_span(span_handle, *evaluators)

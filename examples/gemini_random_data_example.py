@@ -32,7 +32,8 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 from basalt import Basalt, TelemetryConfig
 from basalt.observability.context_managers import trace_span
-from basalt.observability.decorators import evaluator, trace_http, trace_llm
+from basalt.observability.decorators import evaluator, trace_generation
+from basalt.observability.decorators import trace_span as trace_span_decorator
 
 
 # --- 1. Build Basalt client with custom OTLP exporter ---
@@ -44,8 +45,7 @@ def build_custom_exporter_client() -> Basalt:
         enable_llm_instrumentation=True,  # Enable automatic Gemini instrumentation
         instrument_http=True,  # Enable HTTP instrumentation (for Basalt internal calls)
         llm_trace_content=True,
-        llm_enabled_providers=["google_genai"],  # Only instrument Gemini calls
-        enable_experimental_semconvs=True,  # Enable experimental semantic conventions
+        llm_enabled_providers=["google_generativeai"],  # Only instrument Gemini calls
     )
 
     # Initialize Basalt client first (this sets up the TracerProvider)
@@ -59,7 +59,7 @@ def build_custom_exporter_client() -> Basalt:
 basalt_client = build_custom_exporter_client()
 
 # --- 2. Gather random data from a public API ---
-@trace_http(name="http.get_random_joke")
+@trace_span(name="http.get_random_joke")
 def get_random_joke() -> str:
     """Fetch a random joke from the Official Joke API using httpx (instrumented)."""
     with httpx.Client() as client:
@@ -93,7 +93,7 @@ except ImportError:
     genai = None
 
 @evaluator("joke-quality", sample_rate=1.0, to_evaluate=["gen_ai.output.messages"])
-@trace_llm(name="gemini.summarize_joke")
+@trace_generation(name="gemini.summarize_joke")
 def summarize_joke_with_gemini(joke: str) -> str | None:
     """Send the joke to Gemini and get a summary or explanation."""
     if genai is None:
@@ -115,10 +115,11 @@ def main():
             "service": "gemini-random-demo"
         }
     ) as span:
-        span.add_event("workflow_started")
 
         # 1. Fetch a random joke using httpx (external HTTP call - instrumented)
         joke = get_random_joke()
+        span.set_input({"joke": joke})
+
         logging.info(f"Random joke: {joke}")
         span.set_attribute("joke.length", len(joke))
 
@@ -135,10 +136,18 @@ def main():
             logging.info(f"Gemini summary: {gemini_result}")
             span.set_attribute("gemini.status", "success")
             span.set_attribute("gemini.response_length", len(gemini_result) if gemini_result else 0)
+            span.set_output({
+                "summary": gemini_result,
+                "status": "success",
+            })
         except Exception as exc:
             logging.error(f"Gemini error: {exc}")
             span.record_exception(exc)
             span.set_attribute("gemini.status", "error")
+            span.set_output({
+                "status": "error",
+                "error": str(exc),
+            })
 
         span.add_event("workflow_completed")
 

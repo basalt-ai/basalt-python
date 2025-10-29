@@ -12,7 +12,8 @@ from basalt.observability import (
     configure_trace_defaults,
     semconv,
     trace_event,
-    trace_llm_call,
+    trace_function,
+    trace_generation,
     trace_retrieval,
     trace_span,
     trace_tool,
@@ -41,9 +42,9 @@ class ContextManagerTests(unittest.TestCase):
         self.assertEqual(span.attributes["component"], "db")
         self.assertEqual(span.attributes["rows"], 5)
 
-    def test_trace_llm_call_handles_helpers(self):
+    def test_trace_generation_handles_helpers(self):
         with mock.patch.dict(os.environ, {"TRACELOOP_TRACE_CONTENT": "true"}, clear=False):
-            with trace_llm_call("context.llm") as span:
+            with trace_generation("context.llm") as span:
                 span.set_model("gpt-4")
                 span.set_prompt("Hi")
                 span.set_completion("Ok")
@@ -97,6 +98,19 @@ class ContextManagerTests(unittest.TestCase):
         self.assertEqual(span.attributes[semconv.BasaltTool.OUTPUT], '{"answer": "ok"}')
         self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "tool")
 
+    def test_trace_function_helpers(self):
+        with trace_function("context.function") as span:
+            span.set_function_name("score")
+            span.set_stage("preprocess")
+            span.add_metric("latency_ms", 42.5)
+
+        span = self.exporter.get_finished_spans()[0]
+        self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "function")
+        self.assertEqual(span.attributes[semconv.BasaltFunction.NAME], "score")
+        self.assertEqual(span.attributes[semconv.BasaltFunction.STAGE], "preprocess")
+        metric_key = f"{semconv.BasaltFunction.METRIC_PREFIX}.latency_ms"
+        self.assertEqual(span.attributes[metric_key], 42.5)
+
     def test_trace_event_helpers(self):
         with trace_event("context.event", attributes={"source": "app"}) as span:
             span.set_event_type("workflow")
@@ -131,3 +145,18 @@ class ContextManagerTests(unittest.TestCase):
             list(span.attributes[semconv.BasaltTrace.EVALUATORS]),
             ["eval-default", "eval-inline"],
         )
+        self.assertEqual(
+            list(span.attributes[semconv.BasaltSpan.EVALUATORS]),
+            ["eval-default", "eval-inline"],
+        )
+
+    def test_variables_propagate_to_parent_span(self):
+        with trace_span("parent.span") as parent:
+            with trace_span("child.span", variables={"prompt": "hello"}):
+                pass
+
+        spans = {span.name: span for span in self.exporter.get_finished_spans()}
+        child_vars = json.loads(spans["child.span"].attributes[semconv.BasaltSpan.VARIABLES])
+        parent_vars = json.loads(spans["parent.span"].attributes[semconv.BasaltSpan.VARIABLES])
+        self.assertEqual(child_vars["prompt"], "hello")
+        self.assertEqual(parent_vars["prompt"], "hello")

@@ -284,6 +284,34 @@ class BasaltSpan:
     Examples: "generation", "retrieval", "tool", "event"
     """
 
+    INPUT: Final[str] = "basalt.span.input"
+    """
+    Canonical input payload associated with the span.
+    Type: string (JSON-serialized) or scalar
+    Examples: "{\"prompt\": \"hello\"}", "foo=bar"
+    """
+
+    OUTPUT: Final[str] = "basalt.span.output"
+    """
+    Canonical output payload associated with the span.
+    Type: string (JSON-serialized) or scalar
+    Examples: "{\"answer\": \"42\"}", "done"
+    """
+
+    VARIABLES: Final[str] = "basalt.span.variables"
+    """
+    Optional variables/context dictionary applied to the span.
+    Type: string (JSON-serialized)
+    Examples: "{\"user_id\": \"123\"}"
+    """
+
+    EVALUATORS: Final[str] = "basalt.span.evaluators"
+    """
+    Names of evaluators attached to the span.
+    Type: array of strings
+    Examples: ["answer-correctness", "safety"]
+    """
+
 
 class BasaltAPI:
     """Basalt API client operation attributes."""
@@ -359,6 +387,32 @@ class BasaltRetrieval:
     Top-K parameter for retrieval (number of results requested).
     Type: int
     Examples: 5, 10
+    """
+
+
+class BasaltFunction:
+    """Basalt compute/function execution attributes."""
+
+    NAME: Final[str] = "basalt.function.name"
+    """
+    Logical function or computation name.
+    Type: string
+    Examples: "generate_embeddings", "score_prompt"
+    """
+
+    STAGE: Final[str] = "basalt.function.stage"
+    """
+    Execution stage or phase within the function.
+    Type: string
+    Examples: "preprocess", "postprocess"
+    """
+
+    METRIC_PREFIX: Final[str] = "basalt.function.metric"
+    """
+    Prefix for custom function metrics stored as attributes.
+    Metrics recorded as ``f"{METRIC_PREFIX}.{key}"``.
+    Type: number/string
+    Examples: "basalt.function.metric.latency_ms"
     """
 
 

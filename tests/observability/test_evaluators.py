@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import unittest
 
 from basalt.observability import (
@@ -14,9 +15,10 @@ from basalt.observability import (
     get_evaluator_manager,
     register_evaluator,
     semconv,
-    trace_llm_call,
+    trace_generation,
     trace_span,
     unregister_evaluator,
+    update_current_span,
 )
 from tests.observability.utils import get_exporter
 
@@ -80,7 +82,8 @@ class EvaluatorTests(unittest.TestCase):
             attach_evaluators_to_span(span, "always-eval")
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertIn("always-eval", span.attributes["basalt.trace.evaluators"])
+        self.assertIn("always-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
+        self.assertIn("always-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
 
     def test_evaluator_with_0_percent_sample_rate(self):
         """Test that evaluators with 0% sample rate are never attached."""
@@ -91,7 +94,7 @@ class EvaluatorTests(unittest.TestCase):
 
         span = self.exporter.get_finished_spans()[0]
         # Should not have evaluators attribute or should not contain the evaluator
-        evaluators = span.attributes.get("basalt.trace.evaluators", [])
+        evaluators = span.attributes.get(semconv.BasaltTrace.EVALUATORS, [])
         self.assertNotIn("never-eval", evaluators)
 
     def test_attach_evaluator_context_manager(self):
@@ -103,7 +106,7 @@ class EvaluatorTests(unittest.TestCase):
                 pass
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertIn("ctx-eval", span.attributes["basalt.trace.evaluators"])
+        self.assertIn("ctx-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
 
     def test_attach_evaluator_to_current_span(self):
         """Test attaching evaluators to the current active span."""
@@ -113,7 +116,7 @@ class EvaluatorTests(unittest.TestCase):
             attach_evaluators_to_current_span("current-eval")
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertIn("current-eval", span.attributes["basalt.trace.evaluators"])
+        self.assertIn("current-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
 
     def test_attach_evaluator_without_explicit_span(self):
         """Test attach_evaluator context manager finds current span automatically."""
@@ -124,7 +127,7 @@ class EvaluatorTests(unittest.TestCase):
                 pass
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertIn("auto-eval", span.attributes["basalt.trace.evaluators"])
+        self.assertIn("auto-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
 
     def test_evaluators_from_trace_defaults(self):
         """Test that evaluators from trace defaults are applied with sampling."""
@@ -136,7 +139,7 @@ class EvaluatorTests(unittest.TestCase):
             pass
 
         span = self.exporter.get_finished_spans()[0]
-        self.assertIn("default-eval", span.attributes["basalt.trace.evaluators"])
+        self.assertIn("default-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
 
     def test_multiple_evaluators(self):
         """Test attaching multiple evaluators to a span."""
@@ -148,21 +151,38 @@ class EvaluatorTests(unittest.TestCase):
             attach_evaluators_to_span(span, "eval-1", "eval-2", "eval-3")
 
         span = self.exporter.get_finished_spans()[0]
-        evaluators = span.attributes["basalt.trace.evaluators"]
+        evaluators = span.attributes[semconv.BasaltTrace.EVALUATORS]
         self.assertIn("eval-1", evaluators)
         self.assertIn("eval-2", evaluators)
         self.assertIn("eval-3", evaluators)
+
+    def test_evaluator_uses_span_io(self):
+        """Evaluator attachments rely on span-level IO only."""
+        register_evaluator("spec-eval", sample_rate=1.0, metadata={"source": "registry"})
+
+        with trace_span("test.span") as span:
+            span.set_input({"prompt": "hi"})
+            span.set_output({"reply": "ok"})
+            span.set_variables({"channel": "test"})
+            attach_evaluators_to_span(span, "spec-eval")
+
+        span = self.exporter.get_finished_spans()[0]
+        self.assertIn("spec-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
+        self.assertEqual(json.loads(span.attributes[semconv.BasaltSpan.INPUT])["prompt"], "hi")
+        self.assertEqual(json.loads(span.attributes[semconv.BasaltSpan.OUTPUT])["reply"], "ok")
+        self.assertEqual(json.loads(span.attributes[semconv.BasaltSpan.VARIABLES])["channel"], "test")
 
     def test_evaluator_with_llm_span(self):
         """Test attaching evaluators to LLM spans."""
         register_evaluator("llm-eval", sample_rate=1.0)
 
-        with trace_llm_call("test.llm") as span:
+        with trace_generation("test.llm") as span:
             span.set_model("gpt-4")
             attach_evaluators_to_span(span, "llm-eval")
 
         span = self.exporter.get_finished_spans()[0]
         self.assertIn("llm-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
+        self.assertIn("llm-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
         self.assertEqual(span.attributes[semconv.GenAI.REQUEST_MODEL], "gpt-4")
         self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "generation")
 
@@ -170,7 +190,7 @@ class EvaluatorTests(unittest.TestCase):
         """Test using attach_evaluator context manager with LLM spans."""
         register_evaluator("llm-ctx-eval", sample_rate=1.0)
 
-        with trace_llm_call("test.llm") as span:
+        with trace_generation("test.llm") as span:
             with attach_evaluator("llm-ctx-eval", span=span):
                 span.set_model("gpt-4")
                 span.set_prompt("Hello")
@@ -178,6 +198,7 @@ class EvaluatorTests(unittest.TestCase):
 
         span = self.exporter.get_finished_spans()[0]
         self.assertIn("llm-ctx-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
+        self.assertIn("llm-ctx-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
         self.assertEqual(span.attributes[semconv.GenAI.REQUEST_MODEL], "gpt-4")
 
     def test_unregistered_evaluator_defaults_to_100_percent(self):
@@ -189,7 +210,7 @@ class EvaluatorTests(unittest.TestCase):
 
         span = self.exporter.get_finished_spans()[0]
         # Should be attached since unregistered evaluators default to 100%
-        self.assertIn("unknown-eval", span.attributes["basalt.trace.evaluators"])
+        self.assertIn("unknown-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
 
     def test_evaluator_sampling_statistical(self):
         """Test that sampling works statistically (not deterministic)."""
@@ -204,7 +225,7 @@ class EvaluatorTests(unittest.TestCase):
                 attach_evaluators_to_span(span, "half-eval")
 
             span = self.exporter.get_finished_spans()[0]
-            evaluators = span.attributes.get("basalt.trace.evaluators", [])
+            evaluators = span.attributes.get(semconv.BasaltTrace.EVALUATORS, [])
             if "half-eval" in evaluators:
                 attached_count += 1
 
@@ -212,6 +233,23 @@ class EvaluatorTests(unittest.TestCase):
         # Allow for statistical variance (e.g., 30-70 range)
         self.assertGreater(attached_count, 20)
         self.assertLess(attached_count, 80)
+
+    def test_update_current_span_helper(self):
+        """update_current_span populates IO and evaluator data."""
+
+        with trace_span("test.span"):
+            update_current_span(
+                input_payload={"prompt": "hi"},
+                output_payload={"reply": "ok"},
+                variables={"channel": "helper"},
+                evaluators=["helper-eval"],
+            )
+
+        span = self.exporter.get_finished_spans()[0]
+        self.assertIn("helper-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
+        self.assertEqual(json.loads(span.attributes[semconv.BasaltSpan.INPUT])["prompt"], "hi")
+        self.assertEqual(json.loads(span.attributes[semconv.BasaltSpan.OUTPUT])["reply"], "ok")
+        self.assertEqual(json.loads(span.attributes[semconv.BasaltSpan.VARIABLES])["channel"], "helper")
 
     def test_evaluator_propagation_to_child_spans(self):
         """Test that evaluators propagate to child spans via trace defaults."""
@@ -227,7 +265,7 @@ class EvaluatorTests(unittest.TestCase):
 
         # Both parent and child should have the evaluator
         for span in spans:
-            self.assertIn("parent-eval", span.attributes["basalt.trace.evaluators"])
+            self.assertIn("parent-eval", span.attributes[semconv.BasaltTrace.EVALUATORS])
 
     def test_evaluator_metadata(self):
         """Test that evaluator metadata can be stored."""
