@@ -141,17 +141,16 @@ class ContextManagerTests(unittest.TestCase):
         self.assertEqual(span.attributes[semconv.BasaltExperiment.ID], "exp-1")
         self.assertEqual(span.attributes[semconv.BasaltExperiment.FEATURE_SLUG], "feature")
         self.assertEqual(span.attributes[f"{semconv.BASALT_META_PREFIX}env"], "test")
-        self.assertEqual(
-            list(span.attributes[semconv.BasaltTrace.EVALUATORS]),
-            ["eval-default", "eval-inline"],
-        )
-        self.assertEqual(
-            list(span.attributes[semconv.BasaltSpan.EVALUATORS]),
-            ["eval-default", "eval-inline"],
-        )
+        evaluators = list(span.attributes[semconv.BasaltSpan.EVALUATORS])
+        self.assertEqual(evaluators, ["eval-default", "eval-inline"])
+        for slug in ("eval-default", "eval-inline"):
+            self.assertEqual(
+                span.attributes.get(f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.{slug}.sample_rate"),
+                1.0,
+            )
 
     def test_variables_propagate_to_parent_span(self):
-        with trace_span("parent.span") as parent:
+        with trace_span("parent.span"):
             with trace_span("child.span", variables={"prompt": "hello"}):
                 pass
 

@@ -312,7 +312,6 @@ class BasaltSpan:
     Examples: ["answer-correctness", "safety"]
     """
 
-
 class BasaltAPI:
     """Basalt API client operation attributes."""
 
@@ -515,33 +514,6 @@ class BasaltExperiment:
     Type: string
     Examples: "prompt-v2", "new-model-test"
     """
-
-
-class BasaltTrace:
-    """Basalt trace-level attributes."""
-
-    EVALUATORS: Final[str] = "basalt.trace.evaluators"
-    """
-    List of evaluator slugs attached to this trace.
-    Type: string[] (list of strings)
-    Examples: ["hallucination", "relevance", "toxicity"]
-    """
-
-    EVALUATOR_TO_EVALUATE_PREFIX: Final[str] = "basalt.trace.evaluator"
-    """
-    Prefix for evaluator-specific to_evaluate attributes.
-    Format: basalt.trace.evaluator.{slug}.to_evaluate
-    Type: string[] (list of attribute names)
-    Examples: ["completion", "prompt"]
-    """
-
-    TAGS: Final[str] = "basalt.trace.tags"
-    """
-    Custom tags for categorizing traces.
-    Type: string[] (list of strings)
-    Examples: ["production", "important"]
-    """
-
 
 class BasaltObserve:
     """Basalt observation/debugging attributes."""

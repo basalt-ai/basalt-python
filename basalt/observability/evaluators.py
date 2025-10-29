@@ -4,40 +4,7 @@ Evaluator management for sampling and attaching evaluators to spans.
 This module provides functionality to register evaluators and attach them to traces
 with optional sampling and attribute targeting.
 
-## Understanding the `to_evaluate` Field
 
-The `to_evaluate` field allows you to specify which attributes in a span the evaluator
-should focus on when performing evaluation. This is particularly useful when you want
-to evaluate specific parts of your LLM workflow or response.
-
-### Default Behavior (when `to_evaluate` is None):
-
-If no `to_evaluate` attributes are specified, the evaluator will use the following
-fallback strategy:
-1. First, try to use `gen_ai.output.messages` (the standard OpenTelemetry GenAI
-   experimental attribute for structured output)
-2. If that's not available, fall back to the completion content from the response
-
-This default behavior ensures evaluators work with standard OpenTelemetry instrumented
-LLM calls without requiring additional configuration.
-
-### Custom Attribute Targeting:
-
-You can specify custom attributes to focus the evaluation on specific parts of your trace:
-
-```python
-# Focus on just the completion
-register_evaluator("quality", to_evaluate=["completion"])
-
-# Focus on both prompt and completion
-register_evaluator("hallucination", to_evaluate=["prompt", "completion"])
-
-# Focus on workflow-specific attributes
-register_evaluator("answer-eval", to_evaluate=["workflow.final_answer"])
-
-# Focus on multiple workflow attributes
-register_evaluator("multi-eval", to_evaluate=["context", "query", "answer"])
-```
 
 ### Working with Automatic Instrumentation:
 
@@ -59,17 +26,7 @@ def my_llm_call():
 Without the manual `@trace_generation` wrapper, the evaluator will not be attached to the
 span created by automatic instrumentation.
 
-### Backend Behavior:
 
-When the backend processes a span with evaluators:
-1. It checks if `basalt.trace.evaluator.{slug}.to_evaluate` exists
-2. If it exists, it prioritizes those attributes for evaluation
-3. If it doesn't exist or is None, it uses the default strategy:
-   - Try `gen_ai.output.messages` (OpenTelemetry GenAI semantic convention)
-   - Fall back to completion content if available
-
-This allows the backend to focus on the most relevant data for each evaluator,
-reducing token usage and improving evaluation accuracy.
 """
 
 from __future__ import annotations
@@ -95,16 +52,12 @@ class EvaluatorConfig:
         slug: Unique identifier for the evaluator.
         sample_rate: Probability (0.0-1.0) that this evaluator will be attached to spans.
         metadata: Optional metadata associated with this evaluator.
-        to_evaluate: Optional list of attribute names to focus evaluation on.
-                    If None, the backend will use gen_ai.output.messages (OpenTelemetry GenAI
-                    semantic convention) and fall back to completion content if unavailable.
-                    See module docstring for detailed behavior.
+
     """
 
     slug: str
     sample_rate: float = 1.0
     metadata: dict[str, Any] | None = None
-    to_evaluate: list[str] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.slug, str) or not self.slug:
@@ -130,14 +83,12 @@ class EvaluatorManager:
         slug: str,
         sample_rate: float = 1.0,
         metadata: dict[str, Any] | None = None,
-        to_evaluate: list[str] | None = None,
     ) -> None:
         """Register an evaluator with the given slug and sample rate."""
         config = EvaluatorConfig(
             slug=slug,
             sample_rate=sample_rate,
             metadata=metadata,
-            to_evaluate=to_evaluate,
         )
         self.register(config)
 
@@ -151,28 +102,22 @@ class EvaluatorManager:
         with self._lock:
             return self._evaluators.get(slug)
 
-    def should_sample(self, slug: str) -> bool:
-        """Determine if an evaluator should be attached based on sample rate."""
-        with self._lock:
-            config = self._evaluators.get(slug)
-            if config is None:
-                # If not registered, assume 100% sampling for backward compatibility
-                return True
-            return random.random() < config.sample_rate
-
     def attach_to_span(self, span_handle: SpanHandle, *evaluators: Any) -> None:
         """Attach evaluators to a span, respecting sample rates."""
         attachments = normalize_evaluator_specs(evaluators)
         for attachment in attachments:
             slug = attachment.slug
-            if not slug or not self.should_sample(slug):
-                continue
-
             config = self.get_config(slug)
-            to_evaluate = attachment.to_evaluate or (config.to_evaluate if config else None)
+            effective_rate = attachment.sample_rate
+            if effective_rate is None and config is not None:
+                effective_rate = config.sample_rate
+            if effective_rate is None:
+                effective_rate = 1.0
+            if effective_rate < 1.0 and random.random() >= effective_rate:
+                continue
             span_handle.add_evaluator(
                 slug,
-                to_evaluate=to_evaluate,
+                sample_rate=effective_rate,
             )
 
     def list_evaluators(self) -> list[str]:
@@ -193,8 +138,8 @@ def get_evaluator_manager() -> EvaluatorManager:
 def register_evaluator(
     slug: str,
     sample_rate: float = 1.0,
+    *,
     metadata: dict[str, Any] | None = None,
-    to_evaluate: list[str] | None = None,
 ) -> None:
     """
     Register an evaluator with optional sampling configuration.
@@ -203,32 +148,28 @@ def register_evaluator(
         slug: Unique identifier for the evaluator.
         sample_rate: Probability (0.0-1.0) that this evaluator will be attached to spans.
                     Default is 1.0 (100%). Use lower values to reduce evaluation costs.
-        metadata: Optional metadata associated with this evaluator.
-        to_evaluate: List of attribute names to focus evaluation on.
-                    If None (default), the backend will use gen_ai.output.messages
-                    (OpenTelemetry GenAI semantic convention) and fall back to completion
-                    content if unavailable. Specify attribute names to focus on specific
-                    parts of your trace (e.g., ["completion"], ["workflow.final_answer"]).
-                    See module docstring for detailed behavior.
+        metadata: Optional metadata associated with the evaluator.
+
 
     Example - Basic registration:
         >>> register_evaluator("hallucination-check", sample_rate=0.5)
 
     Example - Focus on completion only:
-        >>> register_evaluator("quality-eval", sample_rate=1.0, to_evaluate=["completion"])
+        >>> register_evaluator("quality-eval", sample_rate=1.0)
 
     Example - Focus on workflow attributes:
-        >>> register_evaluator(
-        ...     "answer-quality",
-        ...     to_evaluate=["workflow.final_answer", "workflow.confidence"]
-        ... )
+        >>> register_evaluator("answer-quality", sample_rate=0.75)
 
     Note:
         Evaluators require manual span creation (e.g., @trace_generation, trace_generation) to work.
         They will NOT be attached to spans created by automatic instrumentation unless
         you wrap the instrumented call with manual tracing. See module docstring for details.
     """
-    _evaluator_manager.register_evaluator(slug, sample_rate, metadata, to_evaluate)
+    _evaluator_manager.register_evaluator(
+        slug,
+        sample_rate=sample_rate,
+        metadata=metadata,
+    )
 
 
 def unregister_evaluator(slug: str) -> None:
@@ -249,10 +190,8 @@ def attach_evaluator(
     """
     Context manager to attach evaluators to the current or specified span.
 
-    Evaluators are attached respecting their configured sample rates and to_evaluate
-    settings. If an evaluator is not registered, it will be attached with 100%
-    probability and default to_evaluate behavior (gen_ai.output.messages with
-    completion fallback).
+    Evaluators are attached respecting their configured sample rates. If an evaluator is not registered,
+    it will be attached with 100% probability.
 
     Args:
         *evaluators: One or more evaluator specifications to attach.
@@ -312,6 +251,8 @@ def attach_evaluators_to_current_span(*evaluators: Any) -> None:
 
     This is a convenience function that finds the current OpenTelemetry span
     and attaches the specified evaluators to it.
+    Useful when you want to add evaluators outside of a context manager or decorator.
+    It's working with automatic instrumentation as long as there is an active span.
 
     Args:
         *evaluators: One or more evaluator specifications to attach.

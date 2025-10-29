@@ -125,8 +125,6 @@ def apply_trace_defaults(span: Span, defaults: TraceContextConfig | None = None)
     if context.metadata:
         for key, value in context.metadata.items():
             span.set_attribute(f"{semconv.BASALT_META_PREFIX}{key}", value)
-    if context.evaluators:
-        span.set_attribute(semconv.BasaltTrace.EVALUATORS, list(dict.fromkeys(context.evaluators)))
 
 
 def update_default_evaluators(new_evaluators: Iterable[Any]) -> None:

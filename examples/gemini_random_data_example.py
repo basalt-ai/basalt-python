@@ -32,8 +32,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 from basalt import Basalt, TelemetryConfig
 from basalt.observability.context_managers import trace_span
-from basalt.observability.decorators import evaluator, trace_generation
-from basalt.observability.decorators import trace_span as trace_span_decorator
+from basalt.observability.decorators import evaluator, trace_generation, trace_retrieval
 
 
 # --- 1. Build Basalt client with custom OTLP exporter ---
@@ -49,7 +48,8 @@ def build_custom_exporter_client() -> Basalt:
     )
 
     # Initialize Basalt client first (this sets up the TracerProvider)
-    client = Basalt(api_key=os.getenv("BASALT_API_KEY", "fake-key"), telemetry_config=telemetry)
+    client = Basalt(api_key=os.getenv("BASALT_API_KEY", "fake-key"), telemetry_config=telemetry,
+                    trace_user={"id": "user-1234"})
 
     # Instrument httpx for external HTTP calls
     HTTPXClientInstrumentor().instrument()
@@ -59,7 +59,7 @@ def build_custom_exporter_client() -> Basalt:
 basalt_client = build_custom_exporter_client()
 
 # --- 2. Gather random data from a public API ---
-@trace_span(name="http.get_random_joke")
+@trace_retrieval(name="http.get_random_joke")
 def get_random_joke() -> str:
     """Fetch a random joke from the Official Joke API using httpx (instrumented)."""
     with httpx.Client() as client:
@@ -92,14 +92,15 @@ try:
 except ImportError:
     genai = None
 
-@evaluator("joke-quality", sample_rate=1.0, to_evaluate=["gen_ai.output.messages"])
 @trace_generation(name="gemini.summarize_joke")
+@evaluator(["joke-quality"], sample_rate=1.0)
 def summarize_joke_with_gemini(joke: str) -> str | None:
     """Send the joke to Gemini and get a summary or explanation."""
     if genai is None:
         raise RuntimeError("google-genai is not installed")
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", "fake-key"))
     response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=joke)
+    # attach_evaluators_to_current_span(["creativity", "relevance"], sample_rate=0.5)
     logging.debug(f"Gemini response: {getattr(response, 'text', response)}")
     return response.text
 
@@ -148,8 +149,6 @@ def main():
                 "status": "error",
                 "error": str(exc),
             })
-
-        span.add_event("workflow_completed")
 
     # Shutdown and flush telemetry
     logging.info("Shutting down and flushing telemetry...")

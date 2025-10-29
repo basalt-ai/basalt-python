@@ -22,6 +22,7 @@ from basalt.config import config as basalt_sdk_config
 
 from . import semconv
 from .config import TelemetryConfig
+from .token_usage import TokenUsageSpanProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,7 @@ def create_tracer_provider(
             stacklevel=3,
         )
 
+    provider.add_span_processor(TokenUsageSpanProcessor())
     processor_cls = SimpleSpanProcessor if isinstance(exporter, ConsoleSpanExporter) else BatchSpanProcessor
     provider.add_span_processor(processor_cls(exporter))
 

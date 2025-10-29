@@ -48,6 +48,29 @@ def _resolve_attributes(
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
 ) -> dict[str, Any] | None:
+    """
+    Resolve attributes into a dictionary based on their type.
+
+    This function handles different types of attribute specifications:
+    - If attributes is None, returns None.
+    - If attributes is callable, attempts to call it with the provided args and kwargs,
+        returning the result as a dict or None if an exception occurs.
+    - Otherwise, assumes attributes is already a dict and returns it directly.
+
+    Parameters
+    ----------
+    attributes : AttributeSpec
+            The attribute specification, which can be None, a callable, or a dict.
+    args : tuple[Any, ...]
+            Positional arguments to pass to the callable if attributes is callable.
+    kwargs : dict[str, Any]
+            Keyword arguments to pass to the callable if attributes is callable.
+
+    Returns
+    -------
+    dict[str, Any] | None
+            A dictionary of resolved attributes, or None if resolution fails or is not applicable.
+    """
     if attributes is None:
         return None
     if callable(attributes):
@@ -59,6 +82,10 @@ def _resolve_attributes(
 
 
 def _bind_args(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]):
+    """
+    Bind the provided args and kwargs to the function's signature.
+    Returns the BoundArguments object or None if binding fails.
+    """
     try:
         signature = inspect.signature(func)
         return signature.bind_partial(*args, **kwargs)
@@ -71,6 +98,10 @@ def _resolve_bound_arguments(
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
 ) -> inspect.BoundArguments | None:
+    """
+    Bind the provided args and kwargs to the function's signature.
+    Returns the BoundArguments object or None if binding fails.
+    """
     try:
         signature = inspect.signature(func)
         return signature.bind_partial(*args, **kwargs)
@@ -82,6 +113,9 @@ def _resolve_payload_from_bound(
     resolver: Any,
     bound: inspect.BoundArguments | None,
 ) -> Any:
+    """
+    Resolve input payload from the bound arguments using the provided resolver.
+    """
     if resolver is None:
         if not bound:
             return None
@@ -107,6 +141,9 @@ def _resolve_variables_payload(
     resolver: Any,
     bound: inspect.BoundArguments | None,
 ) -> Mapping[str, Any] | None:
+    """
+    Resolve variables payload from the bound arguments using the provided resolver.
+    """
     if resolver is None:
         return None
     if callable(resolver):
@@ -134,6 +171,9 @@ def _resolve_evaluators_payload(
     bound: inspect.BoundArguments | None,
     result: Any | None = None,
 ) -> list[Any] | None:
+    """
+    Resolve evaluator specifications from the bound arguments using the provided resolver.
+    """
     if resolver is None:
         return None
     if callable(resolver):
@@ -673,11 +713,9 @@ def trace_event(
 
 
 def evaluator(
-    slug: str,
+    slugs: str | Sequence[str],
     *,
     sample_rate: float = 1.0,
-    to_evaluate: list[str] | None = None,
-    metadata: dict[str, Any] | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator to automatically attach an evaluator to LLM spans.
@@ -699,50 +737,52 @@ def evaluator(
             return openai.chat.completions.create(...)  # Auto-instrumented
 
     Args:
-        slug: Unique identifier for the evaluator.
+        slugs: One or more evaluator slugs to attach.
         sample_rate: Probability (0.0-1.0) that this evaluator will be attached to spans.
                     Default is 1.0 (100% of traces). Use lower values to reduce evaluation costs.
-        to_evaluate: List of attribute names to focus evaluation on.
-                    If None (default), the evaluator will use gen_ai.output.messages
-                    (the standard OpenTelemetry GenAI output attribute) and fall back
-                    to the completion content if not available. Specify attribute names
-                    to focus on specific parts of your trace (e.g., ["completion"],
-                    ["workflow.final_answer"], ["prompt", "completion"]).
-        metadata: Optional metadata associated with this evaluator.
 
     Example - Basic usage:
-        >>> @evaluator("joke-quality", to_evaluate=["completion"])
+        >>> @evaluator(["joke-quality"], to_evaluate=["completion"])
         ... @trace_generation(name="gemini.summarize_joke")
         ... def summarize_joke_with_gemini(joke: str) -> str:
         ...     # LLM call logic here
         ...     return response
 
     Example - With sample rate (50% of traces):
-        >>> @evaluator("hallucination-check", sample_rate=0.5)
+        >>> @evaluator(["hallucination-check"], sample_rate=0.5)
         ... @trace_generation(name="my.llm.call")
         ... def call_llm(prompt: str) -> str:
         ...     # LLM call logic here
         ...     return response
 
     Example - Focus on specific workflow attributes:
-        >>> @evaluator("answer-quality", to_evaluate=["workflow.final_answer"])
+        >>> @evaluator(["answer-quality"])
         ... @trace_generation(name="workflow.generate_answer")
         ... def generate_answer(context: str, question: str) -> dict:
         ...     # The evaluator will focus on the workflow.final_answer attribute
         ...     return {"workflow.final_answer": answer}
     """
 
+    if isinstance(slugs, str):
+        slug_list = [slugs]
+    elif isinstance(slugs, Sequence):
+        slug_list = [str(slug).strip() for slug in slugs if str(slug).strip()]
+    else:
+        raise TypeError("Evaluator slugs must be provided as a string or sequence of strings.")
+
+    if not slug_list:
+        raise ValueError("At least one evaluator slug must be provided.")
+
     def decorator(func: F) -> F:
         # Register the evaluator on decorator creation
         from .evaluators import get_evaluator_manager
 
         manager = get_evaluator_manager()
-        manager.register_evaluator(
-            slug=slug,
-            sample_rate=sample_rate,
-            metadata=metadata,
-            to_evaluate=to_evaluate,
-        )
+        for slug in slug_list:
+            manager.register_evaluator(
+                slug=slug,
+                sample_rate=sample_rate,
+            )
 
         is_async = inspect.iscoroutinefunction(func)
 
@@ -754,7 +794,7 @@ def evaluator(
                 otel_span = trace.get_current_span()
                 if otel_span and otel_span.get_span_context().is_valid:
                     span_handle = SpanHandle(otel_span)
-                    manager.attach_to_span(span_handle, slug)
+                    manager.attach_to_span(span_handle, *slug_list)
                 return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
@@ -765,7 +805,7 @@ def evaluator(
             otel_span = trace.get_current_span()
             if otel_span and otel_span.get_span_context().is_valid:
                 span_handle = SpanHandle(otel_span)
-                manager.attach_to_span(span_handle, slug)
+                manager.attach_to_span(span_handle, *slug_list)
             return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]
