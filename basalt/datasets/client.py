@@ -36,7 +36,7 @@ class DatasetsClient(BaseServiceClient):
             base_url: Optional base URL for the API (defaults to config value).
         """
         self._api_key = api_key
-        self._base_url = base_url or config["api_url"]
+        self._base_url = base_url or config.get("api_url")
         super().__init__(client_name="datasets", http_client=http_client)
 
     async def list(self) -> list[Dataset]:
