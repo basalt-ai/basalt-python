@@ -36,7 +36,7 @@ class ExperimentsClient(BaseServiceClient):
             http_client: Optional HTTP client instance for making requests.
         """
         self._api_key = api_key
-        self._base_url = base_url or config["api_url"]
+        self._base_url = base_url or config.get("api_url")
         super().__init__(client_name="experiments", http_client=http_client)
 
     async def create(
