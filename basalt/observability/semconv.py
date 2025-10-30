@@ -312,6 +312,22 @@ class BasaltSpan:
     Examples: ["answer-correctness", "safety"]
     """
 
+    EVALUATORS_CONFIG: Final[str] = "basalt.span.evaluators.config"
+    """
+    Optional, span-scoped configuration applied to evaluators as a whole.
+    Type: JSON object (string-serialized) or key/value attributes under this prefix
+    Examples: '{"sample_rate": 0.25, "mode": "async"}'
+    """
+
+    # Optional prefix for span-scoped evaluator metadata (not per evaluator)
+    # Example usage: set attributes like "basalt.span.evaluator.sample_rate" = 0.5
+    EVALUATOR_PREFIX: Final[str] = "basalt.span.evaluator"
+    """
+    Prefix for evaluator-related, span-scoped attributes.
+    Type: various (string, number, boolean)
+    Examples: "basalt.span.evaluator.sample_rate" = 0.5
+    """
+
 class BasaltAPI:
     """Basalt API client operation attributes."""
 
