@@ -15,7 +15,6 @@ from opentelemetry import trace
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
 
 from . import semconv
-from .token_usage import apply_generation_usage, register_generation_span
 from .trace_context import TraceContextConfig, apply_trace_defaults, current_trace_defaults
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
@@ -524,19 +523,10 @@ def _with_span_handle(
     if parent_span and not parent_span.get_span_context().is_valid:
         parent_span = None
 
-    generation_key = None
     with tracer.start_as_current_span(name) as span:
         _attach_attributes(span, attributes)
         if span_type:
             span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
-        if span_type == "generation":
-            # Cast to SDK Span for type compatibility
-            from opentelemetry.sdk.trace import Span as SDKSpan
-
-            if isinstance(span, SDKSpan):
-                generation_key = register_generation_span(span)
-            else:
-                generation_key = register_generation_span(span)  # type: ignore[arg-type]
         apply_trace_defaults(span, defaults)
         handle = handle_cls(span, defaults, parent_span)
         if input_payload is not None:
@@ -546,13 +536,6 @@ def _with_span_handle(
         if evaluators:
             handle.add_evaluators(*evaluators)
         yield handle  # type: ignore[misc]
-        if generation_key is not None:
-            from opentelemetry.sdk.trace import Span as SDKSpan
-
-            if isinstance(span, SDKSpan):
-                apply_generation_usage(span, generation_key)
-            else:
-                apply_generation_usage(span)  # type: ignore[arg-type]
         if output_payload is not None:
             handle.set_output(output_payload)
         elif ensure_output and trace_content_enabled():
