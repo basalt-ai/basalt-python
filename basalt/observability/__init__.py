@@ -52,13 +52,9 @@ from .decorators import (
     trace_tool as trace_tool_decorator,
 )
 from .evaluators import (
-    EvaluatorConfig,
     attach_evaluator,
     attach_evaluators_to_current_span,
     attach_evaluators_to_span,
-    get_evaluator_manager,
-    register_evaluator,
-    unregister_evaluator,
 )
 from .instrumentation import InstrumentationManager
 from .trace_context import (
@@ -122,13 +118,9 @@ __all__ = [
     "add_span_evaluator",
     "flush",
     # Evaluator functions
-    "EvaluatorConfig",
-    "register_evaluator",
-    "unregister_evaluator",
     "attach_evaluator",
     "attach_evaluators_to_span",
     "attach_evaluators_to_current_span",
-    "get_evaluator_manager",
 ]
 
 _instrumentation = InstrumentationManager()
@@ -373,11 +365,24 @@ def add_trace_metadata(metadata: dict[str, Any]) -> None:
 
 
 def attach_trace_experiment(
+
     experiment_id: str,
     *,
     name: str | None = None,
     feature_slug: str | None = None,
 ) -> None:
+    """
+    Attaches experiment metadata to the current trace span.
+    Parameters:
+        experiment_id (str): The unique identifier of the experiment.
+        name (str | None, optional): The name of the experiment. If provided, it is added as a span attribute.
+        feature_slug (str | None, optional): The feature slug associated with the experiment.
+             If provided, it is added as a span attribute.
+    Returns:
+        None
+    Notes:
+        If there is no current span, the function returns without attaching any attributes.
+    """
     span = current_span()
     if not span:
         return
@@ -389,6 +394,7 @@ def attach_trace_experiment(
 
 
 def add_span_evaluator(evaluator: Any) -> None:
+    """Attach an evaluator to the current span."""
     if not evaluator:
         return
     update_current_span(evaluators=[evaluator])

@@ -774,38 +774,29 @@ def evaluator(
         raise ValueError("At least one evaluator slug must be provided.")
 
     def decorator(func: F) -> F:
-        # Register the evaluator on decorator creation
-        from .evaluators import get_evaluator_manager
-
-        manager = get_evaluator_manager()
-        for slug in slug_list:
-            manager.register_evaluator(
-                slug=slug,
-                sample_rate=sample_rate,
-            )
-
+        # In the simplified model, we don't register or sample; we just attach slugs.
         is_async = inspect.iscoroutinefunction(func)
 
         if is_async:
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
-                # Attach evaluator to current span
+                # Attach evaluator slugs to current span if any
                 otel_span = trace.get_current_span()
                 if otel_span and otel_span.get_span_context().is_valid:
                     span_handle = SpanHandle(otel_span)
-                    manager.attach_to_span(span_handle, *slug_list)
+                    span_handle.add_evaluators(*slug_list)
                 return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
-            # Attach evaluator to current span
+            # Attach evaluator slugs to current span if any
             otel_span = trace.get_current_span()
             if otel_span and otel_span.get_span_context().is_valid:
                 span_handle = SpanHandle(otel_span)
-                manager.attach_to_span(span_handle, *slug_list)
+                span_handle.add_evaluators(*slug_list)
             return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]
