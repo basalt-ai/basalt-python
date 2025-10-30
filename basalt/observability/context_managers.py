@@ -9,7 +9,7 @@ import warnings
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from opentelemetry import trace
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
@@ -17,9 +17,6 @@ from opentelemetry.trace import Span, Status, StatusCode, Tracer
 from . import semconv
 from .token_usage import apply_generation_usage, register_generation_span
 from .trace_context import TraceContextConfig, apply_trace_defaults, current_trace_defaults
-
-if TYPE_CHECKING:
-    from .evaluators import EvaluatorManager
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
 logger = logging.getLogger(__name__)
@@ -30,15 +27,11 @@ class EvaluatorAttachment:
     """Normalized evaluator payload applied to spans."""
 
     slug: str
-    sample_rate: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.slug, str) or not self.slug.strip():
             raise ValueError("Evaluator slug must be a non-empty string.")
         self.slug = self.slug.strip()
-        if self.sample_rate is not None:
-            if not 0.0 <= self.sample_rate <= 1.0:
-                raise ValueError("Sample rate must be between 0.0 and 1.0.")
 
 
 def _normalize_evaluator_entry(entry: Any) -> EvaluatorAttachment:
@@ -52,16 +45,7 @@ def _normalize_evaluator_entry(entry: Any) -> EvaluatorAttachment:
         slug = payload.pop("slug", None)
         if slug is None:
             raise ValueError("Evaluator mapping must include a 'slug' key.")
-        raw_sample_rate = payload.pop("sample_rate", None)
-        if payload:
-            raise ValueError(
-                "Unexpected keys in evaluator mapping: {}".format(", ".join(payload.keys()))
-            )
-        sample_rate = float(raw_sample_rate) if raw_sample_rate is not None else None
-        return EvaluatorAttachment(
-            slug=str(slug),
-            sample_rate=sample_rate,
-        )
+        return EvaluatorAttachment(slug=str(slug))
     raise TypeError(f"Unsupported evaluator specification: {entry!r}")
 
 
@@ -125,27 +109,17 @@ class SpanHandle:
         self,
         span: Span,
         defaults: TraceContextConfig | None = None,
-        evaluator_manager: EvaluatorManager | None = None,
         parent_span: Span | None = None,
     ):
         self._span = span
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
         self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
         self._evaluators: dict[str, EvaluatorAttachment] = {}
-        self._evaluator_manager = evaluator_manager
         if defaults and defaults.evaluators:
             normalized = _normalize_evaluators(defaults.evaluators)
-            self._apply_evaluators_with_sampling(normalized)
+            for attachment in normalized:
+                self._append_evaluator(attachment)
 
-    def _apply_evaluators_with_sampling(self, evaluators: Sequence[EvaluatorAttachment]) -> None:
-        """Apply evaluators from defaults, respecting sample rates if manager is available."""
-        if not evaluators:
-            return
-        if self._evaluator_manager:
-            self._evaluator_manager.attach_to_span(self, *evaluators)
-            return
-        for attachment in evaluators:
-            self._append_evaluator(attachment)
 
     def set_attribute(self, key: str, value: Any) -> None:
         """
@@ -267,23 +241,27 @@ class SpanHandle:
     # ------------------------------------------------------------------
     # Evaluators
     # ------------------------------------------------------------------
+    def set_evaluator_config(self, config: Mapping[str, Any]) -> None:
+        """Attach span-scoped evaluator configuration.
+
+        The configuration applies to all evaluators attached to this span.
+        It is stored under the semantic key BasaltSpan.EVALUATORS_CONFIG as JSON.
+        """
+        if not isinstance(config, Mapping):
+            raise TypeError("Evaluator config must be a mapping.")
+        _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATORS_CONFIG, dict(config))
+
     def add_evaluator(
         self,
         evaluator_slug: str,
-        *,
-        sample_rate: float | None = None,
     ) -> None:
         """
         Attach an evaluator slug to the span.
 
         Args:
             evaluator_slug: The evaluator slug to attach.
-            sample_rate: Optional sampling rate for this attachment.
         """
-        attachment = EvaluatorAttachment(
-            slug=evaluator_slug,
-            sample_rate=sample_rate,
-        )
+        attachment = EvaluatorAttachment(slug=evaluator_slug)
         self._append_evaluator(attachment)
 
     def add_evaluators(self, *evaluators: Any) -> None:
@@ -331,9 +309,6 @@ class SpanHandle:
         self._evaluators[attachment.slug] = attachment
         evaluator_list = list(self._evaluators.keys())
         self._span.set_attribute(semconv.BasaltSpan.EVALUATORS, evaluator_list)
-
-        rate_value = attachment.sample_rate if attachment.sample_rate is not None else 1.0
-        self._span.set_attribute(f"{semconv.BasaltSpan.EVALUATORS}.sample_rate", float(rate_value))
 
     @property
     def span(self) -> Span:
@@ -545,15 +520,6 @@ def _with_span_handle(
     tracer = get_tracer(tracer_name)
     defaults = current_trace_defaults()
 
-    # Get evaluator manager (lazy import to avoid circular dependency)
-    evaluator_manager = None
-    try:
-        from .evaluators import get_evaluator_manager
-
-        evaluator_manager = get_evaluator_manager()
-    except ImportError:
-        pass
-
     parent_span = trace.get_current_span()
     if parent_span and not parent_span.get_span_context().is_valid:
         parent_span = None
@@ -572,7 +538,7 @@ def _with_span_handle(
             else:
                 generation_key = register_generation_span(span)  # type: ignore[arg-type]
         apply_trace_defaults(span, defaults)
-        handle = handle_cls(span, defaults, evaluator_manager, parent_span)
+        handle = handle_cls(span, defaults, parent_span)
         if input_payload is not None:
             handle.set_input(input_payload)
         if variables:
