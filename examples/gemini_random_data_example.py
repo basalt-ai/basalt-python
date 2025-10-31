@@ -3,21 +3,23 @@ Example: Gather random data from a public API, query Gemini (Google AI Studio), 
 a prompt from Basalt's API with full OpenTelemetry instrumentation.
 
 This example demonstrates:
-- External HTTP calls with httpx (automatically instrumented)
+- External HTTP calls with httpx (optionally instrumented)
 - Basalt Prompt API integration (internal calls are instrumented)
 - Gemini LLM calls with automatic instrumentation
 - Custom OTLP exporter configuration
 
 Requirements:
-- `httpx` for HTTP calls (instrumented automatically)
+- `httpx` for HTTP calls (optional HTTP client instrumentation)
 - `google-genai` for Gemini (NEW SDK - `from google import genai`)
 - `opentelemetry-instrumentation-google-genai` for automatic Gemini instrumentation
-- `opentelemetry-instrumentation-httpx` for automatic HTTP instrumentation
+- `opentelemetry-instrumentation-httpx` (optional) for HTTPX client instrumentation
 - Basalt SDK installed
 
 Install with:
     pip install httpx google-genai opentelemetry-instrumentation-google-genai \
-                opentelemetry-instrumentation-httpx basalt-sdk
+                basalt-sdk
+    # Optional: add HTTPX instrumentation
+    pip install opentelemetry-instrumentation-httpx
 
 Note: This example uses the NEW Google GenAI SDK (google-genai).
       For the legacy SDK (google-generativeai), use opentelemetry-instrumentation-google-generativeai instead.
@@ -42,7 +44,6 @@ def build_custom_exporter_client() -> Basalt:
         service_name="gemini-demo",
         exporter=exporter,
         enable_llm_instrumentation=True,  # Enable automatic Gemini instrumentation
-        instrument_http=True,  # Enable HTTP instrumentation (for Basalt internal calls)
         llm_trace_content=True,
         llm_enabled_providers=["google_generativeai"],  # Only instrument Gemini calls
     )
@@ -51,7 +52,7 @@ def build_custom_exporter_client() -> Basalt:
     client = Basalt(api_key=os.getenv("BASALT_API_KEY", "fake-key"), telemetry_config=telemetry,
                     trace_user={"id": "user-1234"})
 
-    # Instrument httpx for external HTTP calls
+    # Optionally instrument httpx for external HTTP calls used by YOUR app
     HTTPXClientInstrumentor().instrument()
 
     return client

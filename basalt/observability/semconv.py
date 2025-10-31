@@ -328,6 +328,7 @@ class BasaltSpan:
     Examples: "basalt.span.evaluator.sample_rate" = 0.5
     """
 
+
 class BasaltAPI:
     """Basalt API client operation attributes."""
 

@@ -71,9 +71,6 @@ class TelemetryConfig:
     service_name: str = "basalt-sdk"
     service_version: str | None = basalt_sdk_config.get("sdk_version", "unknown")
     environment: str | None = None
-    instrument_http: bool = True
-    """Works with Httpx only, instrument your HTTP stack manually if needed."""
-
     enable_llm_instrumentation: bool = False
     """Enable automatic instrumentation of LLM provider SDKs."""
 

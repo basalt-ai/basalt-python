@@ -183,7 +183,6 @@ def init(
     environment: str | None = None,
     exporter: Any | None = None,
     enable_openllmetry: bool = False,
-    instrument_http: bool = True,
 ) -> None:
     """Deprecated façade around InstrumentationManager.initialize."""
     warnings.warn(
@@ -197,7 +196,6 @@ def init(
         environment=environment,
         exporter=exporter,
         enable_llm_instrumentation=enable_openllmetry,
-        instrument_http=instrument_http,
     )
     _instrumentation.initialize(telemetry_config)
 

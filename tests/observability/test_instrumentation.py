@@ -11,30 +11,25 @@ from basalt.observability.instrumentation import InstrumentationManager
 
 
 class TestInstrumentationManager(unittest.TestCase):
-    @mock.patch.object(InstrumentationManager, "_instrument_http")
     @mock.patch("basalt.observability.instrumentation.setup_tracing")
-    def test_initialize_disabled_skips_tracing(self, mock_setup, mock_http):
+    def test_initialize_disabled_skips_tracing(self, mock_setup):
         manager = InstrumentationManager()
 
         manager.initialize(TelemetryConfig(enabled=False))
 
         mock_setup.assert_not_called()
-        mock_http.assert_not_called()
 
-    @mock.patch.object(InstrumentationManager, "_instrument_http")
     @mock.patch("basalt.observability.instrumentation.setup_tracing")
-    def test_initialize_enables_tracing(self, mock_setup, mock_http):
+    def test_initialize_enables_tracing(self, mock_setup):
         mock_setup.return_value = mock.Mock()
         manager = InstrumentationManager()
 
         manager.initialize(TelemetryConfig(service_name="svc"))
 
         mock_setup.assert_called_once()
-        mock_http.assert_called_once()
 
     @mock.patch.object(InstrumentationManager, "_uninstrument_llm")
-    @mock.patch.object(InstrumentationManager, "_uninstrument_http")
-    def test_shutdown_flushes_provider(self, mock_http, mock_llm):
+    def test_shutdown_flushes_provider(self, mock_llm):
         manager = InstrumentationManager()
         manager._initialized = True
         provider = mock.Mock()
@@ -42,7 +37,6 @@ class TestInstrumentationManager(unittest.TestCase):
 
         manager.shutdown()
 
-        mock_http.assert_called_once()
         mock_llm.assert_called_once()
         provider.force_flush.assert_called_once()
         provider.shutdown.assert_called_once()

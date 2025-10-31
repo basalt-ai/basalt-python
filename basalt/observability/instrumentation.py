@@ -146,7 +146,6 @@ class InstrumentationManager:
         self._initialized = False
         self._config: TelemetryConfig | None = None
         self._tracer_provider: TracerProvider | None = None
-        self._http_instrumented = False
         self._provider_instrumentors: dict[str, Any] = {}
 
     def initialize(self, config: TelemetryConfig | None = None) -> None:
@@ -170,9 +169,6 @@ class InstrumentationManager:
         )
         self._tracer_provider = setup_tracing(basalt_config, exporter=exporter)
 
-        if effective_config.instrument_http:
-            self._instrument_http()
-
         if effective_config.enable_llm_instrumentation:
             self._initialize_llm_instrumentation(effective_config)
 
@@ -183,7 +179,6 @@ class InstrumentationManager:
         if not self._initialized:
             return
 
-        self._uninstrument_http()
         self._uninstrument_llm()
 
         provider = self._tracer_provider or trace.get_tracer_provider()
@@ -224,17 +219,6 @@ class InstrumentationManager:
                 stacklevel=2,
             )
             return None
-
-    def _instrument_http(self) -> None:
-        if self._http_instrumented:
-            return
-
-        logger.debug(
-            "Skipping automatic HTTP instrumentation. "
-            "The SDK now relies on httpx clients and traces requests via client wrappers. "
-            "Instrument HTTP manually if your application requires transport-level spans."
-        )
-        self._http_instrumented = True
 
     def _instrument_llm_providers(self, config: TelemetryConfig) -> None:
         """
@@ -319,14 +303,14 @@ class InstrumentationManager:
         # Set environment variable to control trace content for OpenTelemetry instrumentors
         # This is used by OpenTelemetry instrumentation libraries
         os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.llm_trace_content else "false"
-        os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "true" if config.llm_trace_content else "false"
+        os.environ[
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
+        ] = "true" if config.llm_trace_content else "false"
 
 
         # Instrument providers directly without using Traceloop.init()
         self._instrument_llm_providers(config)
 
-    def _uninstrument_http(self) -> None:
-        self._http_instrumented = False
 
     def _uninstrument_llm(self) -> None:
         for provider_key, instrumentor in list(self._provider_instrumentors.items()):
