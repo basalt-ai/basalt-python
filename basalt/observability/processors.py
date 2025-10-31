@@ -11,7 +11,10 @@ from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 from . import semconv
 from .context_managers import (
+    EVALUATOR_CONFIG_CONTEXT_KEY,
     EVALUATOR_CONTEXT_KEY,
+    EVALUATOR_METADATA_CONTEXT_KEY,
+    EvaluatorConfig,
     normalize_evaluator_specs,
 )
 from .trace_context import (
@@ -98,7 +101,7 @@ class BasaltContextProcessor(SpanProcessor):
 
 
 class BasaltCallEvaluatorProcessor(SpanProcessor):
-    """Attach call-scoped evaluators discovered in the OTel context."""
+    """Attach call-scoped evaluators, config, and metadata discovered in the OTel context."""
 
     def __init__(self, context_key: str = EVALUATOR_CONTEXT_KEY) -> None:
         self._context_key = context_key
@@ -107,24 +110,51 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
         if not span.is_recording():
             return
 
+        # Attach evaluator slugs
         context_payload = otel_context.get_value(self._context_key, parent_context)
-        if not context_payload:
-            return
+        if context_payload:
+            raw: Iterable[Any]
+            if isinstance(context_payload, (list, tuple, set)):
+                raw = context_payload
+            else:
+                raw = [context_payload]
 
-        raw: Iterable[Any]
-        if isinstance(context_payload, (list, tuple, set)):
-            raw = context_payload
-        else:
-            raw = [context_payload]
+            try:
+                attachments = normalize_evaluator_specs(list(raw))
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Failed to normalize call evaluators: %s", exc)
+            else:
+                slugs = [attachment.slug for attachment in attachments if attachment.slug]
+                _merge_evaluators(span, slugs)
 
-        try:
-            attachments = normalize_evaluator_specs(list(raw))
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("Failed to normalize call evaluators: %s", exc)
-            return
+        # Attach evaluator config from context
+        context_config = otel_context.get_value(EVALUATOR_CONFIG_CONTEXT_KEY, parent_context)
+        if context_config and isinstance(context_config, EvaluatorConfig):
+            try:
+                import json
+                span.set_attribute(semconv.BasaltSpan.EVALUATORS_CONFIG, json.dumps(context_config.to_dict()))
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Failed to set evaluator config: %s", exc)
 
-        slugs = [attachment.slug for attachment in attachments if attachment.slug]
-        _merge_evaluators(span, slugs)
+        # Attach evaluator metadata from context
+        context_metadata = otel_context.get_value(EVALUATOR_METADATA_CONTEXT_KEY, parent_context)
+        if context_metadata and isinstance(context_metadata, dict):
+            try:
+                import json
+                for key, value in context_metadata.items():
+                    attr_key = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.{key}"
+                    # Serialize value if needed
+                    if value is None or isinstance(value, (str, bool, int, float)):
+                        serialized = value
+                    else:
+                        try:
+                            serialized = json.dumps(value)
+                        except Exception:
+                            serialized = str(value)
+                    if serialized is not None:
+                        span.set_attribute(attr_key, serialized)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Failed to set evaluator metadata: %s", exc)
 
     def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
         return

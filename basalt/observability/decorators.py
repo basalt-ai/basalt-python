@@ -202,6 +202,8 @@ def _wrap_with_span(
     variables_resolver: Any = None,
     evaluators: Any = None,
     post_evaluators: Any = None,
+    evaluator_config: Any = None,
+    evaluator_metadata: Any = None,
     output_resolver: Callable[[Any], Any] | None = None,
     apply_pre: Callable[[Any, Any], None] | None = None,
     apply_post: Callable[[Any, Any], None] | None = None,
@@ -228,6 +230,16 @@ def _wrap_with_span(
                 variables=variables_payload,
                 evaluators=pre_evaluators,
             ) as span:
+                # Set evaluator config and metadata if provided
+                if evaluator_config is not None:
+                    resolved_config = evaluator_config(bound) if callable(evaluator_config) else evaluator_config
+                    if resolved_config is not None:
+                        span.set_evaluator_config(resolved_config)
+                if evaluator_metadata is not None:
+                    resolved_metadata = evaluator_metadata(bound) if callable(evaluator_metadata) else evaluator_metadata
+                    if resolved_metadata is not None:
+                        span.set_evaluator_metadata(resolved_metadata)
+
                 if apply_pre:
                     apply_pre(span, bound)
                 try:
@@ -264,6 +276,16 @@ def _wrap_with_span(
             variables=variables_payload,
             evaluators=pre_evaluators,
         ) as span:
+            # Set evaluator config and metadata if provided
+            if evaluator_config is not None:
+                resolved_config = evaluator_config(bound) if callable(evaluator_config) else evaluator_config
+                if resolved_config is not None:
+                    span.set_evaluator_config(resolved_config)
+            if evaluator_metadata is not None:
+                resolved_metadata = evaluator_metadata(bound) if callable(evaluator_metadata) else evaluator_metadata
+                if resolved_metadata is not None:
+                    span.set_evaluator_metadata(resolved_metadata)
+
             if apply_pre:
                 apply_pre(span, bound)
             try:
@@ -295,6 +317,8 @@ def trace_span(
     variables: Any = None,
     evaluators: Any = None,
     post_evaluators: Any = None,
+    evaluator_config: Any = None,
+    evaluator_metadata: Any = None,
 ) -> Callable[[F], F]:
     """Decorator for general-purpose spans."""
 
@@ -309,6 +333,8 @@ def trace_span(
             variables_resolver=variables,
             evaluators=evaluators,
             post_evaluators=post_evaluators,
+            evaluator_config=evaluator_config,
+            evaluator_metadata=evaluator_metadata,
             output_resolver=output,
         )  # type: ignore[return-value]
 
@@ -488,8 +514,22 @@ def trace_generation(
     variables: Any = None,
     evaluators: Any = None,
     post_evaluators: Any = None,
+    evaluator_config: Any = None,
+    evaluator_metadata: Any = None,
 ) -> Callable[[F], F]:
-    """Decorator specialized for LLM generation spans."""
+    """Decorator specialized for LLM generation spans.
+
+    Args:
+        name: Optional span name. Defaults to module.function_name.
+        attributes: Static or callable attributes to add to the span.
+        input: Resolver for input payload (string, sequence, callable, or None).
+        output: Callable to transform the return value before recording.
+        variables: Resolver for span variables.
+        evaluators: Evaluator specifications to attach before execution.
+        post_evaluators: Evaluator specifications to attach after execution.
+        evaluator_config: Config for evaluators (EvaluatorConfig, dict, or callable).
+        evaluator_metadata: Metadata for evaluators (dict or callable returning dict).
+    """
 
     def decorator(func: F) -> F:
         span_name = name or f"{func.__module__}.{func.__qualname__}"
@@ -512,6 +552,8 @@ def trace_generation(
             variables_resolver=variables_resolver,
             evaluators=evaluators,
             post_evaluators=post_evaluators,
+            evaluator_config=evaluator_config,
+            evaluator_metadata=evaluator_metadata,
             output_resolver=output,
             apply_pre=apply_pre,
             apply_post=apply_post,
@@ -716,6 +758,7 @@ def evaluator(
     slugs: str | Sequence[str],
     *,
     sample_rate: float = 1.0,
+    metadata: Mapping[str, Any] | Callable[..., Mapping[str, Any]] | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator that propagates evaluator slugs through OpenTelemetry context.
@@ -730,6 +773,8 @@ def evaluator(
         slugs: One or more evaluator slugs to attach.
         sample_rate: Probability (0.0-1.0) that this evaluator will be attached to spans.
                     Default is 1.0 (100% of traces). Use lower values to reduce evaluation costs.
+        metadata: Optional metadata for evaluators. Can be a static dict or a callable that
+                 receives function arguments and returns a dict.
 
     Example - Basic usage:
         >>> @evaluator("joke-quality")
@@ -742,6 +787,19 @@ def evaluator(
         ... @trace_generation(name="my.llm.call")
         ... def call_llm(prompt: str) -> str:
         ...     return sdk.generate(prompt)
+
+    Example - With metadata callable:
+        >>> @evaluator(
+        ...     "prompt-vars-check",
+        ...     sample_rate=0.5,
+        ...     metadata=lambda user_query, context_vector_count=10, **kwargs: {
+        ...         "user_input": user_query,
+        ...         "model_context": context_vector_count
+        ...     }
+        ... )
+        ... @trace_generation(name="my.llm.call")
+        ... def call_llm(user_query: str, context_vector_count: int = 10) -> str:
+        ...     return sdk.generate(user_query)
     """
 
     if isinstance(slugs, str):
@@ -765,13 +823,36 @@ def evaluator(
                 return True
             return random.random() <= sample_rate
 
+        def _resolve_metadata(args, kwargs):
+            """Resolve metadata from callable or static value."""
+            if metadata is None:
+                return None
+            if callable(metadata):
+                try:
+                    resolved = metadata(*args, **kwargs)
+                    if resolved and isinstance(resolved, Mapping):
+                        return resolved
+                except Exception:
+                    pass  # Silently skip if metadata resolution fails
+                return None
+            elif isinstance(metadata, Mapping):
+                return metadata
+            return None
+
         if is_async:
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 if not _should_attach():
                     return await func(*args, **kwargs)
-                with with_evaluators(slug_list):
+
+                from .context_managers import EvaluatorConfig
+
+                # Resolve metadata before entering context
+                resolved_metadata = _resolve_metadata(args, kwargs)
+                config = EvaluatorConfig(sample_rate=sample_rate)
+
+                with with_evaluators(slug_list, config=config, metadata=resolved_metadata):
                     return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
@@ -780,7 +861,14 @@ def evaluator(
         def sync_wrapper(*args, **kwargs):
             if not _should_attach():
                 return func(*args, **kwargs)
-            with with_evaluators(slug_list):
+
+            from .context_managers import EvaluatorConfig
+
+            # Resolve metadata before entering context
+            resolved_metadata = _resolve_metadata(args, kwargs)
+            config = EvaluatorConfig(sample_rate=sample_rate)
+
+            with with_evaluators(slug_list, config=config, metadata=resolved_metadata):
                 return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]

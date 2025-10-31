@@ -34,7 +34,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 from basalt import Basalt, TelemetryConfig
 from basalt.observability.context_managers import trace_span
-from basalt.observability.decorators import evaluator, trace_generation, trace_retrieval
+from basalt.observability.decorators import evaluator, trace_retrieval
 
 
 # --- 1. Build Basalt client with custom OTLP exporter ---
@@ -96,14 +96,29 @@ try:
 except ImportError:
     genai = None
 
-@evaluator(["hallucinations", "clarity"], sample_rate=1.0)
+@evaluator(
+    slugs=["hallucinations", "clarity"],
+    sample_rate=1.0,
+    metadata=lambda joke, **kwargs: {
+        "joke_length": len(joke),
+    }
+)
 def summarize_joke_with_gemini(joke: str) -> str | None:
-    """Send the joke to Gemini and get a summary or explanation."""
+    """
+    Send the joke to Gemini and get a summary or explanation.
+
+    The @evaluator decorator will:
+    - Attach evaluator slugs to the auto-instrumented Gemini span
+    - Set config with sample_rate to the span
+    - Resolve and attach metadata (joke_length) to the span
+
+    All of this happens automatically via the BasaltCallEvaluatorProcessor
+    when the Gemini instrumentation creates its span!
+    """
     if genai is None:
         raise RuntimeError("google-genai is not installed")
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", "fake-key"))
     response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=joke)
-    # attach_evaluators_to_current_span(["creativity", "relevance"], sample_rate=0.5)
     logging.debug(f"Gemini response: {getattr(response, 'text', response)}")
     return response.text
 
@@ -124,7 +139,7 @@ def main():
         joke = get_random_joke()
         span.add_evaluator("joke-quality-check")
         span.set_evaluator_config({"sample_rate": 0.8})
-    
+
         span.set_input({"joke": joke})
 
         logging.info(f"Random joke: {joke}")

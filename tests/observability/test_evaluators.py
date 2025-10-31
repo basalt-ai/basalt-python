@@ -6,13 +6,16 @@ import json
 import unittest
 
 from basalt.observability import (
+    EvaluatorConfig,
     attach_evaluator,
     attach_evaluators_to_current_span,
     attach_evaluators_to_span,
     clear_trace_defaults,
     configure_trace_defaults,
+    evaluator,
     semconv,
     trace_generation,
+    trace_generation_decorator,
     trace_span,
     update_current_span,
 )
@@ -166,6 +169,178 @@ class EvaluatorTests(unittest.TestCase):
             # No per-evaluator attributes in simplified model
 
     # Evaluator registry metadata removed in simplified model
+
+    def test_evaluator_config_with_context_manager(self):
+        """Test setting evaluator config on a span."""
+        with trace_span("test.span") as span:
+            config = EvaluatorConfig(sample_rate=0.5)
+            span.set_evaluator_config(config)
+            span.add_evaluator("test-eval")
+
+        span = self.exporter.get_finished_spans()[0]
+        config_attr = span.attributes.get(semconv.BasaltSpan.EVALUATORS_CONFIG)
+        self.assertIsNotNone(config_attr)
+        config_dict = json.loads(config_attr)
+        self.assertEqual(config_dict["sample_rate"], 0.5)
+        self.assertIn("test-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
+
+    def test_evaluator_config_from_dict(self):
+        """Test setting evaluator config from a dictionary."""
+        with trace_span("test.span") as span:
+            span.set_evaluator_config({"sample_rate": 0.75})
+            span.add_evaluator("test-eval")
+
+        span = self.exporter.get_finished_spans()[0]
+        config_attr = span.attributes.get(semconv.BasaltSpan.EVALUATORS_CONFIG)
+        self.assertIsNotNone(config_attr)
+        config_dict = json.loads(config_attr)
+        self.assertEqual(config_dict["sample_rate"], 0.75)
+
+    def test_evaluator_metadata(self):
+        """Test setting evaluator metadata on a span."""
+        with trace_span("test.span") as span:
+            metadata = {
+                "user_input": "test query",
+                "context_count": 10,
+            }
+            span.set_evaluator_metadata(metadata)
+            span.add_evaluator("test-eval")
+
+        span = self.exporter.get_finished_spans()[0]
+        user_input_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.user_input"
+        context_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.context_count"
+
+        self.assertEqual(span.attributes[user_input_attr], "test query")
+        self.assertEqual(span.attributes[context_attr], 10)
+
+    def test_evaluator_with_inline_metadata(self):
+        """Test adding evaluator with inline metadata."""
+        with trace_span("test.span") as span:
+            span.add_evaluator(
+                "test-eval",
+                metadata={
+                    "source": "wikipedia",
+                    "confidence": 0.8,
+                },
+            )
+
+        span = self.exporter.get_finished_spans()[0]
+        source_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.source"
+        confidence_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.confidence"
+
+        self.assertIn("test-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
+        self.assertEqual(span.attributes[source_attr], "wikipedia")
+        self.assertEqual(span.attributes[confidence_attr], 0.8)
+
+    def test_decorator_with_evaluator_metadata(self):
+        """Test decorator with evaluator metadata callable."""
+
+        @trace_generation_decorator(
+            name="test.llm",
+            evaluators=["test-eval"],
+            evaluator_config=EvaluatorConfig(sample_rate=0.9),
+            evaluator_metadata=lambda bound: {
+                "user_query": bound.arguments.get("query"),
+                "vector_count": bound.arguments.get("count"),
+            },
+        )
+        def generate(query: str, count: int = 5):
+            return f"Response for {query} with {count} vectors"
+
+        result = generate(query="test", count=10)
+        self.assertEqual(result, "Response for test with 10 vectors")
+
+        span = self.exporter.get_finished_spans()[0]
+
+        # Verify config
+        config_attr = span.attributes.get(semconv.BasaltSpan.EVALUATORS_CONFIG)
+        self.assertIsNotNone(config_attr)
+        config_dict = json.loads(config_attr)
+        self.assertEqual(config_dict["sample_rate"], 0.9)
+
+        # Verify metadata from callable
+        query_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.user_query"
+        count_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.vector_count"
+        self.assertEqual(span.attributes[query_attr], "test")
+        self.assertEqual(span.attributes[count_attr], 10)
+
+    def test_evaluator_config_validation(self):
+        """Test that EvaluatorConfig validates sample_rate."""
+        # Valid sample rates
+        EvaluatorConfig(sample_rate=0.0)
+        EvaluatorConfig(sample_rate=0.5)
+        EvaluatorConfig(sample_rate=1.0)
+
+        # Invalid sample rates
+        with self.assertRaises(ValueError):
+            EvaluatorConfig(sample_rate=-0.1)
+
+        with self.assertRaises(ValueError):
+            EvaluatorConfig(sample_rate=1.1)
+
+    def test_evaluator_decorator_with_metadata(self):
+        """Test @evaluator decorator with sample_rate and metadata."""
+
+        @evaluator(
+            "test-eval",
+            sample_rate=1.0,  # Always attach
+            metadata=lambda query, count=5, **kwargs: {
+                "user_query": query,
+                "vector_count": count,
+            },
+        )
+        @trace_generation_decorator(name="test.llm")
+        def generate(query: str, count: int = 5):
+            return f"Response for {query}"
+
+        result = generate(query="test", count=10)
+        self.assertEqual(result, "Response for test")
+
+        span = self.exporter.get_finished_spans()[0]
+
+        # Verify evaluator attached
+        self.assertIn("test-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
+
+        # Verify config
+        config_attr = span.attributes.get(semconv.BasaltSpan.EVALUATORS_CONFIG)
+        self.assertIsNotNone(config_attr)
+        config_dict = json.loads(config_attr)
+        self.assertEqual(config_dict["sample_rate"], 1.0)
+
+        # Verify metadata
+        query_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.user_query"
+        count_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.vector_count"
+        self.assertEqual(span.attributes[query_attr], "test")
+        self.assertEqual(span.attributes[count_attr], 10)
+
+    def test_evaluator_decorator_with_static_metadata(self):
+        """Test @evaluator decorator with static metadata."""
+
+        @evaluator(
+            "test-eval",
+            sample_rate=1.0,
+            metadata={
+                "model": "gpt-4",
+                "deployment": "production",
+            },
+        )
+        @trace_generation_decorator(name="test.llm")
+        def call_llm(prompt: str):
+            return f"Response for {prompt}"
+
+        result = call_llm("test")
+        self.assertEqual(result, "Response for test")
+
+        span = self.exporter.get_finished_spans()[0]
+
+        # Verify evaluator attached
+        self.assertIn("test-eval", span.attributes[semconv.BasaltSpan.EVALUATORS])
+
+        # Verify static metadata
+        model_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.model"
+        deployment_attr = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.deployment"
+        self.assertEqual(span.attributes[model_attr], "gpt-4")
+        self.assertEqual(span.attributes[deployment_attr], "production")
 
 
 if __name__ == "__main__":

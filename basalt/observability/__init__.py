@@ -12,6 +12,7 @@ from opentelemetry.trace import Span
 
 from .config import TelemetryConfig
 from .context_managers import (
+    EvaluatorConfig,
     EventSpanHandle,
     FunctionSpanHandle,
     LLMSpanHandle,
@@ -96,6 +97,7 @@ __all__ = [
     "ToolSpanHandle",
     "FunctionSpanHandle",
     "EventSpanHandle",
+    "EvaluatorConfig",
     "TraceContextConfig",
     "TraceIdentity",
     "TraceExperiment",

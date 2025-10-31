@@ -8,7 +8,7 @@ import os
 import warnings
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Final
 
 from opentelemetry import context as otel_context
@@ -21,7 +21,32 @@ from .trace_context import TraceContextConfig, current_trace_defaults
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
 EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
+EVALUATOR_CONFIG_CONTEXT_KEY: Final[str] = "basalt.context.evaluator_config"
+EVALUATOR_METADATA_CONTEXT_KEY: Final[str] = "basalt.context.evaluator_metadata"
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True, frozen=True)
+class EvaluatorConfig:
+    """
+    Type-safe configuration for evaluators attached to a span.
+
+    This configuration is span-scoped and shared by all evaluators in the span.
+    It's not handled client-side but attached to the span for server-side processing.
+
+    Attributes:
+        sample_rate: Sampling rate for evaluators (0.0-1.0). Default is 1.0 (100%).
+    """
+
+    sample_rate: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.sample_rate <= 1.0:
+            raise ValueError("sample_rate must be within [0.0, 1.0].")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert config to a dictionary for serialization."""
+        return {"sample_rate": self.sample_rate}
 
 
 @dataclass(slots=True)
@@ -29,11 +54,14 @@ class EvaluatorAttachment:
     """Normalized evaluator payload applied to spans."""
 
     slug: str
+    metadata: Mapping[str, Any] | None = field(default=None)
 
     def __post_init__(self) -> None:
         if not isinstance(self.slug, str) or not self.slug.strip():
             raise ValueError("Evaluator slug must be a non-empty string.")
         self.slug = self.slug.strip()
+        if self.metadata is not None and not isinstance(self.metadata, Mapping):
+            raise TypeError("Evaluator metadata must be a mapping.")
 
 
 def _normalize_evaluator_entry(entry: Any) -> EvaluatorAttachment:
@@ -47,7 +75,8 @@ def _normalize_evaluator_entry(entry: Any) -> EvaluatorAttachment:
         slug = payload.pop("slug", None)
         if slug is None:
             raise ValueError("Evaluator mapping must include a 'slug' key.")
-        return EvaluatorAttachment(slug=str(slug))
+        metadata = payload.pop("metadata", None)
+        return EvaluatorAttachment(slug=str(slug), metadata=metadata)
     raise TypeError(f"Unsupported evaluator specification: {entry!r}")
 
 
@@ -71,28 +100,55 @@ def normalize_evaluator_specs(evaluators: Sequence[Any] | None) -> list[Evaluato
 
 
 @contextmanager
-def with_evaluators(evaluators: Sequence[Any] | None) -> Generator[None, None, None]:
-    """Propagate evaluator slugs through the OpenTelemetry context."""
+def with_evaluators(
+    evaluators: Sequence[Any] | None,
+    config: EvaluatorConfig | None = None,
+    metadata: Mapping[str, Any] | None = None,
+) -> Generator[None, None, None]:
+    """Propagate evaluator slugs, config, and metadata through the OpenTelemetry context.
+
+    Args:
+        evaluators: Evaluator specifications to propagate.
+        config: Optional evaluator config to attach to spans.
+        metadata: Optional evaluator metadata to attach to spans.
+    """
 
     attachments = normalize_evaluator_specs(evaluators)
-    if not attachments:
+    if not attachments and not config and not metadata:
         yield
         return
 
-    existing = otel_context.get_value(EVALUATOR_CONTEXT_KEY)
-    combined: list[str] = []
-    if isinstance(existing, (list, tuple)):
-        combined.extend(str(slug) for slug in existing if str(slug).strip())
+    # Propagate evaluator slugs
+    tokens = []
+    if attachments:
+        existing = otel_context.get_value(EVALUATOR_CONTEXT_KEY)
+        combined: list[str] = []
+        if isinstance(existing, (list, tuple)):
+            combined.extend(str(slug) for slug in existing if str(slug).strip())
 
-    for attachment in attachments:
-        if attachment.slug not in combined:
-            combined.append(attachment.slug)
+        for attachment in attachments:
+            if attachment.slug not in combined:
+                combined.append(attachment.slug)
 
-    token = attach(set_value(EVALUATOR_CONTEXT_KEY, tuple(combined)))
+        tokens.append(attach(set_value(EVALUATOR_CONTEXT_KEY, tuple(combined))))
+
+    # Propagate evaluator config
+    if config is not None:
+        tokens.append(attach(set_value(EVALUATOR_CONFIG_CONTEXT_KEY, config)))
+
+    # Propagate evaluator metadata
+    if metadata is not None:
+        # Merge with existing metadata
+        existing_metadata = otel_context.get_value(EVALUATOR_METADATA_CONTEXT_KEY)
+        merged_metadata = dict(existing_metadata) if isinstance(existing_metadata, Mapping) else {}
+        merged_metadata.update(metadata)
+        tokens.append(attach(set_value(EVALUATOR_METADATA_CONTEXT_KEY, merged_metadata)))
+
     try:
         yield
     finally:
-        detach(token)
+        for token in reversed(tokens):
+            detach(token)
 
 
 def _attach_attributes(span: Span, attributes: dict[str, Any] | None) -> None:
@@ -142,7 +198,20 @@ class SpanHandle:
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
         self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
         self._evaluators: dict[str, EvaluatorAttachment] = {}
+        self._evaluator_config: EvaluatorConfig | None = None
+        self._evaluator_metadata: dict[str, Any] = {}
         self._hydrate_existing_evaluators()
+
+        # Apply config from context if available
+        context_config = otel_context.get_value(EVALUATOR_CONFIG_CONTEXT_KEY)
+        if context_config and isinstance(context_config, EvaluatorConfig):
+            self.set_evaluator_config(context_config)
+
+        # Apply metadata from context if available
+        context_metadata = otel_context.get_value(EVALUATOR_METADATA_CONTEXT_KEY)
+        if context_metadata and isinstance(context_metadata, Mapping):
+            self.set_evaluator_metadata(context_metadata)
+
         if defaults and defaults.evaluators:
             for attachment in normalize_evaluator_specs(defaults.evaluators):
                 self._append_evaluator(attachment)
@@ -268,27 +337,54 @@ class SpanHandle:
     # ------------------------------------------------------------------
     # Evaluators
     # ------------------------------------------------------------------
-    def set_evaluator_config(self, config: Mapping[str, Any]) -> None:
+    def set_evaluator_config(self, config: EvaluatorConfig | Mapping[str, Any]) -> None:
         """Attach span-scoped evaluator configuration.
 
         The configuration applies to all evaluators attached to this span.
         It is stored under the semantic key BasaltSpan.EVALUATORS_CONFIG as JSON.
+
+        Args:
+            config: Either an EvaluatorConfig instance or a mapping with config values.
         """
-        if not isinstance(config, Mapping):
-            raise TypeError("Evaluator config must be a mapping.")
-        _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATORS_CONFIG, dict(config))
+        if isinstance(config, EvaluatorConfig):
+            self._evaluator_config = config
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATORS_CONFIG, config.to_dict())
+        elif isinstance(config, Mapping):
+            config_dict = dict(config)
+            self._evaluator_config = EvaluatorConfig(**config_dict)
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATORS_CONFIG, config_dict)
+        else:
+            raise TypeError("Evaluator config must be an EvaluatorConfig or a mapping.")
+
+    def set_evaluator_metadata(self, metadata: Mapping[str, Any]) -> None:
+        """Set span-scoped evaluator metadata.
+
+        The metadata applies to all evaluators attached to this span.
+        Metadata is stored as separate span attributes under the evaluator prefix.
+
+        Args:
+            metadata: A mapping of metadata key-value pairs.
+        """
+        if not isinstance(metadata, Mapping):
+            raise TypeError("Evaluator metadata must be a mapping.")
+        self._evaluator_metadata.update(metadata)
+        for key, value in metadata.items():
+            attr_key = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.{key}"
+            _set_serialized_attribute(self._span, attr_key, value)
 
     def add_evaluator(
         self,
         evaluator_slug: str,
+        metadata: Mapping[str, Any] | None = None,
     ) -> None:
         """
         Attach an evaluator slug to the span.
 
         Args:
             evaluator_slug: The evaluator slug to attach.
+            metadata: Optional metadata specific to this evaluator attachment.
         """
-        attachment = EvaluatorAttachment(slug=evaluator_slug)
+        attachment = EvaluatorAttachment(slug=evaluator_slug, metadata=metadata)
         self._append_evaluator(attachment)
 
     def add_evaluators(self, *evaluators: Any) -> None:
@@ -329,13 +425,20 @@ class SpanHandle:
             self._span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, feature_slug)
 
     def _append_evaluator(self, attachment: EvaluatorAttachment) -> None:
-        """Attach an evaluator to the span, avoiding duplicates."""
+        """Attach an evaluator to the span, avoiding duplicates.
+
+        If the attachment includes metadata, it will be merged into the span-level metadata.
+        """
         existing = self._evaluators.get(attachment.slug)
         if existing and existing == attachment:
             return
         self._evaluators[attachment.slug] = attachment
         evaluator_list = list(self._evaluators.keys())
         self._span.set_attribute(semconv.BasaltSpan.EVALUATORS, evaluator_list)
+
+        # Merge metadata from attachment into span-level metadata
+        if attachment.metadata:
+            self.set_evaluator_metadata(attachment.metadata)
 
     def _hydrate_existing_evaluators(self) -> None:
         """Populate evaluator cache from span attributes if present."""
