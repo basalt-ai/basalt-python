@@ -20,17 +20,16 @@ classifiers = [
 ]
 
 dependencies = [
-    "requests>=2.32",
-    "aiohttp>=3.8.0",
     "jinja2>=3.1.0",
-    "opentelemetry-instrumentation==0.59b0",
-    "opentelemetry-instrumentation-httpx==0.59b0",
-    "opentelemetry-semantic-conventions==0.59b0",
-    "opentelemetry-api==1.38.0",
-    "opentelemetry-sdk==1.38.0",
-    "opentelemetry-exporter-otlp==1.38.0",
-    "wrapt==1.17.3",
+    "opentelemetry-instrumentation~=0.59b0",
+    "opentelemetry-instrumentation-httpx~=0.59b0",
+    "opentelemetry-semantic-conventions~=0.59b0",
+    "opentelemetry-api~=1.38.0",
+    "opentelemetry-sdk~=1.38.0",
+    "opentelemetry-exporter-otlp~=1.38.0",
+    "wrapt~=1.17.3",
     "pytest-asyncio>=1.2.0",
+    "httpx>=0.28.1",
 ]
 
 # This section lists URLs, replacing the `url` parameter
@@ -48,11 +47,11 @@ dev = [
     "parameterized",
     "requests", # Often included for testing API clients
     # Modern tooling
-    "ruff",
-    "pytest",
-    "pytest-cov",
-    "coverage",
-    "google-genai>=1.46.0",
+    "ruff>=0.14.3",
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "coverage>=7.11.0",
+    "google-genai>=1.47.0",
 ]
 
 

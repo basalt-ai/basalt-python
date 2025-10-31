@@ -96,7 +96,6 @@ try:
 except ImportError:
     genai = None
 
-@trace_generation(name="gemini.summarize_joke")
 @evaluator(["hallucinations", "clarity"], sample_rate=1.0)
 def summarize_joke_with_gemini(joke: str) -> str | None:
     """Send the joke to Gemini and get a summary or explanation."""
@@ -123,6 +122,9 @@ def main():
 
         # 1. Fetch a random joke using httpx (external HTTP call - instrumented)
         joke = get_random_joke()
+        span.add_evaluator("joke-quality-check")
+        span.set_evaluator_config({"sample_rate": 0.8})
+    
         span.set_input({"joke": joke})
 
         logging.info(f"Random joke: {joke}")

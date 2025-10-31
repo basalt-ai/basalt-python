@@ -1,0 +1,136 @@
+"""OpenTelemetry span processors for Basalt instrumentation."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Iterable, Sequence
+from typing import Any
+
+from opentelemetry import context as otel_context
+from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
+
+from . import semconv
+from .context_managers import (
+    EVALUATOR_CONTEXT_KEY,
+    normalize_evaluator_specs,
+)
+from .trace_context import (
+    TraceContextConfig,
+    TraceExperiment,
+    TraceIdentity,
+    current_trace_defaults,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _merge_evaluators(span: Span, slugs: Sequence[str]) -> None:
+    """Merge evaluator slugs onto the span, avoiding duplicates."""
+
+    if not slugs or not span.is_recording():
+        return
+
+    existing: list[str] = []
+    attributes = getattr(span, "attributes", None)
+    if isinstance(attributes, dict):
+        current = attributes.get(semconv.BasaltSpan.EVALUATORS)
+        if isinstance(current, (list, tuple)):
+            existing.extend(str(value) for value in current if str(value).strip())
+
+    merged: list[str] = []
+    for slug in [*existing, *slugs]:
+        if slug and slug not in merged:
+            merged.append(slug)
+
+    span.set_attribute(semconv.BasaltSpan.EVALUATORS, merged)
+
+
+def _set_default_metadata(span: Span, defaults: TraceContextConfig) -> None:
+    if not span.is_recording():
+        return
+
+    user = defaults.user if isinstance(defaults.user, TraceIdentity) else None
+    if user:
+        span.set_attribute(semconv.BasaltUser.ID, user.id)
+        if user.name:
+            span.set_attribute(semconv.BasaltUser.NAME, user.name)
+
+    org = defaults.organization if isinstance(defaults.organization, TraceIdentity) else None
+    if org:
+        span.set_attribute(semconv.BasaltOrganization.ID, org.id)
+        if org.name:
+            span.set_attribute(semconv.BasaltOrganization.NAME, org.name)
+
+    experiment = defaults.experiment if isinstance(defaults.experiment, TraceExperiment) else None
+    if experiment:
+        span.set_attribute(semconv.BasaltExperiment.ID, experiment.id)
+        if experiment.name:
+            span.set_attribute(semconv.BasaltExperiment.NAME, experiment.name)
+        if experiment.feature_slug:
+            span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, experiment.feature_slug)
+
+    for key, value in (defaults.metadata or {}).items():
+        span.set_attribute(f"{semconv.BASALT_META_PREFIX}{key}", value)
+
+    if defaults.evaluators:
+        attachments = normalize_evaluator_specs(defaults.evaluators)
+        slugs = [attachment.slug for attachment in attachments if attachment.slug]
+        _merge_evaluators(span, slugs)
+
+
+class BasaltContextProcessor(SpanProcessor):
+    """Apply Basalt trace defaults to every started span."""
+
+    def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
+        if not span.is_recording():
+            return
+        defaults = current_trace_defaults()
+        _set_default_metadata(span, defaults)
+
+    def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
+        return
+
+    def shutdown(self) -> None:  # type: ignore[override]
+        return
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[override]
+        return True
+
+
+class BasaltCallEvaluatorProcessor(SpanProcessor):
+    """Attach call-scoped evaluators discovered in the OTel context."""
+
+    def __init__(self, context_key: str = EVALUATOR_CONTEXT_KEY) -> None:
+        self._context_key = context_key
+
+    def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
+        if not span.is_recording():
+            return
+
+        context_payload = otel_context.get_value(self._context_key, parent_context)
+        if not context_payload:
+            return
+
+        raw: Iterable[Any]
+        if isinstance(context_payload, (list, tuple, set)):
+            raw = context_payload
+        else:
+            raw = [context_payload]
+
+        try:
+            attachments = normalize_evaluator_specs(list(raw))
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("Failed to normalize call evaluators: %s", exc)
+            return
+
+        slugs = [attachment.slug for attachment in attachments if attachment.slug]
+        _merge_evaluators(span, slugs)
+
+    def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
+        return
+
+    def shutdown(self) -> None:  # type: ignore[override]
+        return
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[override]
+        return True

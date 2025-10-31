@@ -10,6 +10,7 @@ from typing import Any
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import SpanProcessor as OTelSpanProcessor
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
@@ -22,6 +23,7 @@ from basalt.config import config as basalt_sdk_config
 
 from . import semconv
 from .config import TelemetryConfig
+from .processors import BasaltCallEvaluatorProcessor, BasaltContextProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +149,7 @@ class InstrumentationManager:
         self._config: TelemetryConfig | None = None
         self._tracer_provider: TracerProvider | None = None
         self._provider_instrumentors: dict[str, Any] = {}
+        self._span_processors: list[OTelSpanProcessor] = []
 
     def initialize(self, config: TelemetryConfig | None = None) -> None:
         """Initialize tracing and instrumentation layers."""
@@ -168,6 +171,8 @@ class InstrumentationManager:
             extra_resource_attributes=effective_config.extra_resource_attributes,
         )
         self._tracer_provider = setup_tracing(basalt_config, exporter=exporter)
+        if self._tracer_provider:
+            self._install_basalt_processors(self._tracer_provider)
 
         if effective_config.enable_llm_instrumentation:
             self._initialize_llm_instrumentation(effective_config)
@@ -182,6 +187,12 @@ class InstrumentationManager:
         self._uninstrument_llm()
 
         provider = self._tracer_provider or trace.get_tracer_provider()
+        for processor in self._span_processors:
+            try:
+                processor.shutdown()
+            except Exception:
+                logger.debug("Error during processor shutdown", exc_info=True)
+        self._span_processors = []
         for attr in ("force_flush", "shutdown"):
             method = getattr(provider, attr, None)
             if callable(method):
@@ -310,6 +321,20 @@ class InstrumentationManager:
 
         # Instrument providers directly without using Traceloop.init()
         self._instrument_llm_providers(config)
+
+    def _install_basalt_processors(self, provider: TracerProvider) -> None:
+        if getattr(provider, "_basalt_processors_installed", False):
+            return
+
+        processors: list[OTelSpanProcessor] = [
+            BasaltContextProcessor(),
+            BasaltCallEvaluatorProcessor(),
+        ]
+        for processor in processors:
+            provider.add_span_processor(processor)
+
+        provider._basalt_processors_installed = True  # type: ignore[attr-defined]
+        self._span_processors = processors
 
 
     def _uninstrument_llm(self) -> None:

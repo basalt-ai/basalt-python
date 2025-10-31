@@ -5,17 +5,17 @@ from __future__ import annotations
 import functools
 import inspect
 import json
+import random
 import warnings
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any, TypeAlias, TypeVar
 
-from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 
 from .context_managers import (
     LLMSpanHandle,
-    SpanHandle,
     trace_content_enabled,
+    with_evaluators,
 )
 from .context_managers import (
     trace_event as trace_event_cm,
@@ -718,23 +718,13 @@ def evaluator(
     sample_rate: float = 1.0,
 ) -> Callable[[F], F]:
     """
-    Decorator to automatically attach an evaluator to LLM spans.
+    Decorator that propagates evaluator slugs through OpenTelemetry context.
 
-    This decorator registers the evaluator (if not already registered) and
-    attaches it to the current span when the decorated function is called.
-
-    **IMPORTANT**: This decorator requires manual span creation (e.g., @trace_generation,
-    @trace_span, or trace_generation context manager). It will NOT work with
-    automatic instrumentation (e.g., OpenTelemetry's automatic LLM instrumentation)
-    because the evaluator attachment happens in your application code, not in the
-    instrumented library.
-
-    To use evaluators with automatically instrumented LLM calls, you must wrap them
-    with manual tracing:
-        @evaluator("my-eval")
-        @trace_generation(name="my.llm")
-        def my_llm_call():
-            return openai.chat.completions.create(...)  # Auto-instrumented
+    The decorator uses :func:`with_evaluators` to push evaluator identifiers into
+    the active context. Any span created while the decorated function executes—
+    whether by automatic instrumentation or manual tracing—receives the slugs via
+    :class:`BasaltCallEvaluatorProcessor`. Manual spans also receive the slugs
+    immediately through :class:`~basalt.observability.context_managers.SpanHandle`.
 
     Args:
         slugs: One or more evaluator slugs to attach.
@@ -742,62 +732,56 @@ def evaluator(
                     Default is 1.0 (100% of traces). Use lower values to reduce evaluation costs.
 
     Example - Basic usage:
-        >>> @evaluator(["joke-quality"], to_evaluate=["completion"])
+        >>> @evaluator("joke-quality")
         ... @trace_generation(name="gemini.summarize_joke")
         ... def summarize_joke_with_gemini(joke: str) -> str:
-        ...     # LLM call logic here
-        ...     return response
+        ...     return call_llm(joke)
 
     Example - With sample rate (50% of traces):
         >>> @evaluator(["hallucination-check"], sample_rate=0.5)
         ... @trace_generation(name="my.llm.call")
         ... def call_llm(prompt: str) -> str:
-        ...     # LLM call logic here
-        ...     return response
-
-    Example - Focus on specific workflow attributes:
-        >>> @evaluator(["answer-quality"])
-        ... @trace_generation(name="workflow.generate_answer")
-        ... def generate_answer(context: str, question: str) -> dict:
-        ...     # The evaluator will focus on the workflow.final_answer attribute
-        ...     return {"workflow.final_answer": answer}
+        ...     return sdk.generate(prompt)
     """
 
     if isinstance(slugs, str):
-        slug_list = [slugs]
+        slug_list = [slugs.strip()]
     elif isinstance(slugs, Sequence):
         slug_list = [str(slug).strip() for slug in slugs if str(slug).strip()]
     else:
         raise TypeError("Evaluator slugs must be provided as a string or sequence of strings.")
 
+    slug_list = list(dict.fromkeys(slug_list))
     if not slug_list:
         raise ValueError("At least one evaluator slug must be provided.")
+    if not 0.0 <= sample_rate <= 1.0:
+        raise ValueError("sample_rate must be within [0.0, 1.0].")
 
     def decorator(func: F) -> F:
-        # In the simplified model, we don't register or sample; we just attach slugs.
         is_async = inspect.iscoroutinefunction(func)
+
+        def _should_attach() -> bool:
+            if sample_rate >= 1.0:
+                return True
+            return random.random() <= sample_rate
 
         if is_async:
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
-                # Attach evaluator slugs to current span if any
-                otel_span = trace.get_current_span()
-                if otel_span and otel_span.get_span_context().is_valid:
-                    span_handle = SpanHandle(otel_span)
-                    span_handle.add_evaluators(*slug_list)
-                return await func(*args, **kwargs)
+                if not _should_attach():
+                    return await func(*args, **kwargs)
+                with with_evaluators(slug_list):
+                    return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
 
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
-            # Attach evaluator slugs to current span if any
-            otel_span = trace.get_current_span()
-            if otel_span and otel_span.get_span_context().is_valid:
-                span_handle = SpanHandle(otel_span)
-                span_handle.add_evaluators(*slug_list)
-            return func(*args, **kwargs)
+            if not _should_attach():
+                return func(*args, **kwargs)
+            with with_evaluators(slug_list):
+                return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]
 

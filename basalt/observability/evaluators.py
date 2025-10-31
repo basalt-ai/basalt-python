@@ -20,7 +20,7 @@ from typing import Any
 
 from opentelemetry import trace
 
-from .context_managers import SpanHandle, normalize_evaluator_specs
+from .context_managers import SpanHandle, normalize_evaluator_specs, with_evaluators
 
 
 def _flatten_evaluator_specs(*evaluators: Any) -> list[str]:
@@ -65,19 +65,18 @@ def attach_evaluator(
         instrumentation, wrap your LLM call with manual tracing first.
         See module docstring for details.
     """
+    slugs = _flatten_evaluator_specs(*evaluators)
     target_span = span
     if target_span is None:
-        # Get current OpenTelemetry span and wrap it
         otel_span = trace.get_current_span()
         if otel_span and otel_span.get_span_context().is_valid:
-            # Wrap the span in a SpanHandle for evaluator attachment
             target_span = SpanHandle(otel_span)
 
-    if target_span:
-        for slug in _flatten_evaluator_specs(*evaluators):
-            target_span.add_evaluator(slug)
-
-    yield
+    with with_evaluators(slugs):
+        if target_span:
+            for slug in slugs:
+                target_span.add_evaluator(slug)
+        yield
 
 
 def attach_evaluators_to_span(span_handle: SpanHandle, *evaluators: Any) -> None:

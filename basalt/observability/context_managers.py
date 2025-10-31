@@ -9,15 +9,18 @@ import warnings
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
+from opentelemetry import context as otel_context
 from opentelemetry import trace
+from opentelemetry.context import attach, detach, set_value
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
 
 from . import semconv
-from .trace_context import TraceContextConfig, apply_trace_defaults, current_trace_defaults
+from .trace_context import TraceContextConfig, current_trace_defaults
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
+EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
 logger = logging.getLogger(__name__)
 
 
@@ -67,6 +70,31 @@ def normalize_evaluator_specs(evaluators: Sequence[Any] | None) -> list[Evaluato
     return _normalize_evaluators(evaluators)
 
 
+@contextmanager
+def with_evaluators(evaluators: Sequence[Any] | None) -> Generator[None, None, None]:
+    """Propagate evaluator slugs through the OpenTelemetry context."""
+
+    attachments = normalize_evaluator_specs(evaluators)
+    if not attachments:
+        yield
+        return
+
+    existing = otel_context.get_value(EVALUATOR_CONTEXT_KEY)
+    combined: list[str] = []
+    if isinstance(existing, (list, tuple)):
+        combined.extend(str(slug) for slug in existing if str(slug).strip())
+
+    for attachment in attachments:
+        if attachment.slug not in combined:
+            combined.append(attachment.slug)
+
+    token = attach(set_value(EVALUATOR_CONTEXT_KEY, tuple(combined)))
+    try:
+        yield
+    finally:
+        detach(token)
+
+
 def _attach_attributes(span: Span, attributes: dict[str, Any] | None) -> None:
     if not attributes:
         return
@@ -107,16 +135,16 @@ class SpanHandle:
     def __init__(
         self,
         span: Span,
-        defaults: TraceContextConfig | None = None,
         parent_span: Span | None = None,
+        defaults: TraceContextConfig | None = None,
     ):
         self._span = span
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
         self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
         self._evaluators: dict[str, EvaluatorAttachment] = {}
+        self._hydrate_existing_evaluators()
         if defaults and defaults.evaluators:
-            normalized = _normalize_evaluators(defaults.evaluators)
-            for attachment in normalized:
+            for attachment in normalize_evaluator_specs(defaults.evaluators):
                 self._append_evaluator(attachment)
 
 
@@ -308,6 +336,20 @@ class SpanHandle:
         self._evaluators[attachment.slug] = attachment
         evaluator_list = list(self._evaluators.keys())
         self._span.set_attribute(semconv.BasaltSpan.EVALUATORS, evaluator_list)
+
+    def _hydrate_existing_evaluators(self) -> None:
+        """Populate evaluator cache from span attributes if present."""
+
+        attributes = getattr(self._span, "attributes", None)
+        if not isinstance(attributes, dict):
+            return
+        current = attributes.get(semconv.BasaltSpan.EVALUATORS)
+        if not isinstance(current, (list, tuple)):
+            return
+        for slug in current:
+            if isinstance(slug, str) and slug.strip():
+                normalized = EvaluatorAttachment(slug=slug)
+                self._evaluators.setdefault(normalized.slug, normalized)
 
     @property
     def span(self) -> Span:
@@ -527,8 +569,7 @@ def _with_span_handle(
         _attach_attributes(span, attributes)
         if span_type:
             span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
-        apply_trace_defaults(span, defaults)
-        handle = handle_cls(span, defaults, parent_span)
+        handle = handle_cls(span, parent_span, defaults)
         if input_payload is not None:
             handle.set_input(input_payload)
         if variables:

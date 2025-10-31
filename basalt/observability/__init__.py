@@ -25,6 +25,7 @@ from .context_managers import (
     trace_retrieval,
     trace_span,
     trace_tool,
+    with_evaluators,
 )
 from .decorators import (
     evaluator,
@@ -57,6 +58,7 @@ from .evaluators import (
     attach_evaluators_to_span,
 )
 from .instrumentation import InstrumentationManager
+from .processors import BasaltCallEvaluatorProcessor, BasaltContextProcessor
 from .trace_context import (
     TraceContextConfig,
     TraceExperiment,
@@ -97,6 +99,9 @@ __all__ = [
     "TraceContextConfig",
     "TraceIdentity",
     "TraceExperiment",
+    "BasaltContextProcessor",
+    "BasaltCallEvaluatorProcessor",
+    "with_evaluators",
     "configure_trace_defaults",
     "clear_trace_defaults",
     "get_trace_defaults",
