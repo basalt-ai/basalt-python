@@ -31,7 +31,7 @@ async def trace_async_request(
         "method": span_data.method,
         "url": span_data.url,
     }
-    variables = dict(span_data.extra_attributes) if span_data.extra_attributes else None
+    variables = dict(span_data.variables) if span_data.variables else None
     with trace_span(
         span_data.span_name(),
         input_payload=input_payload,
@@ -80,7 +80,7 @@ def trace_sync_request(
         "method": span_data.method,
         "url": span_data.url,
     }
-    variables = dict(span_data.extra_attributes) if span_data.extra_attributes else None
+    variables = dict(span_data.variables) if span_data.variables else None
     with trace_span(
         span_data.span_name(),
         input_payload=input_payload,

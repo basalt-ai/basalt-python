@@ -36,6 +36,7 @@ class BaseServiceClient:
         method: str,
         url: str,
         span_attributes: Mapping[str, Any] | None = None,
+        span_variables: Mapping[str, Any] | None = None,
         cache_hit: bool | None = None,
         **request_kwargs: Any,
     ):
@@ -46,6 +47,7 @@ class BaseServiceClient:
             url=url,
             cache_hit=cache_hit,
             extra_attributes=self._filter_attributes(span_attributes),
+            variables=self._filter_attributes(span_variables),
         )
         call = functools.partial(
             self._http_client.fetch,
@@ -62,6 +64,7 @@ class BaseServiceClient:
         method: str,
         url: str,
         span_attributes: Mapping[str, Any] | None = None,
+        span_variables: Mapping[str, Any] | None = None,
         cache_hit: bool | None = None,
         **request_kwargs: Any,
     ):
@@ -72,6 +75,7 @@ class BaseServiceClient:
             url=url,
             cache_hit=cache_hit,
             extra_attributes=self._filter_attributes(span_attributes),
+            variables=self._filter_attributes(span_variables),
         )
         call = functools.partial(
             self._http_client.fetch_sync,

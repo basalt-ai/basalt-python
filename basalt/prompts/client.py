@@ -110,6 +110,7 @@ class PromptsClient(BaseServiceClient):
                     "basalt.prompt.version": version,
                     "basalt.prompt.tag": tag,
                 },
+                span_variables=variables,
             )
 
             if response is None or response.body is None:
@@ -192,6 +193,7 @@ class PromptsClient(BaseServiceClient):
                     "basalt.prompt.version": version,
                     "basalt.prompt.tag": tag,
                 },
+                span_variables=variables,
             )
 
             if response is None or response.body is None:

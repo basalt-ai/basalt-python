@@ -24,6 +24,7 @@ class BasaltRequestSpan:
         url: Fully-qualified request URL.
         cache_hit: Whether the request served from cache (if known).
         extra_attributes: Additional span attributes to attach at span creation.
+        variables: Request variables payload to record on the span (optional).
     """
 
     client: str
@@ -32,6 +33,7 @@ class BasaltRequestSpan:
     url: str
     cache_hit: bool | None = None
     extra_attributes: Mapping[str, Any] | None = None
+    variables: Mapping[str, Any] | None = None
 
     def span_name(self) -> str:
         return f"basalt.sdk.{self.client}.{self.operation}"

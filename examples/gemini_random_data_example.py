@@ -70,7 +70,7 @@ def get_random_joke() -> str:
         return f"{data['setup']} {data['punchline']}"
 
 # --- 3. Fetch a prompt from Basalt API (demonstrates internal instrumentation) ---
-def get_prompt_from_basalt(slug: str) -> str:
+def get_prompt_from_basalt(slug: str, joke_text: str, explanation_audience: str) -> str:
     """
     Fetch a prompt from Basalt's Prompt API.
 
@@ -78,7 +78,10 @@ def get_prompt_from_basalt(slug: str) -> str:
     internal HTTP call instrumentation.
     """
     try:
-        prompt = basalt_client.prompts.get_sync(slug)
+        prompt = basalt_client.prompts.get_sync(slug, variables={
+            "jokeText": joke_text,
+            "explanationAudience": explanation_audience
+        })
         logging.info(f"Fetched prompt: {prompt.slug} (version: {prompt.version})")
         return prompt.text
     except Exception as exc:
@@ -93,7 +96,7 @@ except ImportError:
     genai = None
 
 @trace_generation(name="gemini.summarize_joke")
-@evaluator(["joke-quality"], sample_rate=1.0)
+@evaluator(["hallucinations", "clarity"], sample_rate=1.0)
 def summarize_joke_with_gemini(joke: str) -> str | None:
     """Send the joke to Gemini and get a summary or explanation."""
     if genai is None:
@@ -125,15 +128,13 @@ def main():
         span.set_attribute("joke.length", len(joke))
 
         # 2. Fetch a prompt from Basalt API (internal SDK call - instrumented)
-        prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG", "test-prompt")
-        prompt_text = get_prompt_from_basalt(prompt_slug)
+        prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG", "joke-analyzer")
+        prompt_text = get_prompt_from_basalt(prompt_slug, joke, "a curious geek adult")
         logging.info(f"Basalt prompt preview: {prompt_text[:100]}...")
-        span.set_attribute("prompt.length", len(prompt_text))
 
         # 3. Query Gemini with the joke (LLM call - instrumented)
-        span.add_evaluator("joke-quality")  # Attach evaluator for LLM output quality
         try:
-            gemini_result = summarize_joke_with_gemini(joke)
+            gemini_result = summarize_joke_with_gemini(prompt_text)
             logging.info(f"Gemini summary: {gemini_result}")
             span.set_attribute("gemini.status", "success")
             span.set_attribute("gemini.response_length", len(gemini_result) if gemini_result else 0)
@@ -141,6 +142,7 @@ def main():
                 "summary": gemini_result,
                 "status": "success",
             })
+
         except Exception as exc:
             logging.error(f"Gemini error: {exc}")
             span.record_exception(exc)
