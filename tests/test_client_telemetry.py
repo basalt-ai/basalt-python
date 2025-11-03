@@ -19,6 +19,7 @@ class TestBasaltClientTelemetry(unittest.TestCase):
         self.assertTrue(mock_initialize.called)
         config_arg = mock_initialize.call_args[0][0]
         self.assertFalse(config_arg.enabled)
+        self.assertEqual(mock_initialize.call_args.kwargs["api_key"], "key")
 
         client.shutdown()
 
@@ -38,7 +39,7 @@ class TestBasaltClientTelemetry(unittest.TestCase):
 
         Basalt(api_key="key", telemetry_config=telemetry)
 
-        mock_initialize.assert_called_once_with(telemetry)
+        mock_initialize.assert_called_once_with(telemetry, api_key="key")
 
     @mock.patch("basalt.client.configure_trace_defaults")
     @mock.patch.object(InstrumentationManager, "initialize")

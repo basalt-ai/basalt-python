@@ -56,6 +56,50 @@ class TestInstrumentationManager(unittest.TestCase):
 
         mock_providers.assert_called_once_with(config)
 
+    @mock.patch.dict(
+        os.environ,
+        {"BASALT_OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"},
+        clear=False,
+    )
+    @mock.patch("basalt.observability.instrumentation.OTLPSpanExporter")
+    def test_build_exporter_from_env_adds_bearer_for_grpc(self, mock_grpc_exporter):
+        mock_grpc_exporter.return_value = mock.Mock()
+        manager = InstrumentationManager()
+        manager._resolve_api_key("test-key")
+
+        exporter = manager._build_exporter_from_env()
+
+        self.assertIs(exporter, mock_grpc_exporter.return_value)
+        mock_grpc_exporter.assert_called_once()
+        headers = mock_grpc_exporter.call_args.kwargs["headers"]
+        self.assertEqual(headers["Authorization"], "Bearer test-key")
+
+    @mock.patch.dict(
+        os.environ,
+        {
+            "BASALT_OTEL_EXPORTER_OTLP_ENDPOINT": "https://collector/v1/traces",
+            "BASALT_API_KEY": "env-key",
+        },
+        clear=False,
+    )
+    @mock.patch("basalt.observability.instrumentation.OTLPHTTPSpanExporter")
+    @mock.patch("basalt.observability.instrumentation.OTLPSpanExporter")
+    def test_build_exporter_from_env_adds_bearer_for_http(
+        self,
+        mock_grpc_exporter,
+        mock_http_exporter,
+    ):
+        mock_http_exporter.return_value = mock.Mock()
+        manager = InstrumentationManager()
+
+        exporter = manager._build_exporter_from_env()
+
+        self.assertIs(exporter, mock_http_exporter.return_value)
+        mock_http_exporter.assert_called_once()
+        mock_grpc_exporter.assert_not_called()
+        headers = mock_http_exporter.call_args.kwargs["headers"]
+        self.assertEqual(headers["Authorization"], "Bearer env-key")
+
     def test_should_instrument_provider_default(self):
         """Test that by default all providers are instrumented."""
         config = TelemetryConfig()

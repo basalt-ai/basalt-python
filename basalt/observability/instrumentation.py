@@ -7,8 +7,13 @@ import os
 import warnings
 from typing import Any
 
+from urllib.parse import urlparse
+
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter as OTLPHTTPSpanExporter,
+)
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor as OTelSpanProcessor
 from opentelemetry.sdk.trace import TracerProvider
@@ -146,13 +151,21 @@ class InstrumentationManager:
 
     def __init__(self) -> None:
         self._initialized = False
+        self._api_key: str | None = None
         self._config: TelemetryConfig | None = None
         self._tracer_provider: TracerProvider | None = None
         self._provider_instrumentors: dict[str, Any] = {}
         self._span_processors: list[OTelSpanProcessor] = []
 
-    def initialize(self, config: TelemetryConfig | None = None) -> None:
+    def initialize(
+        self,
+        config: TelemetryConfig | None = None,
+        *,
+        api_key: str | None = None,
+    ) -> None:
         """Initialize tracing and instrumentation layers."""
+        self._resolve_api_key(api_key)
+
         if self._initialized:
             return
 
@@ -218,8 +231,10 @@ class InstrumentationManager:
         if not endpoint:
             return None
 
+        headers = self._build_exporter_headers()
+
         try:
-            exporter = OTLPSpanExporter(endpoint=endpoint)
+            exporter = self._create_otlp_exporter(endpoint, headers=headers)
             logger.info("Basalt: Using OTLP exporter with endpoint: %s", endpoint)
             return exporter
         except Exception as exc:
@@ -230,6 +245,45 @@ class InstrumentationManager:
                 stacklevel=2,
             )
             return None
+
+    def _build_exporter_headers(self) -> dict[str, str] | None:
+        api_key = self._resolve_api_key()
+        if not api_key:
+            return None
+
+        return {"Authorization": f"Bearer {api_key}"}
+
+    def _create_otlp_exporter(
+        self,
+        endpoint: str,
+        *,
+        headers: dict[str, str] | None,
+    ) -> SpanExporter:
+        if self._should_use_http_exporter(endpoint):
+            return OTLPHTTPSpanExporter(endpoint=endpoint, headers=headers)
+
+        return OTLPSpanExporter(endpoint=endpoint, headers=headers)
+
+    @staticmethod
+    def _should_use_http_exporter(endpoint: str) -> bool:
+        parsed = urlparse(endpoint)
+        scheme = parsed.scheme.lower()
+        if scheme not in {"http", "https"}:
+            return False
+
+        if parsed.port == 4317 and parsed.path in {"", "/"}:
+            return False
+
+        return True
+
+    def _resolve_api_key(self, candidate: str | None = None) -> str | None:
+        if candidate:
+            self._api_key = candidate
+        elif self._api_key is None:
+            env_api_key = os.getenv("BASALT_API_KEY")
+            if env_api_key:
+                self._api_key = env_api_key
+        return self._api_key
 
     def _instrument_llm_providers(self, config: TelemetryConfig) -> None:
         """

@@ -83,7 +83,7 @@ class Basalt:
 
         self._telemetry_config = telemetry_config
         self._instrumentation = InstrumentationManager()
-        self._instrumentation.initialize(telemetry_config)
+        self._instrumentation.initialize(telemetry_config, api_key=api_key)
 
         context_payload: dict[str, Any] = {}
         if trace_context is not None:
