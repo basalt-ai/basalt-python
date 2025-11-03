@@ -75,15 +75,19 @@ def get_prompt_from_basalt(slug: str, joke_text: str, explanation_audience: str)
     internal HTTP call instrumentation.
     """
     try:
-        prompt = basalt_client.prompts.get_sync(slug, variables={
-            "jokeText": joke_text,
-            "explanationAudience": explanation_audience
-        })
+
+        prompt = basalt_client.prompts.get_sync(
+            slug,
+            variables={
+                "jokeText": joke_text,
+                "explanationAudience": explanation_audience,
+            },
+        )
         logging.info(f"Fetched prompt: {prompt.slug} (version: {prompt.version})")
         return prompt.text
     except Exception as exc:
         logging.warning(f"Failed to fetch prompt '{slug}': {exc}")
-        return "Could not fetch prompt from Basalt API"
+        raise
 
 
 # --- 4. Query Gemini (Google AI Studio) with the random data ---
