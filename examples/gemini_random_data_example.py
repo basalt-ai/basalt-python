@@ -27,12 +27,10 @@ Note: This example uses the NEW Google GenAI SDK (google-genai).
 
 import logging
 import os
-from os import name
 
 import httpx
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 from basalt import Basalt, TelemetryConfig
 from basalt.observability.context_managers import trace_span
@@ -41,7 +39,24 @@ from basalt.observability.decorators import evaluator, trace_retrieval
 
 # --- 1. Build Basalt client with custom OTLP exporter ---
 def build_custom_exporter_client() -> Basalt:
-    exporter = OTLPSpanExporter(endpoint="http://127.0.0.1:4317", insecure=True, timeout=10)
+    """
+    Build a Basalt client with a custom OTLP exporter.
+
+    IMPORTANT: When providing a custom exporter, you must manually add authentication
+    headers if your collector requires authentication. The SDK only adds headers
+    automatically when building the default exporter from environment variables.
+    """
+    # Get API key for authentication
+    api_key = os.getenv("BASALT_API_KEY", "fake-key")
+
+    # Create a custom exporter with authentication headers
+    # For local development without authentication, you can omit the headers parameter
+    exporter = OTLPSpanExporter(
+        endpoint="http://127.0.0.1:4317",
+        headers={"authorization": f"Bearer {api_key}"},  # Add auth headers manually
+        insecure=True,
+        timeout=10
+    )
 
     telemetry = TelemetryConfig(
         service_name="gemini-demo",
@@ -52,8 +67,7 @@ def build_custom_exporter_client() -> Basalt:
     )
 
     # Initialize Basalt client first (this sets up the TracerProvider)
-    client = Basalt(api_key=os.getenv("BASALT_API_KEY", "fake-key"), telemetry_config=telemetry,
-                    trace_user={"id": "user-1234"})
+    client = Basalt(api_key=api_key, telemetry_config=telemetry, trace_user={"id": "user-1234"})
 
     return client
 

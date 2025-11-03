@@ -87,8 +87,23 @@ def build_custom_exporter_client() -> Basalt:
     Build a client with a custom OTLP exporter endpoint.
 
     Useful for testing with local OTLP collectors or custom observability backends.
+
+    IMPORTANT: When providing a custom exporter, you must manually add authentication
+    headers if your collector requires authentication. The SDK only adds headers
+    automatically when building the default exporter from environment variables.
     """
-    exporter = OTLPSpanExporter(endpoint="http://127.0.0.1:4317", insecure=True, timeout=10)
+    # Get API key for authentication
+    api_key = os.getenv("BASALT_API_KEY", "fake-key")
+
+    # Create a custom exporter with authentication headers
+    # For local development without authentication, you can omit the headers parameter
+    exporter = OTLPSpanExporter(
+        endpoint="http://127.0.0.1:4317",
+        headers={"authorization": f"Bearer {api_key}"},  # Add auth headers manually
+        insecure=True,
+        timeout=10
+    )
+
     telemetry = TelemetryConfig(
         service_name="telemetry-example-custom",
         environment="development",
@@ -98,7 +113,7 @@ def build_custom_exporter_client() -> Basalt:
         llm_enabled_providers=["openai"],  # Only instrument OpenAI
     )
     return Basalt(
-        api_key=os.getenv("BASALT_API_KEY", "fake-key"),
+        api_key=api_key,
         telemetry_config=telemetry,
         trace_user={"id": "demo-user-123"},
     )

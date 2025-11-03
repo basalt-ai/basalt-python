@@ -72,7 +72,7 @@ class TestInstrumentationManager(unittest.TestCase):
         self.assertIs(exporter, mock_grpc_exporter.return_value)
         mock_grpc_exporter.assert_called_once()
         headers = mock_grpc_exporter.call_args.kwargs["headers"]
-        self.assertEqual(headers["Authorization"], "Bearer test-key")
+        self.assertEqual(headers["authorization"], "Bearer test-key")
 
     @mock.patch.dict(
         os.environ,
@@ -98,7 +98,7 @@ class TestInstrumentationManager(unittest.TestCase):
         mock_http_exporter.assert_called_once()
         mock_grpc_exporter.assert_not_called()
         headers = mock_http_exporter.call_args.kwargs["headers"]
-        self.assertEqual(headers["Authorization"], "Bearer env-key")
+        self.assertEqual(headers["authorization"], "Bearer env-key")
 
     def test_should_instrument_provider_default(self):
         """Test that by default all providers are instrumented."""

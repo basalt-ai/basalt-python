@@ -6,7 +6,6 @@ import logging
 import os
 import warnings
 from typing import Any
-
 from urllib.parse import urlparse
 
 from opentelemetry import trace
@@ -251,7 +250,7 @@ class InstrumentationManager:
         if not api_key:
             return None
 
-        return {"Authorization": f"Bearer {api_key}"}
+        return {"authorization": f"Bearer {api_key}"}
 
     def _create_otlp_exporter(
         self,
