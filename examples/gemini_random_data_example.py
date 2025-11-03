@@ -27,9 +27,12 @@ Note: This example uses the NEW Google GenAI SDK (google-genai).
 
 import logging
 import os
+from os import name
 
 import httpx
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+from opentelemetry import trace
 
 from basalt import Basalt, TelemetryConfig
 from basalt.observability.context_managers import trace_span
@@ -39,6 +42,7 @@ from basalt.observability.decorators import evaluator, trace_retrieval
 # --- 1. Build Basalt client with custom OTLP exporter ---
 def build_custom_exporter_client() -> Basalt:
     exporter = OTLPSpanExporter(endpoint="http://127.0.0.1:4317", insecure=True, timeout=10)
+
     telemetry = TelemetryConfig(
         service_name="gemini-demo",
         exporter=exporter,
@@ -65,6 +69,7 @@ def get_random_joke() -> str:
         data = resp.json()
         logging.debug(f"Joke API response: {data}")
         return f"{data['setup']} {data['punchline']}"
+
 
 # --- 3. Fetch a prompt from Basalt API (demonstrates internal instrumentation) ---
 def get_prompt_from_basalt(slug: str, joke_text: str, explanation_audience: str) -> str:
@@ -119,6 +124,10 @@ def summarize_joke_with_gemini(joke: str) -> str | None:
         raise RuntimeError("google-genai is not installed")
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", "fake-key"))
     response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=joke)
+
+    span = trace.get_current_span()
+    span.set_attribute("gemini.model", response.model)
+
     logging.debug(f"Gemini response: {getattr(response, 'text', response)}")
     return response.text
 
@@ -137,12 +146,14 @@ def main():
 
         # 1. Fetch a random joke using httpx (external HTTP call - instrumented)
         joke = get_random_joke()
+
         span.add_evaluator("joke-quality-check")
         span.set_evaluator_config({"sample_rate": 0.8})
 
         span.set_input({"joke": joke})
 
         logging.info(f"Random joke: {joke}")
+
         span.set_attribute("joke.length", len(joke))
 
         # 2. Fetch a prompt from Basalt API (internal SDK call - instrumented)
