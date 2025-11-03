@@ -41,11 +41,13 @@ async def trace_async_request(
         try:
             result = await request_callable()
         except Exception as exc:  # pragma: no cover - passthrough
-            span.set_output({"error": str(exc)})
+            # If the exception carries an HTTP status_code (BasaltAPIError), include it
+            status_code = getattr(exc, "status_code", None)
+            span.set_output({"error": str(exc), "status_code": status_code})
             span_data.finalize(
                 span,
                 duration_s=time.perf_counter() - start,
-                status_code=None,
+                status_code=status_code,
                 error=exc,
             )
             raise
@@ -90,11 +92,13 @@ def trace_sync_request(
         try:
             result = request_callable()
         except Exception as exc:  # pragma: no cover - passthrough
-            span.set_output({"error": str(exc)})
+            # If the exception carries an HTTP status_code (BasaltAPIError), include it
+            status_code = getattr(exc, "status_code", None)
+            span.set_output({"error": str(exc), "status_code": status_code})
             span_data.finalize(
                 span,
                 duration_s=time.perf_counter() - start,
-                status_code=None,
+                status_code=status_code,
                 error=exc,
             )
             raise
