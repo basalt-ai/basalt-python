@@ -136,11 +136,13 @@ def summarize_joke_with_gemini(joke: str) -> str | None:
     """
     if genai is None:
         raise RuntimeError("google-genai is not installed")
+
+    model_name = "gemini-2.5-flash-lite"
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", "fake-key"))
-    response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=joke)
+    response = client.models.generate_content(model=model_name, contents=joke)
 
     span = trace.get_current_span()
-    span.set_attribute("gemini.model", response.model)
+    span.set_attribute("gemini.model", model_name)
 
     logging.debug(f"Gemini response: {getattr(response, 'text', response)}")
     return response.text
