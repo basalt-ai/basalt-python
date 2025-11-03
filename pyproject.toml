@@ -70,3 +70,4 @@ quote-style = "double"
 dev = [
     "google-genai>=1.46.0",
 ]
+

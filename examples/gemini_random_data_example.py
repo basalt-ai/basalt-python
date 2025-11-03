@@ -30,7 +30,6 @@ import os
 
 import httpx
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 from basalt import Basalt, TelemetryConfig
 from basalt.observability.context_managers import trace_span
@@ -51,9 +50,6 @@ def build_custom_exporter_client() -> Basalt:
     # Initialize Basalt client first (this sets up the TracerProvider)
     client = Basalt(api_key=os.getenv("BASALT_API_KEY", "fake-key"), telemetry_config=telemetry,
                     trace_user={"id": "user-1234"})
-
-    # Optionally instrument httpx for external HTTP calls used by YOUR app
-    HTTPXClientInstrumentor().instrument()
 
     return client
 
