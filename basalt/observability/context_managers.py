@@ -17,7 +17,14 @@ from opentelemetry.context import attach, detach, set_value
 from opentelemetry.trace import Span, Status, StatusCode, Tracer
 
 from . import semconv
-from .trace_context import TraceContextConfig, current_trace_defaults
+from .trace_context import (
+    TraceContextConfig,
+    TraceIdentity,
+    apply_organization_from_context,
+    apply_user_from_context,
+    current_trace_defaults,
+)
+from .trace_context import ORGANIZATION_CONTEXT_KEY, USER_CONTEXT_KEY
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
 EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
@@ -659,6 +666,8 @@ def _with_span_handle(
     output_payload: Any | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
     ensure_output: bool = True,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
@@ -668,24 +677,48 @@ def _with_span_handle(
     if parent_span and not parent_span.get_span_context().is_valid:
         parent_span = None
 
-    with tracer.start_as_current_span(name) as span:
-        _attach_attributes(span, attributes)
-        if span_type:
-            span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
-        handle = handle_cls(span, parent_span, defaults)
-        if input_payload is not None:
-            handle.set_input(input_payload)
-        if variables:
-            handle.set_variables(variables)
-        if evaluators:
-            handle.add_evaluators(*evaluators)
-        yield handle  # type: ignore[misc]
-        if output_payload is not None:
-            handle.set_output(output_payload)
-        elif ensure_output and trace_content_enabled():
-            io = handle.io_snapshot()
-            if io.get("output") is None:
-                logger.debug("Span '%s' completed without an output payload.", name)
+    # Prepare context tokens for user/org propagation
+    tokens = []
+    if user is not None:
+        from .trace_context import _coerce_identity
+        user_identity = _coerce_identity(user)
+        if user_identity:
+            tokens.append(attach(set_value(USER_CONTEXT_KEY, user_identity)))
+
+    if organization is not None:
+        from .trace_context import _coerce_identity
+        org_identity = _coerce_identity(organization)
+        if org_identity:
+            tokens.append(attach(set_value(ORGANIZATION_CONTEXT_KEY, org_identity)))
+
+    try:
+        with tracer.start_as_current_span(name) as span:
+            _attach_attributes(span, attributes)
+            if span_type:
+                span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
+
+            # Apply user/org from context (either explicit or inherited from parent)
+            apply_user_from_context(span, user)
+            apply_organization_from_context(span, organization)
+
+            handle = handle_cls(span, parent_span, defaults)
+            if input_payload is not None:
+                handle.set_input(input_payload)
+            if variables:
+                handle.set_variables(variables)
+            if evaluators:
+                handle.add_evaluators(*evaluators)
+            yield handle  # type: ignore[misc]
+            if output_payload is not None:
+                handle.set_output(output_payload)
+            elif ensure_output and trace_content_enabled():
+                io = handle.io_snapshot()
+                if io.get("output") is None:
+                    logger.debug("Span '%s' completed without an output payload.", name)
+    finally:
+        # Detach context tokens in reverse order
+        for token in reversed(tokens):
+            detach(token)
 
 
 @contextmanager
@@ -696,6 +729,8 @@ def trace_span(
     output_payload: Any | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability",
     span_type: str | None = "span",
@@ -708,6 +743,8 @@ def trace_span(
         output_payload: Optional output payload to record.
         variables: Optional variables mapping to record.
         evaluators: Optional list of evaluator specifications to attach.
+        user: Optional user identity for this span (propagates to children).
+        organization: Optional organization identity for this span (propagates to children).
         attributes: Optional dictionary of attributes to set on the span.
         tracer_name: The name of the tracer to use.
         span_type: Optional type of the span (e.g., "generation", "retrieval").
@@ -726,6 +763,8 @@ def trace_span(
         output_payload=output_payload,
         variables=variables,
         evaluators=evaluators,
+        user=user,
+        organization=organization,
     ) as handle:
         yield handle
 
@@ -738,6 +777,8 @@ def trace_generation(
     output_payload: Any | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.generation",
 ) -> Generator[LLMSpanHandle, None, None]:
@@ -752,6 +793,8 @@ def trace_generation(
         output_payload=output_payload,
         variables=variables,
         evaluators=evaluators,
+        user=user,
+        organization=organization,
     ) as handle:
         yield handle  # type: ignore[misc]
 
@@ -764,6 +807,8 @@ def trace_retrieval(
     output_payload: Any | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.retrieval",
 ) -> Generator[RetrievalSpanHandle, None, None]:
@@ -778,6 +823,8 @@ def trace_retrieval(
         output_payload=output_payload,
         variables=variables,
         evaluators=evaluators,
+        user=user,
+        organization=organization,
     ) as handle:
         yield handle  # type: ignore[misc]
 
@@ -790,6 +837,8 @@ def trace_function(
     output_payload: Any | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.function",
 ) -> Generator[FunctionSpanHandle, None, None]:
@@ -804,6 +853,8 @@ def trace_function(
         output_payload=output_payload,
         variables=variables,
         evaluators=evaluators,
+        user=user,
+        organization=organization,
     ) as handle:
         yield handle  # type: ignore[misc]
 
@@ -816,6 +867,8 @@ def trace_tool(
     output_payload: Any | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.tool",
 ) -> Generator[ToolSpanHandle, None, None]:
@@ -830,6 +883,8 @@ def trace_tool(
         output_payload=output_payload,
         variables=variables,
         evaluators=evaluators,
+        user=user,
+        organization=organization,
     ) as handle:
         yield handle  # type: ignore[misc]
 
@@ -842,6 +897,8 @@ def trace_event(
     output_payload: Any | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.event",
 ) -> Generator[EventSpanHandle, None, None]:
@@ -856,6 +913,8 @@ def trace_event(
         output_payload=output_payload,
         variables=variables,
         evaluators=evaluators,
+        user=user,
+        organization=organization,
     ) as handle:
         yield handle  # type: ignore[misc]
 
@@ -868,6 +927,8 @@ def trace_llm_call(
     output_payload: Any | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "basalt.observability.llm",
 ) -> Generator[LLMSpanHandle, None, None]:
@@ -885,6 +946,8 @@ def trace_llm_call(
         output_payload=output_payload,
         variables=variables,
         evaluators=evaluators,
+        user=user,
+        organization=organization,
         attributes=attributes,
         tracer_name=tracer_name,
     ) as handle:

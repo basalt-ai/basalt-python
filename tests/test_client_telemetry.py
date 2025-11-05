@@ -44,15 +44,14 @@ class TestBasaltClientTelemetry(unittest.TestCase):
     @mock.patch("basalt.client.configure_trace_defaults")
     @mock.patch.object(InstrumentationManager, "initialize")
     def test_constructor_configures_trace_defaults(self, mock_initialize, mock_configure):
+        # User/org are no longer configured at client level
         Basalt(
             api_key="key",
-            trace_user={"id": "user-1", "name": "Jane"},
             trace_metadata={"env": "test"},
             trace_evaluators=["eval-1", "eval-2"],
         )
 
         mock_configure.assert_called_once_with(
-            user={"id": "user-1", "name": "Jane"},
             metadata={"env": "test"},
             evaluators=["eval-1", "eval-2"],
         )
@@ -60,9 +59,8 @@ class TestBasaltClientTelemetry(unittest.TestCase):
     @mock.patch("basalt.client.configure_trace_defaults")
     @mock.patch.object(InstrumentationManager, "initialize")
     def test_trace_context_overrides_apply(self, mock_initialize, mock_configure):
+        # User/org are no longer part of TraceContextConfig
         context = TraceContextConfig(
-            user={"id": "base-user"},
-            organization={"id": "org-1"},
             metadata={"env": "prod"},
             evaluators=["eval-base"],
         )
@@ -70,15 +68,11 @@ class TestBasaltClientTelemetry(unittest.TestCase):
         Basalt(
             api_key="key",
             trace_context=context,
-            trace_organization={"id": "org-2", "name": "Org"},
             trace_experiment={"id": "exp-1", "feature_slug": "slug"},
         )
 
         mock_configure.assert_called_once()
         _, kwargs = mock_configure.call_args
-        self.assertEqual(kwargs["user"].id, "base-user")
-        self.assertIsNone(kwargs["user"].name)
-        self.assertEqual(kwargs["organization"], {"id": "org-2", "name": "Org"})
         self.assertEqual(kwargs["experiment"], {"id": "exp-1", "feature_slug": "slug"})
         self.assertEqual(kwargs["metadata"], {"env": "prod"})
         self.assertEqual(kwargs["evaluators"], ["eval-base"])

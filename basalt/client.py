@@ -52,8 +52,6 @@ class Basalt:
         enable_telemetry: bool = True,
         base_url: str | None = None,
         trace_context: TraceContextConfig | None = None,
-        trace_user: TraceIdentity | dict[str, str] | None = None,
-        trace_organization: TraceIdentity | dict[str, str] | None = None,
         trace_experiment: TraceExperiment | dict[str, Any] | None = None,
         trace_metadata: dict[str, Any] | None = None,
         trace_evaluators: Iterable[str] | None = None,
@@ -67,8 +65,6 @@ class Basalt:
             enable_telemetry: Convenience flag to quickly disable all telemetry.
             base_url: Optional base URL for the API (defaults to config value).
             trace_context: Optional trace defaults applied to every span created via the SDK.
-            trace_user: Convenience shortcut to set the default trace user (overrides trace_context).
-            trace_organization: Convenience shortcut to set the default trace organization.
             trace_experiment: Default experiment metadata to attach to traces.
             trace_metadata: Arbitrary metadata dictionary applied to new traces.
             trace_evaluators: Iterable of evaluator slugs attached to spans by default.
@@ -87,10 +83,6 @@ class Basalt:
 
         context_payload: dict[str, Any] = {}
         if trace_context is not None:
-            if trace_context.user is not None:
-                context_payload["user"] = trace_context.user
-            if trace_context.organization is not None:
-                context_payload["organization"] = trace_context.organization
             if trace_context.experiment is not None:
                 context_payload["experiment"] = trace_context.experiment
             if trace_context.metadata is not None:
@@ -98,10 +90,6 @@ class Basalt:
             if trace_context.evaluators is not None:
                 context_payload["evaluators"] = list(trace_context.evaluators)
 
-        if trace_user is not None:
-            context_payload["user"] = trace_user
-        if trace_organization is not None:
-            context_payload["organization"] = trace_organization
         if trace_experiment is not None:
             context_payload["experiment"] = trace_experiment
         if trace_metadata is not None:

@@ -14,6 +14,7 @@ from opentelemetry.trace import StatusCode
 
 from .context_managers import (
     LLMSpanHandle,
+    TraceIdentity,
     trace_content_enabled,
     with_evaluators,
 )
@@ -192,6 +193,20 @@ def _resolve_evaluators_payload(
     return [value]
 
 
+def _resolve_identity_payload(
+    resolver: Any,
+    bound: inspect.BoundArguments | None,
+) -> TraceIdentity | Mapping[str, Any] | None:
+    """
+    Resolve user or organization identity from the bound arguments using the provided resolver.
+    """
+    if resolver is None:
+        return None
+    if callable(resolver):
+        return resolver(bound)
+    return resolver
+
+
 def _wrap_with_span(
     span_factory: Callable[..., Any],
     span_name: str,
@@ -204,6 +219,8 @@ def _wrap_with_span(
     post_evaluators: Any = None,
     evaluator_config: Any = None,
     evaluator_metadata: Any = None,
+    user: Any = None,
+    organization: Any = None,
     output_resolver: Callable[[Any], Any] | None = None,
     apply_pre: Callable[[Any, Any], None] | None = None,
     apply_post: Callable[[Any, Any], None] | None = None,
@@ -222,6 +239,8 @@ def _wrap_with_span(
             input_payload = _resolve_payload_from_bound(input_resolver, bound)
             variables_payload = _resolve_variables_payload(variables_resolver, bound)
             pre_evaluators = _resolve_evaluators_payload(evaluators, bound)
+            user_payload = _resolve_identity_payload(user, bound)
+            org_payload = _resolve_identity_payload(organization, bound)
 
             with span_factory(
                 span_name,
@@ -229,6 +248,8 @@ def _wrap_with_span(
                 input_payload=input_payload,
                 variables=variables_payload,
                 evaluators=pre_evaluators,
+                user=user_payload,
+                organization=org_payload,
             ) as span:
                 # Set evaluator config and metadata if provided
                 if evaluator_config is not None:
@@ -268,6 +289,8 @@ def _wrap_with_span(
         input_payload = _resolve_payload_from_bound(input_resolver, bound)
         variables_payload = _resolve_variables_payload(variables_resolver, bound)
         pre_evaluators = _resolve_evaluators_payload(evaluators, bound)
+        user_payload = _resolve_identity_payload(user, bound)
+        org_payload = _resolve_identity_payload(organization, bound)
 
         with span_factory(
             span_name,
@@ -275,6 +298,8 @@ def _wrap_with_span(
             input_payload=input_payload,
             variables=variables_payload,
             evaluators=pre_evaluators,
+            user=user_payload,
+            organization=org_payload,
         ) as span:
             # Set evaluator config and metadata if provided
             if evaluator_config is not None:
@@ -319,6 +344,8 @@ def trace_span(
     post_evaluators: Any = None,
     evaluator_config: Any = None,
     evaluator_metadata: Any = None,
+    user: Any = None,
+    organization: Any = None,
 ) -> Callable[[F], F]:
     """Decorator for general-purpose spans."""
 
@@ -335,6 +362,8 @@ def trace_span(
             post_evaluators=post_evaluators,
             evaluator_config=evaluator_config,
             evaluator_metadata=evaluator_metadata,
+            user=user,
+            organization=organization,
             output_resolver=output,
         )  # type: ignore[return-value]
 
@@ -516,6 +545,8 @@ def trace_generation(
     post_evaluators: Any = None,
     evaluator_config: Any = None,
     evaluator_metadata: Any = None,
+    user: Any = None,
+    organization: Any = None,
 ) -> Callable[[F], F]:
     """Decorator specialized for LLM generation spans.
 
@@ -529,6 +560,8 @@ def trace_generation(
         post_evaluators: Evaluator specifications to attach after execution.
         evaluator_config: Config for evaluators (EvaluatorConfig, dict, or callable).
         evaluator_metadata: Metadata for evaluators (dict or callable returning dict).
+        user: User identity (static TraceIdentity, dict, or callable).
+        organization: Organization identity (static TraceIdentity, dict, or callable).
     """
 
     def decorator(func: F) -> F:
@@ -554,6 +587,8 @@ def trace_generation(
             post_evaluators=post_evaluators,
             evaluator_config=evaluator_config,
             evaluator_metadata=evaluator_metadata,
+            user=user,
+            organization=organization,
             output_resolver=output,
             apply_pre=apply_pre,
             apply_post=apply_post,
@@ -571,6 +606,8 @@ def trace_llm(
     variables: Any = None,
     evaluators: Any = None,
     post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
 ) -> Callable[[F], F]:
     """Deprecated alias for :func:`trace_generation`."""
     warnings.warn(
@@ -586,6 +623,8 @@ def trace_llm(
         variables=variables,
         evaluators=evaluators,
         post_evaluators=post_evaluators,
+        user=user,
+        organization=organization,
     )
 
 
@@ -598,6 +637,8 @@ def trace_retrieval(
     variables: Any = None,
     evaluators: Any = None,
     post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
 ) -> Callable[[F], F]:
     """Decorator for retrieval/vector search spans."""
 
@@ -620,6 +661,8 @@ def trace_retrieval(
             variables_resolver=variables_resolver,
             evaluators=evaluators,
             post_evaluators=post_evaluators,
+            user=user,
+            organization=organization,
             output_resolver=output,
             apply_pre=apply_pre,
         )  # type: ignore[return-value]
@@ -636,6 +679,8 @@ def trace_function(
     variables: Any = None,
     evaluators: Any = None,
     post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
     function_name: str | Callable[[inspect.BoundArguments | None], str] | None = None,
     stage: str | Callable[[inspect.BoundArguments | None], str] | None = None,
 ) -> Callable[[F], F]:
@@ -668,6 +713,8 @@ def trace_function(
             variables_resolver=variables_resolver,
             evaluators=evaluators,
             post_evaluators=post_evaluators,
+            user=user,
+            organization=organization,
             output_resolver=output,
             apply_pre=apply_pre,
         )  # type: ignore[return-value]
@@ -684,6 +731,8 @@ def trace_tool(
     variables: Any = None,
     evaluators: Any = None,
     post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
     tool_name: str | Callable[[inspect.BoundArguments | None], str] | None = None,
 ) -> Callable[[F], F]:
     """Decorator for tool invocation spans."""
@@ -706,6 +755,8 @@ def trace_tool(
             variables_resolver=variables,
             evaluators=evaluators,
             post_evaluators=post_evaluators,
+            user=user,
+            organization=organization,
             output_resolver=output,
             apply_pre=apply_pre,
         )  # type: ignore[return-value]
@@ -722,6 +773,8 @@ def trace_event(
     variables: Any = None,
     evaluators: Any = None,
     post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
     event_type: str | Callable[[inspect.BoundArguments | None], str] | None = None,
 ) -> Callable[[F], F]:
     """Decorator for custom event spans."""
@@ -747,6 +800,8 @@ def trace_event(
             variables_resolver=variables,
             evaluators=evaluators,
             post_evaluators=post_evaluators,
+            user=user,
+            organization=organization,
             output_resolver=output,
             apply_pre=apply_pre,
         )  # type: ignore[return-value]

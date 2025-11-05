@@ -123,15 +123,18 @@ class ContextManagerTests(unittest.TestCase):
         self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "event")
 
     def test_trace_span_applies_default_context(self):
+        # User/org are now set at span level, not globally
         configure_trace_defaults(
-            user={"id": "user-1", "name": "Jane"},
-            organization={"id": "org-1", "name": "Org"},
             experiment={"id": "exp-1", "feature_slug": "feature"},
             metadata={"env": "test"},
             evaluators=["eval-default"],
         )
 
-        with trace_span("context.defaults") as span:
+        with trace_span(
+            "context.defaults",
+            user={"id": "user-1", "name": "Jane"},
+            organization={"id": "org-1", "name": "Org"},
+        ) as span:
             span.add_evaluator("eval-inline")
 
         span = self.exporter.get_finished_spans()[0]

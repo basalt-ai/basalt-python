@@ -78,7 +78,6 @@ def build_default_client() -> Basalt:
     return Basalt(
         api_key=os.getenv("BASALT_API_KEY", "fake-key"),
         telemetry_config=telemetry,
-        trace_user={"id": "demo-user-123"},
     )
 
 
@@ -115,7 +114,6 @@ def build_custom_exporter_client() -> Basalt:
     return Basalt(
         api_key=api_key,
         telemetry_config=telemetry,
-        trace_user={"id": "demo-user-123"},
     )
 
 
@@ -172,8 +170,12 @@ def mock_llm_call(prompt: str, model: str = "gpt-4") -> dict:
 
 
 def demonstrate_retrieval_span():
-    """Demonstrate trace_retrieval context manager with RetrievalSpanHandle."""
-    with trace_retrieval("vector_db.search") as span:
+    """Demonstrate trace_retrieval context manager with RetrievalSpanHandle and user/org."""
+    with trace_retrieval(
+        "vector_db.search",
+        user={"id": "user-123", "name": "Alice"},
+        organization={"id": "org-456", "name": "Acme Corp"},
+    ) as span:
         query = "What is observability?"
         span.set_query(query)
         span.set_top_k(10)

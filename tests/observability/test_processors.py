@@ -29,19 +29,27 @@ class ProcessorTests(unittest.TestCase):
         self.exporter.clear()
 
     def test_defaults_apply_to_auto_instrumented_spans(self) -> None:
+        # User/org now propagate via OTel context, not global defaults
         configure_trace_defaults(
-            user={"id": "user-42"},
-            organization={"id": "org-9"},
             metadata={"region": "us-east"},
             evaluators=["default-processor"],
         )
 
-        tracer = trace.get_tracer("tests.processors")
-        with tracer.start_as_current_span("auto.span"):
-            pass
+        from basalt.observability.context_managers import trace_span
+
+        # Create a parent span with user/org - they will propagate to child via context
+        with trace_span(
+            "parent",
+            user={"id": "user-42"},
+            organization={"id": "org-9"},
+        ):
+            tracer = trace.get_tracer("tests.processors")
+            with tracer.start_as_current_span("auto.span"):
+                pass
 
         spans = self.exporter.get_finished_spans()
-        self.assertEqual(len(spans), 1)
+        self.assertEqual(len(spans), 2)  # parent + auto span
+        # Check the auto-instrumented child span (index 0 since it finishes first)
         span = spans[0]
         attrs = span.attributes or {}
         self.assertEqual(attrs[semconv.BasaltUser.ID], "user-42")

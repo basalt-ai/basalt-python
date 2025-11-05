@@ -67,7 +67,7 @@ def build_custom_exporter_client() -> Basalt:
     )
 
     # Initialize Basalt client first (this sets up the TracerProvider)
-    client = Basalt(api_key=api_key, telemetry_config=telemetry, trace_user={"id": "user-1234"})
+    client = Basalt(api_key=api_key, telemetry_config=telemetry)
 
     return client
 
@@ -151,9 +151,12 @@ def summarize_joke_with_gemini(joke: str) -> str | None:
 def main():
     logging.basicConfig(level=logging.DEBUG)
 
-    # Wrap the entire workflow in a single trace span
+    # Wrap the entire workflow in a single trace span with user/org
+    # User/org will automatically propagate to all child spans (including Gemini auto-instrumented spans)
     with trace_span(
         "workflow.gemini_random_data",
+        user={"id": "user-1234", "name": "Demo User"},
+        organization={"id": "org-5678", "name": "Demo Org"},
         attributes={
             "workflow.type": "gemini-joke-demo",
             "service": "gemini-random-demo"

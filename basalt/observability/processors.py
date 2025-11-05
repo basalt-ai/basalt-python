@@ -18,10 +18,14 @@ from .context_managers import (
     normalize_evaluator_specs,
 )
 from .trace_context import (
+    ORGANIZATION_CONTEXT_KEY,
+    USER_CONTEXT_KEY,
     TraceContextConfig,
     TraceExperiment,
     TraceIdentity,
     current_trace_defaults,
+    get_context_organization,
+    get_context_user,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,18 +56,6 @@ def _set_default_metadata(span: Span, defaults: TraceContextConfig) -> None:
     if not span.is_recording():
         return
 
-    user = defaults.user if isinstance(defaults.user, TraceIdentity) else None
-    if user:
-        span.set_attribute(semconv.BasaltUser.ID, user.id)
-        if user.name:
-            span.set_attribute(semconv.BasaltUser.NAME, user.name)
-
-    org = defaults.organization if isinstance(defaults.organization, TraceIdentity) else None
-    if org:
-        span.set_attribute(semconv.BasaltOrganization.ID, org.id)
-        if org.name:
-            span.set_attribute(semconv.BasaltOrganization.NAME, org.name)
-
     experiment = defaults.experiment if isinstance(defaults.experiment, TraceExperiment) else None
     if experiment:
         span.set_attribute(semconv.BasaltExperiment.ID, experiment.id)
@@ -81,6 +73,26 @@ def _set_default_metadata(span: Span, defaults: TraceContextConfig) -> None:
         _merge_evaluators(span, slugs)
 
 
+def _apply_user_org_from_context(span: Span, parent_context: Any | None = None) -> None:
+    """Apply user and organization from OpenTelemetry context to the span."""
+    if not span.is_recording():
+        return
+
+    # Read user from context
+    user = otel_context.get_value(USER_CONTEXT_KEY, parent_context)
+    if isinstance(user, TraceIdentity):
+        span.set_attribute(semconv.BasaltUser.ID, user.id)
+        if user.name:
+            span.set_attribute(semconv.BasaltUser.NAME, user.name)
+
+    # Read organization from context
+    org = otel_context.get_value(ORGANIZATION_CONTEXT_KEY, parent_context)
+    if isinstance(org, TraceIdentity):
+        span.set_attribute(semconv.BasaltOrganization.ID, org.id)
+        if org.name:
+            span.set_attribute(semconv.BasaltOrganization.NAME, org.name)
+
+
 class BasaltContextProcessor(SpanProcessor):
     """Apply Basalt trace defaults to every started span."""
 
@@ -89,6 +101,8 @@ class BasaltContextProcessor(SpanProcessor):
             return
         defaults = current_trace_defaults()
         _set_default_metadata(span, defaults)
+        # Apply user/org from OpenTelemetry context (enables propagation to child spans)
+        _apply_user_org_from_context(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
         return

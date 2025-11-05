@@ -136,8 +136,6 @@ _instrumentation = InstrumentationManager()
 def configure_trace_defaults(
     *,
     config: TraceContextConfig | None = None,
-    user: TraceIdentity | dict[str, Any] | None = None,
-    organization: TraceIdentity | dict[str, Any] | None = None,
     experiment: TraceExperiment | dict[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
     evaluators: Iterable[str] | None = None,
@@ -145,10 +143,11 @@ def configure_trace_defaults(
     """
     Configure global defaults applied to newly created spans.
 
+    Note: User and organization are now set at the span level, not globally.
+    Use the user/organization parameters on context managers or decorators instead.
+
     Args:
         config: Optional base configuration to extend.
-        user: Default user identity to attach.
-        organization: Default organization identity to attach.
         experiment: Default experiment metadata to attach.
         metadata: Arbitrary metadata key/values added to spans.
         evaluators: Evaluator slugs automatically attached to spans.
@@ -158,8 +157,6 @@ def configure_trace_defaults(
     """
     base = config.clone() if config else TraceContextConfig()
     payload = TraceContextConfig(
-        user=user if user is not None else base.user,
-        organization=organization if organization is not None else base.organization,
         experiment=experiment if experiment is not None else base.experiment,
         metadata=metadata if metadata is not None else {str(k): v for k, v in (base.metadata or {}).items()},
         evaluators=list(evaluators) if evaluators is not None else list(base.evaluators or []),
@@ -329,19 +326,55 @@ def update_current_span(
 
 
 def set_trace_user(user_id: str, name: str | None = None) -> None:
+    """
+    Set user identity for the current span and propagate to child spans.
+
+    This sets user attributes on the active span and attaches the user identity
+    to the OpenTelemetry context, ensuring child spans inherit it.
+
+    Args:
+        user_id: Unique identifier for the user
+        name: Optional display name for the user
+    """
+    from opentelemetry.context import attach, set_value
+    from .trace_context import USER_CONTEXT_KEY, TraceIdentity
+
+    # Set on current span
     span = current_span()
     if span:
         span.set_attribute("basalt.user.id", user_id)
         if name:
             span.set_attribute("basalt.user.name", name)
 
+    # Propagate to child spans via context
+    user_identity = TraceIdentity(id=user_id, name=name)
+    attach(set_value(USER_CONTEXT_KEY, user_identity))
+
 
 def set_trace_organization(organization_id: str, name: str | None = None) -> None:
+    """
+    Set organization identity for the current span and propagate to child spans.
+
+    This sets organization attributes on the active span and attaches the organization
+    identity to the OpenTelemetry context, ensuring child spans inherit it.
+
+    Args:
+        organization_id: Unique identifier for the organization
+        name: Optional display name for the organization
+    """
+    from opentelemetry.context import attach, set_value
+    from .trace_context import ORGANIZATION_CONTEXT_KEY, TraceIdentity
+
+    # Set on current span
     span = current_span()
     if span:
         span.set_attribute("basalt.organization.id", organization_id)
         if name:
             span.set_attribute("basalt.organization.name", name)
+
+    # Propagate to child spans via context
+    org_identity = TraceIdentity(id=organization_id, name=name)
+    attach(set_value(ORGANIZATION_CONTEXT_KEY, org_identity))
 
 
 def set_trace_session(session_id: str) -> None:

@@ -5,11 +5,16 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from threading import RLock
-from typing import Any
+from typing import Any, Final
 
+from opentelemetry import context as otel_context
 from opentelemetry.trace import Span
 
 from . import semconv
+
+# Context keys for user and organization propagation
+USER_CONTEXT_KEY: Final[str] = "basalt.context.user"
+ORGANIZATION_CONTEXT_KEY: Final[str] = "basalt.context.organization"
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,15 +38,11 @@ class TraceExperiment:
 class TraceContextConfig:
     """Default attributes applied to newly created spans."""
 
-    user: TraceIdentity | Mapping[str, Any] | None = None
-    organization: TraceIdentity | Mapping[str, Any] | None = None
     experiment: TraceExperiment | Mapping[str, Any] | None = None
     metadata: dict[str, Any] | None = None
     evaluators: list[Any] | None = None
 
     def __post_init__(self) -> None:
-        self.user = _coerce_identity(self.user)
-        self.organization = _coerce_identity(self.organization)
         self.experiment = _coerce_experiment(self.experiment)
         self.metadata = dict(self.metadata) if self.metadata else {}
         self.evaluators = list(self.evaluators) if self.evaluators else []
@@ -49,8 +50,6 @@ class TraceContextConfig:
     def clone(self) -> TraceContextConfig:
         """Return a defensive copy of the configuration."""
         return TraceContextConfig(
-            user=self.user,
-            organization=self.organization,
             experiment=self.experiment,
             metadata=dict(self.metadata) if self.metadata is not None else {},
             evaluators=list(self.evaluators) if self.evaluators is not None else [],
@@ -108,14 +107,6 @@ def current_trace_defaults() -> TraceContextConfig:
 def apply_trace_defaults(span: Span, defaults: TraceContextConfig | None = None) -> None:
     """Attach the configured defaults to the provided span."""
     context = defaults.clone() if defaults else current_trace_defaults()
-    if isinstance(context.user, TraceIdentity):
-        span.set_attribute(semconv.BasaltUser.ID, context.user.id)
-        if context.user.name:
-            span.set_attribute(semconv.BasaltUser.NAME, context.user.name)
-    if isinstance(context.organization, TraceIdentity):
-        span.set_attribute(semconv.BasaltOrganization.ID, context.organization.id)
-        if context.organization.name:
-            span.set_attribute(semconv.BasaltOrganization.NAME, context.organization.name)
     if isinstance(context.experiment, TraceExperiment):
         span.set_attribute(semconv.BasaltExperiment.ID, context.experiment.id)
         if context.experiment.name:
@@ -136,3 +127,53 @@ def update_default_evaluators(new_evaluators: Iterable[Any]) -> None:
             if spec not in merged:
                 merged.append(spec)
         _DEFAULT_CONTEXT = replace(_DEFAULT_CONTEXT, evaluators=merged)
+
+
+def get_context_user() -> TraceIdentity | None:
+    """Retrieve user identity from the current OpenTelemetry context."""
+    return otel_context.get_value(USER_CONTEXT_KEY)
+
+
+def get_context_organization() -> TraceIdentity | None:
+    """Retrieve organization identity from the current OpenTelemetry context."""
+    return otel_context.get_value(ORGANIZATION_CONTEXT_KEY)
+
+
+def apply_user_from_context(span: Span, user: TraceIdentity | Mapping[str, Any] | None = None) -> None:
+    """
+    Apply user identity to a span from the provided value or OpenTelemetry context.
+
+    Args:
+        span: The span to apply user identity to.
+        user: Optional user identity. If None, retrieves from context.
+    """
+    if user is not None:
+        user_identity = _coerce_identity(user)
+    else:
+        user_identity = get_context_user()
+
+    if isinstance(user_identity, TraceIdentity):
+        span.set_attribute(semconv.BasaltUser.ID, user_identity.id)
+        if user_identity.name:
+            span.set_attribute(semconv.BasaltUser.NAME, user_identity.name)
+
+
+def apply_organization_from_context(
+    span: Span, organization: TraceIdentity | Mapping[str, Any] | None = None
+) -> None:
+    """
+    Apply organization identity to a span from the provided value or OpenTelemetry context.
+
+    Args:
+        span: The span to apply organization identity to.
+        organization: Optional organization identity. If None, retrieves from context.
+    """
+    if organization is not None:
+        org_identity = _coerce_identity(organization)
+    else:
+        org_identity = get_context_organization()
+
+    if isinstance(org_identity, TraceIdentity):
+        span.set_attribute(semconv.BasaltOrganization.ID, org_identity.id)
+        if org_identity.name:
+            span.set_attribute(semconv.BasaltOrganization.NAME, org_identity.name)
