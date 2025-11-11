@@ -392,6 +392,41 @@ finally:
     basalt.shutdown()
 ```
 
+#### Span utilities (no OpenTelemetry import required)
+
+For common span operations, you can use lightweight helpers from `basalt.observability` instead of importing `opentelemetry.trace`:
+
+```python
+from basalt.observability import (
+    trace_span,
+    get_current_span,
+    get_current_span_handle,
+    set_span_attribute,
+    set_span_attributes,
+    add_span_event,
+    record_span_exception,
+    set_span_status_ok,
+    set_span_status_error,
+)
+
+# Create a span and enrich it using helpers
+with trace_span("my.workflow"):
+    set_span_attribute("workflow.step", 1)
+    set_span_attributes({"feature": "demo", "stage": "start"})
+    add_span_event("initialized", {"user": "alice"})
+
+    try:
+        # your logic here
+        set_span_status_ok("done")
+    except Exception as exc:
+        record_span_exception(exc)
+        set_span_status_error(str(exc))
+
+# You can also access the active span directly
+span = get_current_span()          # returns an OTEL Span or None
+handle = get_current_span_handle() # returns a SpanHandle or None
+```
+
 ## License
 
 MIT

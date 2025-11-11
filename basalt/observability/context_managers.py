@@ -18,13 +18,14 @@ from opentelemetry.trace import Span, Status, StatusCode, Tracer
 
 from . import semconv
 from .trace_context import (
+    ORGANIZATION_CONTEXT_KEY,
+    USER_CONTEXT_KEY,
     TraceContextConfig,
     TraceIdentity,
     apply_organization_from_context,
     apply_user_from_context,
     current_trace_defaults,
 )
-from .trace_context import ORGANIZATION_CONTEXT_KEY, USER_CONTEXT_KEY
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
 EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"

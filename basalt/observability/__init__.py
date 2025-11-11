@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import contextmanager
 from typing import Any
 
 from opentelemetry import trace
-from opentelemetry.trace import Span
+from opentelemetry.trace import Span, Status, StatusCode
 
 from .config import TelemetryConfig
 from .context_managers import (
@@ -128,6 +128,15 @@ __all__ = [
     "attach_evaluator",
     "attach_evaluators_to_span",
     "attach_evaluators_to_current_span",
+    "set_span_attribute",
+    "set_span_attributes",
+    "add_span_event",
+    "record_span_exception",
+    "set_span_status",
+    "set_span_status_ok",
+    "set_span_status_error",
+    "get_current_span",
+    "get_current_span_handle",
 ]
 
 _instrumentation = InstrumentationManager()
@@ -337,6 +346,7 @@ def set_trace_user(user_id: str, name: str | None = None) -> None:
         name: Optional display name for the user
     """
     from opentelemetry.context import attach, set_value
+
     from .trace_context import USER_CONTEXT_KEY, TraceIdentity
 
     # Set on current span
@@ -363,6 +373,7 @@ def set_trace_organization(organization_id: str, name: str | None = None) -> Non
         name: Optional display name for the organization
     """
     from opentelemetry.context import attach, set_value
+
     from .trace_context import ORGANIZATION_CONTEXT_KEY, TraceIdentity
 
     # Set on current span
@@ -445,3 +456,90 @@ def flush() -> None:
         provider.force_flush()  # type: ignore[attr-defined]
     except Exception:
         pass
+
+
+def get_current_span() -> Span | None:  # Lightweight alias
+    """Return the active OpenTelemetry span if valid, else None.
+
+    Provided as a user-friendly alias so callers don't have to import
+    opentelemetry.trace themselves.
+    """
+    return current_span()
+
+
+def get_current_span_handle() -> SpanHandle | None:  # Lightweight alias
+    """Return a SpanHandle wrapper for the active span if available."""
+    return current_span_handle()
+
+
+def set_span_attribute(key: str, value: Any) -> bool:
+    """Set a single attribute on the current span.
+
+    Returns True if the attribute was set, False if no active span.
+    """
+    span = current_span()
+    if not span:
+        return False
+    span.set_attribute(key, value)
+    return True
+
+
+def set_span_attributes(attributes: Mapping[str, Any] | dict[str, Any]) -> int:
+    """Set multiple attributes on the current span.
+
+    Returns the number of attributes applied. Returns 0 if no active span.
+    """
+    span = current_span()
+    if not span:
+        return 0
+    count = 0
+    for k, v in (attributes or {}).items():
+        span.set_attribute(k, v)
+        count += 1
+    return count
+
+
+def add_span_event(name: str, attributes: Mapping[str, Any] | dict[str, Any] | None = None) -> bool:
+    """Add an event to the current span.
+
+    Returns True if the event was added, False if no active span.
+    """
+    span = current_span()
+    if not span:
+        return False
+    span.add_event(name, attributes=dict(attributes) if isinstance(attributes, Mapping) else attributes)
+    return True
+
+
+def record_span_exception(exc: BaseException) -> bool:
+    """Record an exception on the current span.
+
+    Returns True if recorded, False if no active span.
+    """
+    span = current_span()
+    if not span:
+        return False
+    span.record_exception(exc)
+    return True
+
+
+def set_span_status(status_code: StatusCode, description: str | None = None) -> bool:
+    """Set the status of the current span.
+
+    Returns True if status was set, False if no active span.
+    """
+    span = current_span()
+    if not span:
+        return False
+    span.set_status(Status(status_code, description))
+    return True
+
+
+def set_span_status_ok(description: str | None = None) -> bool:
+    """Convenience to set StatusCode.OK on the current span."""
+    return set_span_status(StatusCode.OK, description)
+
+
+def set_span_status_error(description: str | None = None) -> bool:
+    """Convenience to set StatusCode.ERROR on the current span."""
+    return set_span_status(StatusCode.ERROR, description)

@@ -24,8 +24,6 @@ from .trace_context import (
     TraceExperiment,
     TraceIdentity,
     current_trace_defaults,
-    get_context_organization,
-    get_context_user,
 )
 
 logger = logging.getLogger(__name__)

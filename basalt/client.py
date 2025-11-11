@@ -15,7 +15,6 @@ from basalt.observability.instrumentation import InstrumentationManager
 from basalt.observability.trace_context import (
     TraceContextConfig,
     TraceExperiment,
-    TraceIdentity,
 )
 
 from .datasets.client import DatasetsClient
