@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import warnings
-from collections.abc import Callable, Iterable, Mapping
-from contextlib import contextmanager
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from opentelemetry import trace
@@ -22,15 +20,21 @@ from .context_managers import (
     trace_event,
     trace_function,
     trace_generation,
-    trace_llm_call,
     trace_retrieval,
     trace_span,
     trace_tool,
     with_evaluators,
 )
 from .decorators import (
+    ObserveKind,
     evaluator,
-    trace_operation,
+    observe,
+    observe_event,
+    observe_function,
+    observe_generation,
+    observe_retrieval,
+    observe_span,
+    observe_tool,
 )
 from .decorators import (
     trace_event as trace_event_decorator,
@@ -40,9 +44,6 @@ from .decorators import (
 )
 from .decorators import (
     trace_generation as trace_generation_decorator,
-)
-from .decorators import (
-    trace_llm as trace_llm_decorator,
 )
 from .decorators import (
     trace_retrieval as trace_retrieval_decorator,
@@ -69,22 +70,27 @@ from .trace_context import (
     update_default_evaluators,
 )
 
-trace_llm = trace_llm_decorator
-
 __all__ = [
     "TelemetryConfig",
     "InstrumentationManager",
-    "trace_operation",
-    "trace_llm",
-    "trace_llm_decorator",
     "evaluator",
+    # New observe API
+    "observe",
+    "ObserveKind",
+    "observe_span",
+    "observe_generation",
+    "observe_retrieval",
+    "observe_function",
+    "observe_tool",
+    "observe_event",
+    # Context managers (keeping trace_* names)
     "trace_span",
     "trace_generation",
-    "trace_llm_call",
     "trace_retrieval",
     "trace_function",
     "trace_tool",
     "trace_event",
+    # Deprecated decorators (for backward compatibility)
     "trace_span_decorator",
     "trace_generation_decorator",
     "trace_retrieval_decorator",
@@ -108,10 +114,6 @@ __all__ = [
     "clear_trace_defaults",
     "get_trace_defaults",
     "add_default_evaluators",
-    "init",
-    "observe",
-    "observe_cm",
-    "Observation",
     "current_span",
     "current_span_handle",
     "update_current_span",
@@ -137,6 +139,10 @@ __all__ = [
     "set_span_status_error",
     "get_current_span",
     "get_current_span_handle",
+    # Newly added helpers
+    "get_parent_span",
+    "get_trace",
+    "get_otel_trace",
 ]
 
 _instrumentation = InstrumentationManager()
@@ -188,110 +194,6 @@ def add_default_evaluators(*evaluators: Any) -> TraceContextConfig:
     """Append evaluator specs to the default trace configuration."""
     update_default_evaluators([spec for spec in evaluators if spec])
     return current_trace_defaults()
-
-
-def init(
-    app_name: str = "basalt-sdk",
-    *,
-    environment: str | None = None,
-    exporter: Any | None = None,
-    enable_openllmetry: bool = False,
-) -> None:
-    """Deprecated façade around InstrumentationManager.initialize."""
-    warnings.warn(
-        "basalt.observability.init() is deprecated. "
-        "Pass telemetry_config to Basalt() instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    telemetry_config = TelemetryConfig(
-        service_name=app_name,
-        environment=environment,
-        exporter=exporter,
-        enable_llm_instrumentation=enable_openllmetry,
-    )
-    _instrumentation.initialize(telemetry_config)
-
-
-class Observation:
-    """Helper to operate on a span handle for backward compatibility."""
-
-    def __init__(self, handle: SpanHandle):
-        self._handle = handle
-        self._span = handle.span
-
-    def add_attributes(self, attrs: dict[str, Any]) -> None:
-        for key, value in (attrs or {}).items():
-            self._span.set_attribute(key, value)
-
-    def event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
-        self._span.add_event(name=name, attributes=attributes)
-
-    def set_user(self, user_id: str, name: str | None = None) -> None:
-        self._span.set_attribute("basalt.user.id", user_id)
-        if name:
-            self._span.set_attribute("basalt.user.name", name)
-
-    def set_organization(self, organization_id: str, name: str | None = None) -> None:
-        self._span.set_attribute("basalt.organization.id", organization_id)
-        if name:
-            self._span.set_attribute("basalt.organization.name", name)
-
-    def set_session(self, session_id: str) -> None:
-        self._span.set_attribute("basalt.session.id", session_id)
-
-    def set_environment(self, environment: str) -> None:
-        self._span.set_attribute("deployment.environment", environment)
-
-    def add_tags(self, tags: Iterable[str]) -> None:
-        self._span.set_attribute("basalt.trace.tags", list(tags))
-
-    def add_metadata(self, metadata: dict[str, Any]) -> None:
-        for key, value in metadata.items():
-            self._span.set_attribute(f"basalt.meta.{key}", value)
-
-    def add_evaluator(self, evaluator: Any) -> None:
-        self._handle.add_evaluators(evaluator)
-
-    def set_experiment(
-        self,
-        experiment_id: str,
-        *,
-        name: str | None = None,
-        feature_slug: str | None = None,
-    ) -> None:
-        self._span.set_attribute("basalt.experiment.id", experiment_id)
-        if name:
-            self._span.set_attribute("basalt.experiment.name", name)
-        if feature_slug:
-            self._span.set_attribute("basalt.experiment.feature_slug", feature_slug)
-
-
-def observe(
-    name: str | None = None,
-    *,
-    attributes: dict[str, Any] | Callable[..., dict[str, Any]] | None = None,
-    capture_io: bool = False,
-):
-    """Deprecated alias for trace_operation."""
-    warnings.warn(
-        "basalt.observability.observe is deprecated; use trace_operation instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return trace_operation(name=name, attributes=attributes, capture_io=capture_io)
-
-
-@contextmanager
-def observe_cm(name: str, attributes: dict[str, Any] | None = None):
-    """Deprecated context manager alias around trace_span."""
-    warnings.warn(
-        "basalt.observability.observe_cm is deprecated; use trace_span instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    with trace_span(name, attributes=attributes) as handle:
-        yield Observation(handle)
 
 
 def current_span() -> Span | None:
@@ -543,3 +445,90 @@ def set_span_status_ok(description: str | None = None) -> bool:
 def set_span_status_error(description: str | None = None) -> bool:
     """Convenience to set StatusCode.ERROR on the current span."""
     return set_span_status(StatusCode.ERROR, description)
+
+# TODO : Get Parent span (get_parent_span()) / Get Otel Trace (get_otel_trace())
+# TODO: Get Top/Root span (get_trace())
+
+# ---------------------------------------------------------------------------
+# Span hierarchy helpers
+# ---------------------------------------------------------------------------
+
+def _get_span_parent(span: Span) -> Span | None:
+    """Attempt to retrieve the parent span object if still in memory.
+
+    The OpenTelemetry Python SDK does not expose a public API to fetch the
+    parent *Span object* from a child span – only the parent span context is
+    guaranteed to be available. However, when the active parent span is still
+    on the context stack (typical while you are inside nested Basalt span
+    context managers) SDK span implementations usually retain a ``parent``
+    attribute we can inspect. This function best‑effort looks for that.
+    """
+    # First, prefer the explicit back-reference Basalt attaches on creation
+    parent = getattr(span, "_basalt_parent_span", None)
+    if parent and getattr(parent, "get_span_context", None):
+        ctx = parent.get_span_context()
+        if ctx and ctx.is_valid:
+            return parent  # type: ignore[return-value]
+    # Fallback: some SDK span implementations keep a `.parent` attribute
+    try:  # Best effort – guard against differing SDK implementations
+        parent = getattr(span, "parent", None)
+        if parent and getattr(parent, "get_span_context", None):
+            ctx = parent.get_span_context()
+            if ctx and ctx.is_valid:
+                return parent  # type: ignore[return-value]
+    except Exception:  # pragma: no cover - defensive
+        return None
+    return None
+
+
+def get_parent_span() -> Span | None:
+    """Return the parent span of the current active span, if available.
+
+    Returns None if there is no active span, the active span is invalid,
+    or its parent span object cannot be resolved (e.g. the parent already
+    finished and is no longer on the context stack).
+    """
+    span = current_span()
+    if not span:
+        return None
+    return _get_span_parent(span)
+
+
+def get_trace() -> Span | None:
+    """Return the root (top-most) span of the current trace.
+
+    Walks up the in-memory parent chain (if available) until no further
+    parent can be resolved. If there is no active span, returns None.
+    """
+    span = current_span()
+    if not span:
+        return None
+    root = span
+    visited = set()
+    while True:
+        # Protect against potential cycles (extremely unlikely)
+        ident = id(root)
+        if ident in visited:
+            break
+        visited.add(ident)
+        parent = _get_span_parent(root)
+        if not parent:
+            break
+        root = parent
+    return root
+
+
+def get_otel_trace():
+    """Return the OpenTelemetry SpanContext for the current span, if valid.
+
+    Returns None if there is no active span or its context is invalid.
+    """
+    span = current_span()
+    if not span:
+        return None
+    ctx = span.get_span_context()
+    if not ctx or not ctx.is_valid:
+        return None
+    return ctx
+
+# ---------------------------------------------------------------------------

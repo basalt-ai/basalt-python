@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import functools
 import inspect
 import json
@@ -36,6 +37,17 @@ from .context_managers import (
 from .context_managers import (
     trace_tool as trace_tool_cm,
 )
+
+
+class ObserveKind(str, enum.Enum):
+    """Enumeration of span kinds for the observe decorator."""
+
+    SPAN = "span"
+    GENERATION = "generation"
+    RETRIEVAL = "retrieval"
+    FUNCTION = "function"
+    TOOL = "tool"
+    EVENT = "event"
 
 F = TypeVar("F", bound=Callable[..., Any])
 AsyncFunc = TypeVar("AsyncFunc", bound=Callable[..., Awaitable[Any]])
@@ -203,8 +215,9 @@ def _resolve_identity_payload(
     if resolver is None:
         return None
     if callable(resolver):
-        return resolver(bound)
-    return resolver
+        result = resolver(bound)
+        return result  # type: ignore[return-value]
+    return resolver  # type: ignore[return-value]
 
 
 def _wrap_with_span(
@@ -253,11 +266,17 @@ def _wrap_with_span(
             ) as span:
                 # Set evaluator config and metadata if provided
                 if evaluator_config is not None:
-                    resolved_config = evaluator_config(bound) if callable(evaluator_config) else evaluator_config
+                    resolved_config = (
+                        evaluator_config(bound) if callable(evaluator_config) else evaluator_config
+                    )
                     if resolved_config is not None:
                         span.set_evaluator_config(resolved_config)
                 if evaluator_metadata is not None:
-                    resolved_metadata = evaluator_metadata(bound) if callable(evaluator_metadata) else evaluator_metadata
+                    resolved_metadata = (
+                        evaluator_metadata(bound)
+                        if callable(evaluator_metadata)
+                        else evaluator_metadata
+                    )
                     if resolved_metadata is not None:
                         span.set_evaluator_metadata(resolved_metadata)
 
@@ -303,11 +322,17 @@ def _wrap_with_span(
         ) as span:
             # Set evaluator config and metadata if provided
             if evaluator_config is not None:
-                resolved_config = evaluator_config(bound) if callable(evaluator_config) else evaluator_config
+                resolved_config = (
+                    evaluator_config(bound) if callable(evaluator_config) else evaluator_config
+                )
                 if resolved_config is not None:
                     span.set_evaluator_config(resolved_config)
             if evaluator_metadata is not None:
-                resolved_metadata = evaluator_metadata(bound) if callable(evaluator_metadata) else evaluator_metadata
+                resolved_metadata = (
+                    evaluator_metadata(bound)
+                    if callable(evaluator_metadata)
+                    else evaluator_metadata
+                )
                 if resolved_metadata is not None:
                     span.set_evaluator_metadata(resolved_metadata)
 
@@ -331,58 +356,6 @@ def _wrap_with_span(
                 raise
 
     return sync_wrapper
-
-
-def trace_span(
-    name: str | None = None,
-    *,
-    attributes: AttributeSpec = None,
-    input: Any = None,
-    output: Callable[[Any], Any] | None = None,
-    variables: Any = None,
-    evaluators: Any = None,
-    post_evaluators: Any = None,
-    evaluator_config: Any = None,
-    evaluator_metadata: Any = None,
-    user: Any = None,
-    organization: Any = None,
-) -> Callable[[F], F]:
-    """Decorator for general-purpose spans."""
-
-    def decorator(func: F) -> F:
-        span_name = name or f"{func.__module__}.{func.__qualname__}"
-        return _wrap_with_span(
-            trace_span_cm,
-            span_name,
-            attributes,
-            func,
-            input_resolver=input,
-            variables_resolver=variables,
-            evaluators=evaluators,
-            post_evaluators=post_evaluators,
-            evaluator_config=evaluator_config,
-            evaluator_metadata=evaluator_metadata,
-            user=user,
-            organization=organization,
-            output_resolver=output,
-        )  # type: ignore[return-value]
-
-    return decorator
-
-
-def trace_operation(
-    name: str | None = None,
-    *,
-    attributes: AttributeSpec = None,
-    capture_io: bool = False,
-) -> Callable[[F], F]:
-    """Deprecated alias for ``trace_span``."""
-    warnings.warn(
-        "trace_operation is deprecated; use trace_span instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return trace_span(name=name, attributes=attributes)
 
 
 def _extract_first(bound, keys: tuple[str, ...]) -> Any | None:
@@ -534,7 +507,198 @@ def _apply_llm_response_metadata(span: LLMSpanHandle, result: Any) -> None:
         span.set_tokens(input=input_tokens, output=output_tokens)
 
 
-def trace_generation(
+def observe(
+    kind: ObserveKind | str,
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    evaluator_config: Any = None,
+    evaluator_metadata: Any = None,
+    user: Any = None,
+    organization: Any = None,
+    function_name: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+    stage: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+    tool_name: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+    event_type: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+) -> Callable[[F], F]:
+    """
+    Universal decorator for observing function execution with customizable span kind.
+
+    This decorator allows you to specify the kind of span to create, providing a unified
+    interface for all observability instrumentation. It delegates to the appropriate
+    specialized decorator based on the `kind` parameter.
+
+    Args:
+        kind: The type of span to create. Can be ObserveKind enum or string:
+              "span", "generation", "retrieval", "function", "tool", or "event".
+        name: Optional span name. Defaults to module.function_name.
+        attributes: Static or callable attributes to add to the span.
+        input: Resolver for input payload (string, sequence, callable, or None).
+        output: Callable to transform the return value before recording.
+        variables: Resolver for span variables.
+        evaluators: Evaluator specifications to attach before execution.
+        post_evaluators: Evaluator specifications to attach after execution.
+        evaluator_config: Config for evaluators (EvaluatorConfig, dict, or callable).
+        evaluator_metadata: Metadata for evaluators (dict or callable returning dict).
+        user: User identity (static TraceIdentity, dict, or callable).
+        organization: Organization identity (static TraceIdentity, dict, or callable).
+        function_name: For function spans - name resolver (static or callable).
+        stage: For function spans - stage resolver (static or callable).
+        tool_name: For tool spans - name resolver (static or callable).
+        event_type: For event spans - type resolver (static or callable).
+
+    Returns:
+        A decorator that wraps the function with observability instrumentation.
+
+    Example - Basic span:
+        >>> @observe(ObserveKind.SPAN, name="my.operation")
+        ... def process_data(data: str) -> str:
+        ...     return data.upper()
+
+    Example - LLM generation:
+        >>> @observe(ObserveKind.GENERATION)
+        ... def call_llm(prompt: str) -> str:
+        ...     return model.generate(prompt)
+
+    Example - Using string kind:
+        >>> @observe("retrieval", name="vector.search")
+        ... def search_docs(query: str) -> list:
+        ...     return vector_db.search(query)
+    """
+    # Normalize kind to string for comparison
+    kind_str = kind.value if isinstance(kind, ObserveKind) else str(kind).lower()
+
+    # Delegate to the appropriate specialized decorator
+    if kind_str == ObserveKind.GENERATION.value:
+        return observe_generation(
+            name=name,
+            attributes=attributes,
+            input=input,
+            output=output,
+            variables=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            evaluator_config=evaluator_config,
+            evaluator_metadata=evaluator_metadata,
+            user=user,
+            organization=organization,
+        )
+    elif kind_str == ObserveKind.RETRIEVAL.value:
+        return observe_retrieval(
+            name=name,
+            attributes=attributes,
+            input=input,
+            output=output,
+            variables=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            user=user,
+            organization=organization,
+        )
+    elif kind_str == ObserveKind.FUNCTION.value:
+        return observe_function(
+            name=name,
+            attributes=attributes,
+            input=input,
+            output=output,
+            variables=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            user=user,
+            organization=organization,
+            function_name=function_name,
+            stage=stage,
+        )
+    elif kind_str == ObserveKind.TOOL.value:
+        return observe_tool(
+            name=name,
+            attributes=attributes,
+            input=input,
+            output=output,
+            variables=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            user=user,
+            organization=organization,
+            tool_name=tool_name,
+        )
+    elif kind_str == ObserveKind.EVENT.value:
+        return observe_event(
+            name=name,
+            attributes=attributes,
+            input=input,
+            output=output,
+            variables=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            user=user,
+            organization=organization,
+            event_type=event_type,
+        )
+    elif kind_str == ObserveKind.SPAN.value:
+        return observe_span(
+            name=name,
+            attributes=attributes,
+            input=input,
+            output=output,
+            variables=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            evaluator_config=evaluator_config,
+            evaluator_metadata=evaluator_metadata,
+            user=user,
+            organization=organization,
+        )
+    else:
+        raise ValueError(
+            f"Invalid observe kind: {kind}. "
+            f"Must be one of: {', '.join(k.value for k in ObserveKind)}"
+        )
+
+
+def observe_span(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    evaluator_config: Any = None,
+    evaluator_metadata: Any = None,
+    user: Any = None,
+    organization: Any = None,
+) -> Callable[[F], F]:
+    """Decorator for general-purpose spans."""
+
+    def decorator(func: F) -> F:
+        span_name = name or f"{func.__module__}.{func.__qualname__}"
+        return _wrap_with_span(
+            trace_span_cm,
+            span_name,
+            attributes,
+            func,
+            input_resolver=input,
+            variables_resolver=variables,
+            evaluators=evaluators,
+            post_evaluators=post_evaluators,
+            evaluator_config=evaluator_config,
+            evaluator_metadata=evaluator_metadata,
+            user=user,
+            organization=organization,
+            output_resolver=output,
+        )  # type: ignore[return-value]
+
+    return decorator
+
+
+def observe_generation(
     name: str | None = None,
     *,
     attributes: AttributeSpec = None,
@@ -597,38 +761,7 @@ def trace_generation(
     return decorator
 
 
-def trace_llm(
-    name: str | None = None,
-    *,
-    attributes: AttributeSpec = None,
-    input: Any = None,
-    output: Callable[[Any], Any] | None = None,
-    variables: Any = None,
-    evaluators: Any = None,
-    post_evaluators: Any = None,
-    user: Any = None,
-    organization: Any = None,
-) -> Callable[[F], F]:
-    """Deprecated alias for :func:`trace_generation`."""
-    warnings.warn(
-        "trace_llm is deprecated; use trace_generation instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return trace_generation(
-        name=name,
-        attributes=attributes,
-        input=input,
-        output=output,
-        variables=variables,
-        evaluators=evaluators,
-        post_evaluators=post_evaluators,
-        user=user,
-        organization=organization,
-    )
-
-
-def trace_retrieval(
+def observe_retrieval(
     name: str | None = None,
     *,
     attributes: AttributeSpec = None,
@@ -670,7 +803,7 @@ def trace_retrieval(
     return decorator
 
 
-def trace_function(
+def observe_function(
     name: str | None = None,
     *,
     attributes: AttributeSpec = None,
@@ -722,7 +855,7 @@ def trace_function(
     return decorator
 
 
-def trace_tool(
+def observe_tool(
     name: str | None = None,
     *,
     attributes: AttributeSpec = None,
@@ -764,7 +897,7 @@ def trace_tool(
     return decorator
 
 
-def trace_event(
+def observe_event(
     name: str | None = None,
     *,
     attributes: AttributeSpec = None,
@@ -807,6 +940,239 @@ def trace_event(
         )  # type: ignore[return-value]
 
     return decorator
+
+
+# Backward compatibility: Keep trace_* decorators with deprecation warnings
+def trace_span(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    evaluator_config: Any = None,
+    evaluator_metadata: Any = None,
+    user: Any = None,
+    organization: Any = None,
+) -> Callable[[F], F]:
+    """
+    Decorator for general-purpose spans.
+
+    .. deprecated:: 1.0.0
+        Use :func:`observe_span` or :func:`observe` with ``kind=ObserveKind.SPAN`` instead.
+    """
+    warnings.warn(
+        "trace_span is deprecated, use observe_span or observe(kind=ObserveKind.SPAN) instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return observe_span(
+        name=name,
+        attributes=attributes,
+        input=input,
+        output=output,
+        variables=variables,
+        evaluators=evaluators,
+        post_evaluators=post_evaluators,
+        evaluator_config=evaluator_config,
+        evaluator_metadata=evaluator_metadata,
+        user=user,
+        organization=organization,
+    )
+
+
+def trace_generation(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    evaluator_config: Any = None,
+    evaluator_metadata: Any = None,
+    user: Any = None,
+    organization: Any = None,
+) -> Callable[[F], F]:
+    """
+    Decorator specialized for LLM generation spans.
+
+    .. deprecated:: 1.0.0
+        Use :func:`observe_generation` or :func:`observe` with ``kind=ObserveKind.GENERATION`` instead.
+    """
+    warnings.warn(
+        "trace_generation is deprecated, use observe_generation or observe(kind=ObserveKind.GENERATION) instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return observe_generation(
+        name=name,
+        attributes=attributes,
+        input=input,
+        output=output,
+        variables=variables,
+        evaluators=evaluators,
+        post_evaluators=post_evaluators,
+        evaluator_config=evaluator_config,
+        evaluator_metadata=evaluator_metadata,
+        user=user,
+        organization=organization,
+    )
+
+
+def trace_retrieval(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
+) -> Callable[[F], F]:
+    """
+    Decorator for retrieval/vector search spans.
+
+    .. deprecated:: 1.0.0
+        Use :func:`observe_retrieval` or :func:`observe` with ``kind=ObserveKind.RETRIEVAL`` instead.
+    """
+    warnings.warn(
+        "trace_retrieval is deprecated, use observe_retrieval or observe(kind=ObserveKind.RETRIEVAL) instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return observe_retrieval(
+        name=name,
+        attributes=attributes,
+        input=input,
+        output=output,
+        variables=variables,
+        evaluators=evaluators,
+        post_evaluators=post_evaluators,
+        user=user,
+        organization=organization,
+    )
+
+
+def trace_function(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
+    function_name: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+    stage: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+) -> Callable[[F], F]:
+    """
+    Decorator for compute/function spans.
+
+    .. deprecated:: 1.0.0
+        Use :func:`observe_function` or :func:`observe` with ``kind=ObserveKind.FUNCTION`` instead.
+    """
+    warnings.warn(
+        "trace_function is deprecated, use observe_function or observe(kind=ObserveKind.FUNCTION) instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return observe_function(
+        name=name,
+        attributes=attributes,
+        input=input,
+        output=output,
+        variables=variables,
+        evaluators=evaluators,
+        post_evaluators=post_evaluators,
+        user=user,
+        organization=organization,
+        function_name=function_name,
+        stage=stage,
+    )
+
+
+def trace_tool(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
+    tool_name: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+) -> Callable[[F], F]:
+    """
+    Decorator for tool invocation spans.
+
+    .. deprecated:: 1.0.0
+        Use :func:`observe_tool` or :func:`observe` with ``kind=ObserveKind.TOOL`` instead.
+    """
+    warnings.warn(
+        "trace_tool is deprecated, use observe_tool or observe(kind=ObserveKind.TOOL) instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return observe_tool(
+        name=name,
+        attributes=attributes,
+        input=input,
+        output=output,
+        variables=variables,
+        evaluators=evaluators,
+        post_evaluators=post_evaluators,
+        user=user,
+        organization=organization,
+        tool_name=tool_name,
+    )
+
+
+def trace_event(
+    name: str | None = None,
+    *,
+    attributes: AttributeSpec = None,
+    input: Any = None,
+    output: Callable[[Any], Any] | None = None,
+    variables: Any = None,
+    evaluators: Any = None,
+    post_evaluators: Any = None,
+    user: Any = None,
+    organization: Any = None,
+    event_type: str | Callable[[inspect.BoundArguments | None], str] | None = None,
+) -> Callable[[F], F]:
+    """
+    Decorator for custom event spans.
+
+    .. deprecated:: 1.0.0
+        Use :func:`observe_event` or :func:`observe` with ``kind=ObserveKind.EVENT`` instead.
+    """
+    warnings.warn(
+        "trace_event is deprecated, use observe_event or observe(kind=ObserveKind.EVENT) instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return observe_event(
+        name=name,
+        attributes=attributes,
+        input=input,
+        output=output,
+        variables=variables,
+        evaluators=evaluators,
+        post_evaluators=post_evaluators,
+        user=user,
+        organization=organization,
+        event_type=event_type,
+    )
 
 
 def evaluator(

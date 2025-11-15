@@ -39,19 +39,41 @@ class TelemetryConfig:
     You can control which providers are instrumented using `llm_enabled_providers` and
     `llm_disabled_providers`.
 
-    Supported providers:
+    Supported providers (17 total):
+        LLM Providers (10 available + 1 in code):
         - openai: OpenAI API (via opentelemetry-instrumentation-openai)
         - anthropic: Anthropic API (via opentelemetry-instrumentation-anthropic)
-        - google_genai: Google GenAI SDK - NEW (via opentelemetry-instrumentation-google-genai)
-        - google_generativeai: Google Generative AI SDK - LEGACY (via opentelemetry-instrumentation-google-generativeai)
+        - google_generativeai: Google Generative AI SDK / Gemini (via opentelemetry-instrumentation-google-generativeai)
+          Use for: import google.generativeai
+        - google_genai: Google GenAI SDK - NEW (instrumentation not yet available on PyPI)
+          Will use: from google import genai
+          Code ready but package not published yet
         - cohere: Cohere API (via opentelemetry-instrumentation-cohere)
         - bedrock: AWS Bedrock (via opentelemetry-instrumentation-bedrock)
-        - vertexai: Google Vertex AI (via opentelemetry-instrumentation-vertexai)
+        - vertexai / vertex-ai: Google Vertex AI (via opentelemetry-instrumentation-vertexai)
+          Both names work as aliases
+        - ollama: Ollama (via opentelemetry-instrumentation-ollama)
+        - mistralai: Mistral AI (via opentelemetry-instrumentation-mistralai)
         - together: Together AI (via opentelemetry-instrumentation-together)
         - replicate: Replicate (via opentelemetry-instrumentation-replicate)
+
+        Vector Databases (3):
+        - chromadb: ChromaDB (via opentelemetry-instrumentation-chromadb)
+        - pinecone: Pinecone (via opentelemetry-instrumentation-pinecone)
+        - qdrant: Qdrant (via opentelemetry-instrumentation-qdrant)
+
+        Frameworks (3):
         - langchain: LangChain (via opentelemetry-instrumentation-langchain)
         - llamaindex: LlamaIndex (via opentelemetry-instrumentation-llamaindex)
         - haystack: Haystack (via opentelemetry-instrumentation-haystack)
+
+    Installation:
+        Install instrumentation packages using optional dependencies:
+            pip install basalt-sdk[openai,anthropic]  # Specific providers
+            pip install basalt-sdk[llm-all]            # All LLM providers
+            pip install basalt-sdk[all]                # Everything
+
+        See pyproject.toml [project.optional-dependencies] for all available extras.
 
     Custom Provider Instrumentation
     --------------------------------

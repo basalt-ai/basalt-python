@@ -296,6 +296,7 @@ class InstrumentationManager:
         """
         # Comprehensive map of supported LLM providers and their instrumentors
         provider_map = {
+            # LLM Providers
             "openai": ("opentelemetry.instrumentation.openai", "OpenAIInstrumentor"),
             "anthropic": ("opentelemetry.instrumentation.anthropic", "AnthropicInstrumentor"),
             # NEW Google GenAI SDK (from google import genai)
@@ -306,11 +307,19 @@ class InstrumentationManager:
             "cohere": ("opentelemetry.instrumentation.cohere", "CohereInstrumentor"),
             "bedrock": ("opentelemetry.instrumentation.bedrock", "BedrockInstrumentor"),
             "vertexai": ("opentelemetry.instrumentation.vertexai", "VertexAIInstrumentor"),
+            "vertex-ai": ("opentelemetry.instrumentation.vertexai", "VertexAIInstrumentor"),  # Alias
+            "ollama": ("opentelemetry.instrumentation.ollama", "OllamaInstrumentor"),
+            "mistralai": ("opentelemetry.instrumentation.mistralai", "MistralAiInstrumentor"),
             "together": ("opentelemetry.instrumentation.together", "TogetherInstrumentor"),
             "replicate": ("opentelemetry.instrumentation.replicate", "ReplicateInstrumentor"),
+            # Frameworks
             "langchain": ("opentelemetry.instrumentation.langchain", "LangchainInstrumentor"),
             "llamaindex": ("opentelemetry.instrumentation.llamaindex", "LlamaIndexInstrumentor"),
             "haystack": ("opentelemetry.instrumentation.haystack", "HaystackInstrumentor"),
+            # Vector Databases
+            "chromadb": ("opentelemetry.instrumentation.chromadb", "ChromaInstrumentor"),
+            "pinecone": ("opentelemetry.instrumentation.pinecone", "PineconeInstrumentor"),
+            "qdrant": ("opentelemetry.instrumentation.qdrant", "QdrantInstrumentor"),
         }
 
         for provider_key, (module_name, class_name) in provider_map.items():
@@ -364,13 +373,22 @@ class InstrumentationManager:
         Args:
             config: Telemetry configuration specifying trace content and provider settings.
         """
-        # Set environment variable to control trace content for OpenTelemetry instrumentors
-        # This is used by OpenTelemetry instrumentation libraries
+        # Set environment variables for third-party OpenTelemetry instrumentors
+        # These variables are READ by the instrumentation libraries (openai, anthropic, etc.)
+        # and control whether they capture prompts/completions in traces.
+        #
+        # Why we do this:
+        # - Users configure llm_trace_content in TelemetryConfig (clean Python API)
+        # - We translate it to environment variables that instrumentors expect
+        # - This way users don't need to manually set TRACELOOP_* environment variables
+        #
+        # Variables set:
+        # - TRACELOOP_TRACE_CONTENT: Used by most OpenLLMetry instrumentors
+        # - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: Used by Google GenAI instrumentor
         os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.llm_trace_content else "false"
         os.environ[
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
         ] = "true" if config.llm_trace_content else "false"
-
 
         # Instrument providers directly without using Traceloop.init()
         self._instrument_llm_providers(config)

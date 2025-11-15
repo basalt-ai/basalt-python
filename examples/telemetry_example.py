@@ -55,7 +55,7 @@ from basalt.observability.context_managers import (
     trace_tool,
 )
 from basalt.observability.decorators import evaluator
-from basalt.observability.decorators import trace_generation as trace_generation_decorator
+from basalt.observability.decorators import observe_generation as observe_generation_decorator
 
 # --- 1. Basic Telemetry Configuration ---
 
@@ -155,10 +155,10 @@ def search_knowledge_base(query: str, top_k: int = 5) -> list[dict]:
 
 # --- 3. All Specialized Span Types ---
 
-@trace_generation_decorator(name="llm.mock_completion")
+@observe_generation_decorator(name="llm.mock_completion")
 def mock_llm_call(prompt: str, model: str = "gpt-4") -> dict:
     """
-    Mock LLM call using @trace_generation decorator.
+    Mock LLM call using @observe_generation decorator.
 
     This decorator creates a span with type='llm' and captures LLM-specific attributes.
     """

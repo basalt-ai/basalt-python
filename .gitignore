@@ -7,3 +7,4 @@ test.py
 .idea/
 venv/
 .github/instructions/*.md
+.copilot-tracking

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import warnings
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -698,6 +697,13 @@ def _with_span_handle(
             if span_type:
                 span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
 
+            # Attach a private reference to the parent span for hierarchy helpers
+            try:
+                if parent_span is not None:
+                    span._basalt_parent_span = parent_span
+            except Exception:
+                pass
+
             # Apply user/org from context (either explicit or inherited from parent)
             apply_user_from_context(span, user)
             apply_organization_from_context(span, organization)
@@ -918,38 +924,3 @@ def trace_event(
         organization=organization,
     ) as handle:
         yield handle  # type: ignore[misc]
-
-
-@contextmanager
-def trace_llm_call(
-    name: str,
-    *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
-    variables: Mapping[str, Any] | None = None,
-    evaluators: Sequence[Any] | None = None,
-    user: TraceIdentity | Mapping[str, Any] | None = None,
-    organization: TraceIdentity | Mapping[str, Any] | None = None,
-    attributes: dict[str, Any] | None = None,
-    tracer_name: str = "basalt.observability.llm",
-) -> Generator[LLMSpanHandle, None, None]:
-    """
-    Deprecated alias for ``trace_generation``.
-    """
-    warnings.warn(
-        "trace_llm_call is deprecated; use trace_generation instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    with trace_generation(
-        name,
-        input_payload=input_payload,
-        output_payload=output_payload,
-        variables=variables,
-        evaluators=evaluators,
-        user=user,
-        organization=organization,
-        attributes=attributes,
-        tracer_name=tracer_name,
-    ) as handle:
-        yield handle
