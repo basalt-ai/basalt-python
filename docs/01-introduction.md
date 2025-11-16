@@ -83,8 +83,7 @@ answer = generate_answer(docs, "How do I reset my password?")
 
 ### Quality Monitoring with Evaluators
 ```python
-from basalt.observability.decorators import evaluator
-from basalt.observability import observe_generation
+from basalt.observability import evaluator, observe_generation
 
 @evaluator(slugs=["accuracy", "toxicity"], sample_rate=0.5)
 @observe_generation(name="llm.generate_response")

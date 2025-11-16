@@ -13,9 +13,9 @@ Basalt provides two patterns for manual tracing:
 ### Using Decorators
 
 ```python
-from basalt.observability.decorators import trace_span
+from basalt.observability import observe_span
 
-@trace_span(name="my.operation")
+@observe_span(name="my.operation")
 def process_data(data):
     # Function automatically wrapped in a span
     return transform(data)
@@ -36,14 +36,14 @@ def process_request():
 
 ## Decorators
 
-### @trace_span
+### @observe_span
 
 Generic span for any operation.
 
 ```python
-from basalt.observability.decorators import trace_span
+from basalt.observability import observe_span
 
-@trace_span(name="compute.process", attributes={"version": "v2"})
+@observe_span(name="compute.process", attributes={"version": "v2"})
 def process(data):
     return result
 ```
@@ -51,16 +51,18 @@ def process(data):
 ### Nested Spans with Decorators
 
 ```python
-@trace_span(name="workflow.main")
+from basalt.observability import observe_span
+
+@observe_span(name="workflow.main")
 def main_workflow():
     step1()  # Creates child span
     step2()  # Creates child span
 
-@trace_span(name="workflow.step1")
+@observe_span(name="workflow.step1")
 def step1():
     pass
 
-@trace_span(name="workflow.step2")
+@observe_span(name="workflow.step2")
 def step2():
     pass
 ```
