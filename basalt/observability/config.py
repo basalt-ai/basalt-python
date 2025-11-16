@@ -39,8 +39,8 @@ class TelemetryConfig:
     You can control which providers are instrumented using `llm_enabled_providers` and
     `llm_disabled_providers`.
 
-    Supported providers (17 total):
-        LLM Providers (10 available + 1 in code):
+    Supported providers (11 total):
+        LLM Providers:
         - openai: OpenAI API (via opentelemetry-instrumentation-openai)
         - anthropic: Anthropic API (via opentelemetry-instrumentation-anthropic)
         - google_generativeai: Google Generative AI SDK / Gemini (via opentelemetry-instrumentation-google-generativeai)
@@ -48,30 +48,33 @@ class TelemetryConfig:
         - google_genai: Google GenAI SDK - NEW (instrumentation not yet available on PyPI)
           Will use: from google import genai
           Code ready but package not published yet
-        - cohere: Cohere API (via opentelemetry-instrumentation-cohere)
         - bedrock: AWS Bedrock (via opentelemetry-instrumentation-bedrock)
-        - vertexai / vertex-ai: Google Vertex AI (via opentelemetry-instrumentation-vertexai)
+        - vertex-ai / vertexai: Google Vertex AI (via opentelemetry-instrumentation-vertexai)
           Both names work as aliases
-        - ollama: Ollama (via opentelemetry-instrumentation-ollama)
         - mistralai: Mistral AI (via opentelemetry-instrumentation-mistralai)
-        - together: Together AI (via opentelemetry-instrumentation-together)
-        - replicate: Replicate (via opentelemetry-instrumentation-replicate)
 
-        Vector Databases (3):
+        Vector Databases:
         - chromadb: ChromaDB (via opentelemetry-instrumentation-chromadb)
         - pinecone: Pinecone (via opentelemetry-instrumentation-pinecone)
         - qdrant: Qdrant (via opentelemetry-instrumentation-qdrant)
 
-        Frameworks (3):
+        Frameworks:
         - langchain: LangChain (via opentelemetry-instrumentation-langchain)
         - llamaindex: LlamaIndex (via opentelemetry-instrumentation-llamaindex)
-        - haystack: Haystack (via opentelemetry-instrumentation-haystack)
+
+    Notes:
+        - The pyproject.toml defines optional dependency extras for the instrumentations above. Some convenience groups
+          (e.g. `framework-all`) reference additional packages such as `haystack` even if that extra is not separately
+          defined in the optional-dependencies table; consult `pyproject.toml` for the authoritative extras list.
+        - The `google_genai` (new GenAI `from google import genai`) instrumentation is mentioned in code but not yet
+          published as a stable OpenTelemetry instrumentation on PyPI; `google-generativeai` targets the existing
+          `google.generativeai` package.
 
     Installation:
         Install instrumentation packages using optional dependencies:
             pip install basalt-sdk[openai,anthropic]  # Specific providers
-            pip install basalt-sdk[llm-all]            # All LLM providers
-            pip install basalt-sdk[all]                # Everything
+            pip install basalt-sdk[llm-all]            # All LLM providers included in pyproject.toml
+            pip install basalt-sdk[all]                # Everything (as defined by the convenience groups)
 
         See pyproject.toml [project.optional-dependencies] for all available extras.
 
@@ -131,24 +134,25 @@ class TelemetryConfig:
             BASALT_SERVICE_NAME
             BASALT_ENVIRONMENT
         """
-        config = self.clone()
+        cfg = self.clone()
 
         enabled_env = _as_bool(os.getenv("BASALT_TELEMETRY_ENABLED"))
         if enabled_env is not None:
-            config.enabled = enabled_env
+            cfg.enabled = enabled_env
 
         service_name = os.getenv("BASALT_SERVICE_NAME")
         if service_name:
-            config.service_name = service_name
+            cfg.service_name = service_name
 
         environment = os.getenv("BASALT_ENVIRONMENT")
         if environment:
-            config.environment = environment
+            cfg.environment = environment
 
-        if not config.service_version:
-            config.service_version = basalt_sdk_config.get("sdk_version", "unknown")
+        if not cfg.service_version:
+            # basalt_sdk_config is a mapping defined in `basalt.config` module
+            cfg.service_version = basalt_sdk_config.get("sdk_version", "unknown")
 
-        return config
+        return cfg
 
     def should_instrument_provider(self, provider: str) -> bool:
         """

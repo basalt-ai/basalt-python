@@ -52,27 +52,17 @@ google-generativeai = [
 # google-genai = [
 #     "opentelemetry-instrumentation-google-genai~=0.48.0",
 # ]
-cohere = [
-    "opentelemetry-instrumentation-cohere~=0.48.0",
-]
 bedrock = [
     "opentelemetry-instrumentation-bedrock~=0.48.0",
 ]
 vertex-ai = [
     "opentelemetry-instrumentation-vertexai~=0.48.0",
 ]
-ollama = [
-    "opentelemetry-instrumentation-ollama~=0.48.0",
-]
+
 mistralai = [
     "opentelemetry-instrumentation-mistralai~=0.48.0",
 ]
-together = [
-    "opentelemetry-instrumentation-together~=0.48.0",
-]
-replicate = [
-    "opentelemetry-instrumentation-replicate~=0.48.0",
-]
+
 
 # Vector Database Instrumentations
 chromadb = [
@@ -92,13 +82,14 @@ langchain = [
 llamaindex = [
     "opentelemetry-instrumentation-llamaindex~=0.48.0",
 ]
-haystack = [
-    "opentelemetry-instrumentation-haystack~=0.48.0",
-]
+
+# Mising Framework Instrumentation
+# langgraph, litellm
+
 
 # Convenience groups
 llm-all = [
-    "basalt_sdk[openai,anthropic,google-generativeai,cohere,bedrock,vertex-ai,ollama,mistralai,together,replicate]",
+    "basalt_sdk[openai,anthropic,google-generativeai,bedrock,vertex-ai,mistralai]",
 ]
 vector-all = [
     "basalt_sdk[chromadb,pinecone,qdrant]",

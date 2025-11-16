@@ -304,18 +304,14 @@ class InstrumentationManager:
             # OLD Google Generative AI SDK (import google.generativeai)
             "google_generativeai": ("opentelemetry.instrumentation.google_generativeai",
                                      "GoogleGenerativeAiInstrumentor"),
-            "cohere": ("opentelemetry.instrumentation.cohere", "CohereInstrumentor"),
             "bedrock": ("opentelemetry.instrumentation.bedrock", "BedrockInstrumentor"),
             "vertexai": ("opentelemetry.instrumentation.vertexai", "VertexAIInstrumentor"),
             "vertex-ai": ("opentelemetry.instrumentation.vertexai", "VertexAIInstrumentor"),  # Alias
             "ollama": ("opentelemetry.instrumentation.ollama", "OllamaInstrumentor"),
             "mistralai": ("opentelemetry.instrumentation.mistralai", "MistralAiInstrumentor"),
-            "together": ("opentelemetry.instrumentation.together", "TogetherInstrumentor"),
-            "replicate": ("opentelemetry.instrumentation.replicate", "ReplicateInstrumentor"),
             # Frameworks
             "langchain": ("opentelemetry.instrumentation.langchain", "LangchainInstrumentor"),
             "llamaindex": ("opentelemetry.instrumentation.llamaindex", "LlamaIndexInstrumentor"),
-            "haystack": ("opentelemetry.instrumentation.haystack", "HaystackInstrumentor"),
             # Vector Databases
             "chromadb": ("opentelemetry.instrumentation.chromadb", "ChromaInstrumentor"),
             "pinecone": ("opentelemetry.instrumentation.pinecone", "PineconeInstrumentor"),
