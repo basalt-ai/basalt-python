@@ -19,7 +19,7 @@ ot_trace.set_tracer_provider(TracerProvider())
 
 
 def test_span_utils_no_active_span():
-    # Outside of any span, helpers should be no-ops returning False/0
+    # Outside any span, helpers should be no-ops returning False/0
     assert set_span_attribute("foo", "bar") is False
     assert set_span_attributes({"a": 1, "b": 2}) == 0
     assert add_span_event("evt") is False
