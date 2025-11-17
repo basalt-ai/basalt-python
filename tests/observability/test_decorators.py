@@ -9,6 +9,7 @@ import unittest
 from unittest import mock
 
 from basalt.observability import semconv
+from basalt.observability.decorators import ObserveKind, observe
 from basalt.observability.decorators import (
     trace_event as trace_event_decorator,
 )
@@ -27,7 +28,6 @@ from basalt.observability.decorators import (
 from basalt.observability.decorators import (
     trace_tool as trace_tool_decorator,
 )
-from basalt.observability.decorators import observe, ObserveKind
 from tests.observability.utils import get_exporter
 
 
