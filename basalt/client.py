@@ -18,6 +18,7 @@ from basalt.observability.trace_context import (
 )
 
 from .datasets.client import DatasetsClient
+from .experiments.client import ExperimentsClient
 from .prompts.client import PromptsClient
 from .utils.memcache import MemoryCache
 
@@ -118,6 +119,11 @@ class Basalt:
             base_url=base_url,
             http_client=http_client,
         )
+        self._experiments_client = ExperimentsClient(
+            api_key=api_key,
+            base_url=base_url,
+            http_client=http_client,
+        )
 
     @property
     def prompts(self) -> PromptsClient:
@@ -138,6 +144,16 @@ class Basalt:
             DatasetsClient instance for interacting with datasets.
         """
         return self._datasets_client
+
+    @property
+    def experiments(self) -> ExperimentsClient:
+        """
+        Access the Experiments API client.
+
+        Returns:
+            ExperimentsClient instance for interacting with experiments/features.
+        """
+        return self._experiments_client
 
     def shutdown(self):
         """
