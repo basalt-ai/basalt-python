@@ -711,13 +711,6 @@ def _with_span_handle(
             if span_type:
                 span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
 
-            # Attach a private reference to the parent span for hierarchy helpers
-            try:
-                if parent_span is not None:
-                    span._basalt_parent_span = parent_span
-            except Exception:
-                pass
-
             # Apply user/org from context (either explicit or inherited from parent)
             apply_user_from_context(span, user)
             apply_organization_from_context(span, organization)
