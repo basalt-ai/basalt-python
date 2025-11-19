@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ from ..types.exceptions import (
     NotFoundError,
     UnauthorizedError,
 )
+
+logger = logging.getLogger(__name__)
 
 # Type alias for HTTP methods
 HTTPMethod = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
@@ -313,6 +316,9 @@ class HTTPClient:
                         data=None,
                         headers=dict(response.headers),
                     )
+                # Log warning if present in response
+                if json_response and "warning" in json_response:
+                    logger.warning("API warning: %s", json_response["warning"])
                 return HTTPResponse(
                     status_code=status,
                     data=json_response if json_response is not None else None,
@@ -328,6 +334,9 @@ class HTTPClient:
             # Accept valid JSON from mock even if content is b'{}'
             try:
                 json_response = response.json()
+                # Log warning if present in response
+                if json_response and "warning" in json_response:
+                    logger.warning("API warning: %s", json_response["warning"])
                 return HTTPResponse(
                     status_code=status,
                     data=json_response if json_response is not None else None,
@@ -343,6 +352,9 @@ class HTTPClient:
                     json_response = response.json()
                 except Exception as exc:
                     raise NetworkError("Invalid JSON response") from exc
+                # Log warning if present in response
+                if json_response and "warning" in json_response:
+                    logger.warning("API warning: %s", json_response["warning"])
             return HTTPResponse(
                 status_code=status,
                 data=json_response if json_response else None,
@@ -357,22 +369,28 @@ class HTTPClient:
     ) -> None:
         """
         Raises custom exceptions for HTTP error codes.
+
+        Extracts "error" or "errors" field from JSON responses when available.
         """
+        # Extract error message from JSON response if available
+        message = None
+        if json_response:
+            if "error" in json_response:
+                message = json_response["error"]
+            elif "errors" in json_response:
+                message = json_response["errors"]
+
+        # Fall back to text response or default message
+        if message is None:
+            message = text_response
+
         if status == 400:
-            message = None
-            if json_response:
-                if "error" in json_response:
-                    message = json_response["error"]
-                if "errors" in json_response and message is None:
-                    message = json_response["errors"]
-            if message is None:
-                message = text_response or "Unknown Error"
-            raise BadRequestError(message)
+            raise BadRequestError(message or "Bad Request")
         elif status == 401:
-            raise UnauthorizedError(text_response or "Unauthorized")
+            raise UnauthorizedError(message or "Unauthorized")
         elif status == 403:
-            raise ForbiddenError(text_response or "Forbidden")
+            raise ForbiddenError(message or "Forbidden")
         elif status == 404:
-            raise NotFoundError(text_response or "Not Found")
+            raise NotFoundError(message or "Not Found")
         else:
-            raise NetworkError(text_response or f"HTTP {status}")
+            raise NetworkError(message or f"HTTP {status}")
