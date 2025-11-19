@@ -81,8 +81,6 @@ class ExperimentsClient(BaseServiceClient):
             raise BasaltAPIError("Empty response from experiment API")
 
         payload = response.json() or {}
-        if payload.get("error"):
-            raise BasaltAPIError(payload["error"])
 
         return Experiment.from_dict(payload)
 
@@ -128,8 +126,6 @@ class ExperimentsClient(BaseServiceClient):
             raise BasaltAPIError("Empty response from experiment API")
 
         payload = response.json() or {}
-        if payload.get("error"):
-            raise BasaltAPIError(payload["error"])
 
         return Experiment.from_dict(payload)
 
