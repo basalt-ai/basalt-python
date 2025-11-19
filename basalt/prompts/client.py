@@ -441,8 +441,6 @@ class PromptsClient(BaseServiceClient):
         if response is None:
             raise BasaltAPIError("Empty response from publish prompt API")
         payload = response.json() or {}
-        if payload.get("error"):
-            raise BasaltAPIError(payload["error"])
         if not payload:
             raise BasaltAPIError("Empty response from publish prompt API")
 
@@ -496,8 +494,6 @@ class PromptsClient(BaseServiceClient):
         if response is None:
             raise BasaltAPIError("Empty response from publish prompt API")
         payload = response.json() or {}
-        if payload.get("error"):
-            raise BasaltAPIError(payload["error"])
         if not payload:
             raise BasaltAPIError("Empty response from publish prompt API")
 

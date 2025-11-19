@@ -157,3 +157,65 @@ class ContextManagerTests(unittest.TestCase):
         parent_vars = json.loads(spans["parent.span"].attributes[semconv.BasaltSpan.VARIABLES])
         self.assertEqual(child_vars["prompt"], "hello")
         self.assertEqual(parent_vars["prompt"], "hello")
+
+    def test_experiment_only_attached_to_root_span(self):
+        """Test that experiments are only attached to root spans, not child spans."""
+        configure_trace_defaults(
+            experiment={"id": "exp-root", "name": "Root Experiment", "feature_slug": "feature-a"}
+        )
+
+        with trace_span("root.span"):
+            with trace_span("child.span"):
+                pass
+
+        spans = {span.name: span for span in self.exporter.get_finished_spans()}
+
+        # Root span should have experiment attributes
+        root_span = spans["root.span"]
+        self.assertEqual(root_span.attributes[semconv.BasaltExperiment.ID], "exp-root")
+        self.assertEqual(root_span.attributes[semconv.BasaltExperiment.NAME], "Root Experiment")
+        self.assertEqual(root_span.attributes[semconv.BasaltExperiment.FEATURE_SLUG], "feature-a")
+
+        # Child span should NOT have experiment attributes
+        child_span = spans["child.span"]
+        self.assertNotIn(semconv.BasaltExperiment.ID, child_span.attributes)
+        self.assertNotIn(semconv.BasaltExperiment.NAME, child_span.attributes)
+        self.assertNotIn(semconv.BasaltExperiment.FEATURE_SLUG, child_span.attributes)
+
+    def test_span_handle_set_experiment_on_child_span_logs_warning(self):
+        """Test that calling set_experiment on a child span logs a warning and doesn't attach."""
+        with trace_span("root.span"):
+            with trace_span("child.span") as child:
+                # Try to set experiment on child span - should log warning
+                with self.assertLogs("basalt.observability.context_managers", level="WARNING") as logs:
+                    child.set_experiment("exp-child", name="Child Experiment")
+
+                self.assertTrue(
+                    any("Experiments can only be attached to root spans" in msg for msg in logs.output)
+                )
+
+        spans = {span.name: span for span in self.exporter.get_finished_spans()}
+        child_span = spans["child.span"]
+
+        # Experiment should NOT be attached to child span
+        self.assertNotIn(semconv.BasaltExperiment.ID, child_span.attributes)
+
+    def test_attach_trace_experiment_on_child_span_logs_warning(self):
+        """Test that attach_trace_experiment on a child span logs a warning and doesn't attach."""
+        from basalt.observability import attach_trace_experiment
+
+        with trace_span("root.span"):
+            with trace_span("child.span"):
+                # Try to attach experiment in child span - should log warning
+                with self.assertLogs("basalt.observability", level="WARNING") as logs:
+                    attach_trace_experiment("exp-child", name="Child Experiment")
+
+                self.assertTrue(
+                    any("Experiments can only be attached to root spans" in msg for msg in logs.output)
+                )
+
+        spans = {span.name: span for span in self.exporter.get_finished_spans()}
+        child_span = spans["child.span"]
+
+        # Experiment should NOT be attached to child span
+        self.assertNotIn(semconv.BasaltExperiment.ID, child_span.attributes)

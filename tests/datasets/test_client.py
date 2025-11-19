@@ -125,9 +125,10 @@ def test_get_sync_with_error_response(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({"error": "Dataset not found"})
+        # HTTPClient now raises exceptions for error status codes
+        mock_fetch.side_effect = NotFoundError("Dataset not found")
 
-        with pytest.raises(BasaltAPIError):
+        with pytest.raises(NotFoundError):
             client.get_sync("nonexistent")
 
 
@@ -206,9 +207,10 @@ def test_add_row_sync_with_error(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({"error": "Invalid column"})
+        # HTTPClient now raises exceptions for error status codes
+        mock_fetch.side_effect = BadRequestError("Invalid column")
 
-        with pytest.raises(BasaltAPIError):
+        with pytest.raises(BadRequestError):
             client.add_row_sync("test-dataset", {"invalid": "col"})
 
 
@@ -339,9 +341,10 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = make_response({"error": "Not found"})
+            # HTTPClient now raises exceptions for error status codes
+            mock_fetch.side_effect = NotFoundError("Not found")
 
-            with pytest.raises(BasaltAPIError):
+            with pytest.raises(NotFoundError):
                 await client.get("missing")
 
     async def test_add_row_async_with_error(self, common_client):
@@ -349,7 +352,8 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = make_response({"error": "Invalid"})
+            # HTTPClient now raises exceptions for error status codes
+            mock_fetch.side_effect = BadRequestError("Invalid")
 
-            with pytest.raises(BasaltAPIError):
+            with pytest.raises(BadRequestError):
                 await client.add_row("test", {"col": "val"})

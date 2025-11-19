@@ -87,11 +87,11 @@ def test_create_sync_api_error_response(common_client):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({
-            "error": "Feature not found",
-        })
+        # HTTPClient now raises exceptions for error status codes
+        # Simulate a 400 Bad Request error
+        mock_fetch.side_effect = BadRequestError("Feature not found")
 
-        with pytest.raises(BasaltAPIError) as exc_info:
+        with pytest.raises(BadRequestError) as exc_info:
             client.create_sync(
                 feature_slug="nonexistent-feature",
                 name="My Experiment",
@@ -169,11 +169,11 @@ async def test_create_async_api_error_response(common_client):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = make_response({
-            "error": "Unauthorized access",
-        })
+        # HTTPClient now raises exceptions for error status codes
+        # Simulate a 401 Unauthorized error
+        mock_fetch.side_effect = UnauthorizedError("Unauthorized access")
 
-        with pytest.raises(BasaltAPIError) as exc_info:
+        with pytest.raises(UnauthorizedError) as exc_info:
             await client.create(
                 feature_slug="my-feature",
                 name="My Experiment",

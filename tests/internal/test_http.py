@@ -266,3 +266,94 @@ class TestHTTPClient:
         """Test that custom retry count can be set."""
         client = HTTPClient(max_retries=5)
         assert client.max_retries == 5
+
+    @pytest.mark.parametrize("response_code,error_class", [
+        (401, UnauthorizedError),
+        (403, ForbiddenError),
+        (404, NotFoundError),
+        (500, NetworkError),
+    ])
+    @patch('basalt._internal.http.httpx.Client.request')
+    def test_extracts_error_field_from_non_200_responses(self, request_mock, response_code, error_class):
+        """Test that error field is extracted from all non-2xx JSON responses."""
+        client = HTTPClient()
+        mock_response = Mock()
+        mock_response.status_code = response_code
+        mock_response.headers = {'Content-Type': 'application/json'}
+        mock_response.json.return_value = {'error': 'Custom error message from API'}
+        mock_response.text = ""
+        mock_response.content = b'{}'
+        request_mock.return_value = mock_response
+
+        with pytest.raises(error_class) as exc_info:
+            client.fetch_sync('http://test/abc', 'GET')
+
+        # The error message should be extracted from the "error" field
+        assert exc_info.value.args[0] == 'Custom error message from API'
+
+    @patch('basalt._internal.http.httpx.Client.request')
+    @patch('basalt._internal.http.logger')
+    def test_logs_warning_field_in_200_response(self, mock_logger, request_mock):
+        """Test that warning field in 2xx responses is logged."""
+        client = HTTPClient()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'Content-Type': 'application/json'}
+        mock_response.json.return_value = {
+            'data': 'some data',
+            'warning': 'Deprecated API endpoint, please migrate to v2'
+        }
+        mock_response.content = b'{"data":"some data"}'
+        request_mock.return_value = mock_response
+
+        result = client.fetch_sync('http://test/abc', 'GET')
+
+        # Verify the warning was logged
+        mock_logger.warning.assert_called_once_with(
+            'API warning: %s',
+            'Deprecated API endpoint, please migrate to v2'
+        )
+        # Result should still be returned
+        assert result.json()['data'] == 'some data'
+
+    @patch('basalt._internal.http.httpx.Client.request')
+    @patch('basalt._internal.http.logger')
+    def test_logs_warning_field_in_201_response(self, mock_logger, request_mock):
+        """Test that warning field in 201 Created responses is logged."""
+        client = HTTPClient()
+        mock_response = Mock()
+        mock_response.status_code = 201
+        mock_response.headers = {'Content-Type': 'application/json'}
+        mock_response.json.return_value = {
+            'id': '123',
+            'warning': 'Resource created with default values'
+        }
+        mock_response.content = b'{"id":"123"}'
+        request_mock.return_value = mock_response
+
+        result = client.fetch_sync('http://test/abc', 'POST')
+
+        # Verify the warning was logged
+        mock_logger.warning.assert_called_once_with(
+            'API warning: %s',
+            'Resource created with default values'
+        )
+        # Result should still be returned
+        assert result.json()['id'] == '123'
+
+    @patch('basalt._internal.http.httpx.Client.request')
+    @patch('basalt._internal.http.logger')
+    def test_no_warning_logged_when_field_absent(self, mock_logger, request_mock):
+        """Test that no warning is logged when warning field is absent."""
+        client = HTTPClient()
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'Content-Type': 'application/json'}
+        mock_response.json.return_value = {'data': 'some data'}
+        mock_response.content = b'{"data":"some data"}'
+        request_mock.return_value = mock_response
+
+        client.fetch_sync('http://test/abc', 'GET')
+
+        # Verify no warning was logged
+        mock_logger.warning.assert_not_called()
