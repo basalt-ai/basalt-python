@@ -324,6 +324,10 @@ def attach_trace_experiment(
 ) -> None:
     """
     Attaches experiment metadata to the current trace span.
+
+    Experiments are only attached to root spans (spans without a parent).
+    If called on a child span, a warning is logged and the experiment is not attached.
+
     Parameters:
         experiment_id (str): The unique identifier of the experiment.
         name (str | None, optional): The name of the experiment. If provided, it is added as a span attribute.
@@ -337,6 +341,17 @@ def attach_trace_experiment(
     span = current_span()
     if not span:
         return
+
+    # Only attach experiments to root spans
+    if get_parent_span() is not None:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            "Experiments can only be attached to root spans. "
+            "Skipping experiment attachment for child span."
+        )
+        return
+
     span.set_attribute("basalt.experiment.id", experiment_id)
     if name:
         span.set_attribute("basalt.experiment.name", name)
