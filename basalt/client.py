@@ -8,9 +8,9 @@ from __future__ import annotations
 from typing import Any
 
 from basalt._internal.http import HTTPClient
-from basalt.observability import configure_trace_defaults
 from basalt.observability.config import TelemetryConfig
 from basalt.observability.instrumentation import InstrumentationManager
+from basalt.observability.trace_context import configure_global_metadata
 
 from .datasets.client import DatasetsClient
 from .experiments.client import ExperimentsClient
@@ -46,7 +46,7 @@ class Basalt:
         telemetry_config: TelemetryConfig | None = None,
         enable_telemetry: bool = True,
         base_url: str | None = None,
-        trace_metadata: dict[str, Any] | None = None,
+        observability_metadata: dict[str, Any] | None = None,
         cache : MemoryCache | None = None,
     ):
         """
@@ -57,7 +57,7 @@ class Basalt:
             telemetry_config: Optional telemetry configuration for OpenTelemetry/OpenLLMetry.
             enable_telemetry: Convenience flag to quickly disable all telemetry.
             base_url: Optional base URL for the API (defaults to config value).
-            trace_metadata: Arbitrary metadata dictionary applied to new traces.
+            observability_metadata: Arbitrary metadata dictionary applied to new traces.
         """
         self._api_key = api_key
         self._base_url = base_url
@@ -71,12 +71,9 @@ class Basalt:
         self._instrumentation = InstrumentationManager()
         self._instrumentation.initialize(telemetry_config, api_key=api_key)
 
-        context_payload: dict[str, Any] = {}
-        if trace_metadata is not None:
-            context_payload["metadata"] = trace_metadata
-
-        if context_payload:
-            configure_trace_defaults(**context_payload)
+        # Configure global observability metadata if provided
+        if observability_metadata:
+            configure_global_metadata(observability_metadata)
 
         # Initialize caches
         self._cache = cache or MemoryCache()

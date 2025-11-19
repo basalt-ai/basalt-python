@@ -44,16 +44,14 @@ class TestBasaltClientTelemetry(unittest.TestCase):
     @mock.patch("basalt.client.configure_trace_defaults")
     @mock.patch.object(InstrumentationManager, "initialize")
     def test_constructor_configures_trace_defaults(self, mock_initialize, mock_configure):
-        # User/org are no longer configured at client level
+        # Test that trace_metadata is passed through to configure_trace_defaults
         Basalt(
             api_key="key",
             trace_metadata={"env": "test"},
-            trace_evaluators=["eval-1", "eval-2"],
         )
 
         mock_configure.assert_called_once_with(
             metadata={"env": "test"},
-            evaluators=["eval-1", "eval-2"],
         )
 
     @mock.patch("basalt.client.configure_trace_defaults")

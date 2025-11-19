@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability.context_managers import trace_span
+from basalt.observability import observe
 from basalt.prompts.models import Prompt
 from basalt.types.exceptions import (
     BasaltAPIError,
@@ -277,7 +277,7 @@ def example_7_manual_tracing(client: Basalt) -> None:
         prompt_slug = "example-prompt"
 
     # Create a custom span to trace a business operation
-    with trace_span("process_prompt_workflow", attributes={"workflow.type": "example"}) as span:
+    with observe(kind="span", name="process_prompt_workflow", metadata={"workflow.type": "example"}) as span:
         span.add_event("workflow_started")
         span.set_attribute("prompt.slug", prompt_slug)
 

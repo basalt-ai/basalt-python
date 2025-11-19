@@ -207,7 +207,7 @@ class ContextManagerTests(unittest.TestCase):
         with trace_span("root.span"):
             with trace_span("child.span"):
                 # Try to attach experiment in child span - should log warning
-                with self.assertLogs("basalt.observability", level="WARNING") as logs:
+                with self.assertLogs("basalt.observability.context_managers", level="WARNING") as logs:
                     attach_trace_experiment("exp-child", name="Child Experiment")
 
                 self.assertTrue(

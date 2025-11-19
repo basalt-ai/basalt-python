@@ -9,7 +9,6 @@ Usage:
                    (default: openai)
 """
 
-import json
 import sys
 
 from opentelemetry.sdk.resources import Resource
@@ -17,7 +16,6 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import SpanKind
-
 from otlp_utils import spans_to_otel_json
 
 
@@ -83,8 +81,6 @@ def main():
     provider_name = sys.argv[1] if len(sys.argv) > 1 else "openai"
 
     if provider_name not in ["openai", "anthropic", "google_generativeai", "vertexai"]:
-        print(f"Unknown provider: {provider_name}")
-        print("Valid providers: openai, anthropic, google_generativeai, vertexai")
         sys.exit(1)
 
     # Get provider configuration
@@ -117,7 +113,7 @@ def main():
     py_span = exporter.get_finished_spans()[0]
 
     # Convert to OTLP JSON
-    otlp_json = spans_to_otel_json(
+    spans_to_otel_json(
         spans=[py_span],
         resource_attributes=dict(py_span.resource.attributes),
         scope_name=py_span.instrumentation_scope.name,
@@ -125,7 +121,6 @@ def main():
     )
 
     # Print formatted JSON
-    print(json.dumps(otlp_json, indent=2))
 
 
 if __name__ == "__main__":

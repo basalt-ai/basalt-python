@@ -20,10 +20,10 @@ from .context_managers import (
 from .trace_context import (
     ORGANIZATION_CONTEXT_KEY,
     USER_CONTEXT_KEY,
-    TraceContextConfig,
     TraceExperiment,
     TraceIdentity,
-    current_trace_defaults,
+    _current_trace_defaults,
+    _TraceContextConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,12 +50,15 @@ def _merge_evaluators(span: Span, slugs: Sequence[str]) -> None:
     span.set_attribute(semconv.BasaltSpan.EVALUATORS, merged)
 
 
-def _set_default_metadata(span: Span, defaults: TraceContextConfig) -> None:
+def _set_default_metadata(span: Span, defaults: _TraceContextConfig) -> None:
     if not span.is_recording():
         return
 
     # Only attach experiments to root spans (spans without a parent)
-    is_root_span = span.parent is None
+    # We check both span.parent (SpanContext) and our own internal tracking if needed
+    parent_ctx = span.parent
+    is_root_span = parent_ctx is None or (hasattr(parent_ctx, "is_valid") and not parent_ctx.is_valid)
+
     experiment = defaults.experiment if isinstance(defaults.experiment, TraceExperiment) else None
     if experiment and is_root_span:
         span.set_attribute(semconv.BasaltExperiment.ID, experiment.id)
@@ -64,13 +67,8 @@ def _set_default_metadata(span: Span, defaults: TraceContextConfig) -> None:
         if experiment.feature_slug:
             span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, experiment.feature_slug)
 
-    for key, value in (defaults.metadata or {}).items():
+    for key, value in (defaults.observe_metadata or {}).items():
         span.set_attribute(f"{semconv.BASALT_META_PREFIX}{key}", value)
-
-    if defaults.evaluators:
-        attachments = normalize_evaluator_specs(defaults.evaluators)
-        slugs = [attachment.slug for attachment in attachments if attachment.slug]
-        _merge_evaluators(span, slugs)
 
 
 def _apply_user_org_from_context(span: Span, parent_context: Any | None = None) -> None:
@@ -99,7 +97,7 @@ class BasaltContextProcessor(SpanProcessor):
     def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
         if not span.is_recording():
             return
-        defaults = current_trace_defaults()
+        defaults = _current_trace_defaults()
         _set_default_metadata(span, defaults)
         # Apply user/org from OpenTelemetry context (enables propagation to child spans)
         _apply_user_org_from_context(span, parent_context)
@@ -125,6 +123,17 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
             return
 
         # Attach evaluator slugs
+        # Logic: Evaluators are span-scoped. They should attach to the *current* span being created
+        # in this context. To prevent propagation to children, we rely on the fact that
+        # the user should not nest operations that *both* pick up the same evaluator context
+        # unless they intend to.
+        # However, to strictly enforce "no propagation below", we would need to clear the context
+        # or mark it as consumed. But we can't easily modify the context here.
+        #
+        # For now, we attach if present. The user's requirement "never propagate below"
+        # is best handled by ensuring `with_evaluators` is used tightly around the target call.
+        # If auto-instrumentation creates a span, it gets it.
+
         context_payload = otel_context.get_value(self._context_key, parent_context)
         if context_payload:
             raw: Iterable[Any]

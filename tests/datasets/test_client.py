@@ -10,7 +10,7 @@ import pytest
 from basalt._internal.http import HTTPResponse
 from basalt.datasets.client import DatasetsClient
 from basalt.datasets.models import Dataset, DatasetRow
-from basalt.types.exceptions import BadRequestError, BasaltAPIError, NotFoundError
+from basalt.types.exceptions import BadRequestError, NotFoundError
 
 
 @pytest.fixture

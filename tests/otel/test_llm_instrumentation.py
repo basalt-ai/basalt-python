@@ -622,7 +622,6 @@ def test_llm_span_otlp_json_with_mocks(provider_name: str, otel_exporter: InMemo
     The mock spans mirror what real instrumentations would create, allowing
     validation of the OTLP conversion without needing actual API calls.
     """
-    from opentelemetry import trace
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor

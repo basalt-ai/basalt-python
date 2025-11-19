@@ -96,14 +96,10 @@ telemetry = TelemetryConfig(
 )
 basalt = Basalt(api_key="my-dev-api-key", telemetry_config=telemetry)
 
-# Configure default trace context when constructing the client
+# Configure global metadata when constructing the client
 basalt = Basalt(
     api_key="my-dev-api-key",
-    trace_user={"id": "user-123", "name": "Ada"},
-    trace_organization={"id": "org-7", "name": "Acme"},
-    trace_experiment={"id": "exp-1", "feature_slug": "agent"},
-    trace_evaluators=["accuracy", "toxicity"],
-    trace_metadata={"env": "staging"},
+    observability_metadata={"env": "staging"},
 )
 
 # Don't forget to shutdown the client when done
@@ -128,77 +124,44 @@ The SDK includes comprehensive OpenTelemetry integration for observability:
   - **Context Managers**: `trace_span()`, `trace_generation()`, `trace_retrieval()`, `trace_tool()`, `trace_event()`
 
 ```python
-from basalt.observability import trace_event, trace_generation, trace_span, trace_tool
-from basalt.observability.decorators import trace_generation as trace_generation_decorator, trace_span as trace_span_decorator
+from basalt.observability import observe
 
 # Using decorators for automatic tracing
-@trace_span_decorator(name="dataset.process")
+@observe(kind="span", name="dataset.process")
 def process_dataset(slug: str) -> str:
     return f"processed:{slug}"
 
-@trace_generation_decorator(name="llm.generate")
+@observe(kind="generation", name="llm.generate")
 def generate_summary(model: str, prompt: str) -> dict:
     # Your LLM call here
     return {"choices": [{"message": {"content": "Summary"}}]}
 
 # Using context managers for manual tracing
 def custom_workflow():
-    with trace_span("custom.section", attributes={"feature": "demo"}) as span:
+    with observe(kind="span", name="custom.section", metadata={"feature": "demo"}) as span:
         span.add_event("processing_started")
         # Your code here
-        span.set_attribute("status", "completed")
+        span.set_status("ok")
 
-    with trace_generation("manual.llm") as llm_span:
+    with observe(kind="generation", name="manual.llm") as llm_span:
         llm_span.set_model("gpt-4")
         llm_span.set_prompt("Tell me a joke")
         # Make your LLM call
         llm_span.set_completion("Response here")
         llm_span.set_tokens(input=10, output=20)
 
-    with trace_tool("manual.tool") as tool_span:
+    with observe(kind="tool", name="manual.tool") as tool_span:
         tool_span.set_tool_name("http_fetch")
         tool_span.set_input({"url": "https://getbasalt.ai"})
         # Execute your tool call
         tool_span.set_output({"status": 200})
 
-    with trace_event("workflow.event") as event_span:
+    with observe(kind="event", name="workflow.event") as event_span:
         event_span.set_event_type("checkpoint")
         event_span.set_payload({"step": 3, "status": "ok"})
 ```
 
-#### Trace context helpers
 
-- Configure defaults once at startup:
-
-  ```python
-  from basalt.observability import (
-      add_default_evaluators,
-      attach_trace_experiment,
-      configure_trace_defaults,
-      set_trace_organization,
-      set_trace_user,
-  )
-
-  configure_trace_defaults(
-      user={"id": "user-123", "name": "Ada"},
-      organization={"id": "org-7", "name": "Acme"},
-      metadata={"env": "staging"},
-      evaluators=["accuracy"],
-  )
-  add_default_evaluators("toxicity")
-  ```
-
-- Enrich the active span at runtime using helpers or span handles:
-
-  ```python
-  with trace_span("custom.section") as span:
-      span.add_evaluator("style-guide")
-      span.set_experiment("exp-1", feature_slug="agent")
-
-  set_trace_user("user-999", name="Grace")
-  set_trace_organization("org-15", name="Basalt Labs")
-  attach_trace_experiment("exp-2", name="A/B test", feature_slug="beta-agent")
-  ```
 
 **Supported environment variables:**
 
@@ -454,40 +417,7 @@ finally:
     basalt.shutdown()
 ```
 
-#### Span utilities (no OpenTelemetry import required)
 
-For common span operations, you can use lightweight helpers from `basalt.observability` instead of importing `opentelemetry.trace`:
-
-```python
-from basalt.observability import (
-    trace_span,
-    get_current_span,
-    get_current_span_handle,
-    set_span_attribute,
-    set_span_attributes,
-    add_span_event,
-    record_span_exception,
-    set_span_status_ok,
-    set_span_status_error,
-)
-
-# Create a span and enrich it using helpers
-with trace_span("my.workflow"):
-    set_span_attribute("workflow.step", 1)
-    set_span_attributes({"feature": "demo", "stage": "start"})
-    add_span_event("initialized", {"user": "alice"})
-
-    try:
-        # your logic here
-        set_span_status_ok("done")
-    except Exception as exc:
-        record_span_exception(exc)
-        set_span_status_error(str(exc))
-
-# You can also access the active span directly
-span = get_current_span()          # returns an OTEL Span or None
-handle = get_current_span_handle() # returns a SpanHandle or None
-```
 
 ## License
 

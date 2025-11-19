@@ -47,15 +47,7 @@ import time
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability.context_managers import (
-    trace_event,
-    trace_function,
-    trace_retrieval,
-    trace_span,
-    trace_tool,
-)
-from basalt.observability.decorators import evaluator
-from basalt.observability.decorators import observe_generation as observe_generation_decorator
+from basalt.observability import observe
 
 # --- 1. Basic Telemetry Configuration ---
 
@@ -155,7 +147,7 @@ def search_knowledge_base(query: str, top_k: int = 5) -> list[dict]:
 
 # --- 3. All Specialized Span Types ---
 
-@observe_generation_decorator(name="llm.mock_completion")
+@observe(kind="generation", name="llm.mock_completion")
 def mock_llm_call(prompt: str, model: str = "gpt-4") -> dict:
     """
     Mock LLM call using @observe_generation decorator.
@@ -171,8 +163,9 @@ def mock_llm_call(prompt: str, model: str = "gpt-4") -> dict:
 
 def demonstrate_retrieval_span():
     """Demonstrate trace_retrieval context manager with RetrievalSpanHandle and user/org."""
-    with trace_retrieval(
-        "vector_db.search",
+    with observe(
+        kind="retrieval",
+        name="vector_db.search",
         user={"id": "user-123", "name": "Alice"},
         organization={"id": "org-456", "name": "Acme Corp"},
     ) as span:
@@ -192,7 +185,7 @@ def demonstrate_retrieval_span():
 
 def demonstrate_tool_span():
     """Demonstrate trace_tool context manager with ToolSpanHandle."""
-    with trace_tool("weather_api.get_forecast") as span:
+    with observe(kind="tool", name="weather_api.get_forecast") as span:
         span.set_tool_name("get_weather_forecast")
         span.set_input({"location": "San Francisco", "days": 3})
 
@@ -210,7 +203,7 @@ def demonstrate_tool_span():
 
 def demonstrate_event_span():
     """Demonstrate trace_event context manager with EventSpanHandle."""
-    with trace_event("user.action") as span:
+    with observe(kind="event", name="user.action") as span:
         span.set_event_type("button_click")
         span.set_payload({
             "button_id": "submit_form",
@@ -224,7 +217,7 @@ def demonstrate_event_span():
 
 def demonstrate_function_span():
     """Demonstrate trace_function context manager for compute operations."""
-    with trace_function("data.process_batch") as span:
+    with observe(kind="function", name="data.process_batch") as span:
         span.set_input({"batch_size": 100, "data_type": "user_events"})
 
         # Mock data processing
@@ -250,7 +243,7 @@ def demonstrate_experiment_tracking():
     localized configuration without global state mutation.
     """
     # Variant A: GPT-4o
-    with trace_span("experiment.run_variant_a") as span:
+    with observe(kind="span", name="experiment.run_variant_a") as span:
         # Set experiment metadata directly on the span
         span.set_experiment("exp-456", name="Model Comparison A/B Test")
         span.add_evaluator("consistency-check")
@@ -263,7 +256,7 @@ def demonstrate_experiment_tracking():
         span.set_attribute("experiment.variant", "A")
 
     # Variant B: GPT-5-mini
-    with trace_span("experiment.run_variant_b") as span:
+    with observe(kind="span", name="experiment.run_variant_b") as span:
         # Each span can have its own experiment configuration
         span.set_experiment("exp-456", name="Model Comparison A/B Test")
         span.add_evaluator("consistency-check")
@@ -325,7 +318,7 @@ def demonstrate_openai_integration():
             return "Mock response (API call failed)"
 
     # Use the search function which has evaluators attached
-    with trace_span("openai.integration_demo") as span:
+    with observe(kind="span", name="openai.integration_demo") as span:
         # First, do a knowledge base search (with evaluators)
         search_results = search_knowledge_base("How do I configure telemetry?", top_k=3)
         span.add_event("knowledge_base_searched")
@@ -355,8 +348,9 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     # Wrap the entire workflow in a single root span
-    with trace_span(
-        "workflow.telemetry_demo",
+    with observe(
+        kind="span",
+        name="workflow.telemetry_demo",
         attributes={
             "workflow.type": "comprehensive_demo",
             "service": "telemetry-example",

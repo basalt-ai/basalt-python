@@ -3,8 +3,6 @@
 from basalt.observability import (
     ObserveKind,
     observe,
-    observe_generation,
-    observe_span,
 )
 
 
@@ -16,7 +14,7 @@ def process_data(text: str) -> str:
 
 
 # Example 2: Using observe_generation (specialized decorator)
-@observe_generation(name="llm.generate")
+@observe(kind=ObserveKind.GENERATION, name="llm.generate")
 def generate_text(prompt: str, model: str = "gpt-4") -> str:
     """Generate text with an LLM."""
     # Simulated LLM call
@@ -34,7 +32,7 @@ def search_documents(query: str) -> list[dict]:
 
 
 # Example 4: Using observe_span for general operations
-@observe_span(name="workflow.execute")
+@observe(kind=ObserveKind.SPAN, name="workflow.execute")
 def execute_workflow(steps: list[str]) -> dict:
     """Execute a workflow with multiple steps."""
     return {"status": "completed", "steps_executed": len(steps)}
@@ -51,14 +49,7 @@ def chat_with_llm(message: str) -> str:
     return f"Response to: {message}"
 
 
-# Example 6: Backward compatibility - old decorators still work with deprecation warning
-from basalt.observability.decorators import trace_generation  # noqa: E402
 
-
-@trace_generation(name="legacy.llm.call")
-def legacy_llm_call(prompt: str) -> str:
-    """Legacy code using old trace_generation decorator."""
-    return f"Legacy response: {prompt}"
 
 
 if __name__ == "__main__":
@@ -74,5 +65,5 @@ if __name__ == "__main__":
 
     result5 = chat_with_llm("How are you?")
 
-    result6 = legacy_llm_call("test prompt")
+
 

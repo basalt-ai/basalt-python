@@ -459,3 +459,44 @@ class ObserveDecoratorTestCase(unittest.TestCase):
         span = self._single_span()
         self.assertEqual(span.name, "async.span")
         self.assertEqual(span.attributes[semconv.BasaltSpan.TYPE], "span")
+
+    def test_observe_context_manager_identity(self):
+        """Identity parameter sets user and organization for context manager usage."""
+        with observe(
+            kind=ObserveKind.SPAN,
+            name="identity.context",
+            identity={
+                "user": {"id": "user-ctx", "name": "Context User"},
+                "organization": {"id": "org-ctx"},
+            },
+        ):
+            pass
+
+        span = self._single_span()
+        self.assertEqual(span.attributes[semconv.BasaltUser.ID], "user-ctx")
+        self.assertEqual(span.attributes[semconv.BasaltUser.NAME], "Context User")
+        self.assertEqual(span.attributes[semconv.BasaltOrganization.ID], "org-ctx")
+
+    def test_observe_decorator_identity_resolver(self):
+        """Identity resolvers use bound arguments to populate user/org."""
+
+        @observe(
+            kind=ObserveKind.SPAN,
+            name="identity.decorator",
+            identity=lambda bound: {
+                "user": {
+                    "id": bound.arguments["user_id"],
+                    "name": f"user-{bound.arguments['user_id']}",
+                },
+                "organization": bound.arguments["org_id"],
+            },
+        )
+        def handler(user_id: str, org_id: str) -> str:
+            return f"{user_id}:{org_id}"
+
+        handler("alice", "acme")
+
+        span = self._single_span()
+        self.assertEqual(span.attributes[semconv.BasaltUser.ID], "alice")
+        self.assertEqual(span.attributes[semconv.BasaltUser.NAME], "user-alice")
+        self.assertEqual(span.attributes[semconv.BasaltOrganization.ID], "acme")

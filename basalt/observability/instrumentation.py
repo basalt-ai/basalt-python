@@ -83,14 +83,14 @@ def create_tracer_provider(
     """
     # Build resource attributes
     resource_attrs = {
-        semconv.Service.NAME: config.service_name,
-        semconv.Service.VERSION: config.service_version,
+        "service.name": config.service_name,
+        "service.version": config.service_version,
         semconv.BasaltSDK.TYPE: basalt_sdk_config.get("sdk_type", "python"),
         semconv.BasaltSDK.VERSION: basalt_sdk_config.get("sdk_version", "unknown"),
     }
 
     if config.environment:
-        resource_attrs[semconv.Deployment.ENVIRONMENT] = config.environment
+        resource_attrs["deployment.environment"] = config.environment
 
     resource_attrs.update(config.extra_resource_attributes)
 

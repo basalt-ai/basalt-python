@@ -6,7 +6,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from .context_managers import trace_span
+from .api import observe
 from .spans import BasaltRequestSpan
 
 T = TypeVar("T")
@@ -31,21 +31,25 @@ async def trace_async_request(
         "method": span_data.method,
         "url": span_data.url,
     }
-    variables = dict(span_data.variables) if span_data.variables else None
-    with trace_span(
-        span_data.span_name(),
-        input_payload=input_payload,
-        variables=variables,
-        attributes=span_data.start_attributes(),
-    ) as span:
+
+    with observe(name=span_data.span_name(), metadata=span_data.start_attributes()) as span:
+        observe.input(input_payload)
+        if span_data.variables:
+            span.set_variables(span_data.variables)
+
         try:
             result = await request_callable()
         except Exception as exc:  # pragma: no cover - passthrough
             # If the exception carries an HTTP status_code (BasaltAPIError), include it
             status_code = getattr(exc, "status_code", None)
-            span.set_output({"error": str(exc), "status_code": status_code})
+            observe.output({"error": str(exc), "status_code": status_code})
             span_data.finalize(
-                span,
+                span.span, # finalize expects the raw Span or handle?
+                # span_data.finalize expects 'span' which seems to be 'Span' or 'SpanHandle'?
+                # Let's check spans.py or assume SpanHandle wrapper exposes .span or behaves like one.
+                # SpanHandle has .span property.
+                # But finalize likely calls set_attribute on it. SpanHandle has set_attribute.
+                # Let's pass the handle 'span'.
                 duration_s=time.perf_counter() - start,
                 status_code=status_code,
                 error=exc,
@@ -53,9 +57,9 @@ async def trace_async_request(
             raise
 
         status_code = getattr(result, "status_code", None)
-        span.set_output({"status_code": status_code})
+        observe.output({"status_code": status_code})
         span_data.finalize(
-            span,
+            span.span, # Passing the raw span to be safe if finalize expects OTEL span
             duration_s=time.perf_counter() - start,
             status_code=status_code,
             error=None,
@@ -82,21 +86,20 @@ def trace_sync_request(
         "method": span_data.method,
         "url": span_data.url,
     }
-    variables = dict(span_data.variables) if span_data.variables else None
-    with trace_span(
-        span_data.span_name(),
-        input_payload=input_payload,
-        variables=variables,
-        attributes=span_data.start_attributes(),
-    ) as span:
+
+    with observe(name=span_data.span_name(), metadata=span_data.start_attributes()) as span:
+        observe.input(input_payload)
+        if span_data.variables:
+            span.set_variables(span_data.variables)
+
         try:
             result = request_callable()
         except Exception as exc:  # pragma: no cover - passthrough
             # If the exception carries an HTTP status_code (BasaltAPIError), include it
             status_code = getattr(exc, "status_code", None)
-            span.set_output({"error": str(exc), "status_code": status_code})
+            observe.output({"error": str(exc), "status_code": status_code})
             span_data.finalize(
-                span,
+                span.span,
                 duration_s=time.perf_counter() - start,
                 status_code=status_code,
                 error=exc,
@@ -104,9 +107,9 @@ def trace_sync_request(
             raise
 
         status_code = getattr(result, "status_code", None)
-        span.set_output({"status_code": status_code})
+        observe.output({"status_code": status_code})
         span_data.finalize(
-            span,
+            span.span,
             duration_s=time.perf_counter() - start,
             status_code=status_code,
             error=None,

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, replace
+from collections.abc import Mapping
+from dataclasses import dataclass
 from threading import RLock
 from typing import Any, Final
 
@@ -35,24 +35,24 @@ class TraceExperiment:
 
 
 @dataclass(slots=True)
-class TraceContextConfig:
-    """Default attributes applied to newly created spans."""
+class _TraceContextConfig:
+    """
+    Internal configuration for trace defaults.
+    Not exposed publicly.
+    """
 
     experiment: TraceExperiment | Mapping[str, Any] | None = None
-    metadata: dict[str, Any] | None = None
-    evaluators: list[Any] | None = None
+    observe_metadata: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         self.experiment = _coerce_experiment(self.experiment)
-        self.metadata = dict(self.metadata) if self.metadata else {}
-        self.evaluators = list(self.evaluators) if self.evaluators else []
+        self.observe_metadata = dict(self.observe_metadata) if self.observe_metadata else {}
 
-    def clone(self) -> TraceContextConfig:
+    def clone(self) -> _TraceContextConfig:
         """Return a defensive copy of the configuration."""
-        return TraceContextConfig(
+        return _TraceContextConfig(
             experiment=self.experiment,
-            metadata=dict(self.metadata) if self.metadata is not None else {},
-            evaluators=list(self.evaluators) if self.evaluators is not None else [],
+            observe_metadata=dict(self.observe_metadata) if self.observe_metadata is not None else {},
         )
 
 
@@ -87,46 +87,52 @@ def _coerce_experiment(payload: TraceExperiment | Mapping[str, Any] | None) -> T
     return TraceExperiment(id=identifier, name=name, feature_slug=feature_slug)
 
 
-_DEFAULT_CONTEXT: TraceContextConfig = TraceContextConfig()
+_DEFAULT_CONTEXT: _TraceContextConfig = _TraceContextConfig()
 _LOCK = RLock()
 
 
-def set_trace_defaults(config: TraceContextConfig | None) -> None:
-    """Replace the globally configured trace defaults."""
+def _set_trace_defaults(config: _TraceContextConfig | None) -> None:
+    """Replace the globally configured trace defaults (Internal)."""
     global _DEFAULT_CONTEXT
     with _LOCK:
-        _DEFAULT_CONTEXT = config.clone() if config else TraceContextConfig()
+        _DEFAULT_CONTEXT = config.clone() if config else _TraceContextConfig()
 
 
-def current_trace_defaults() -> TraceContextConfig:
-    """Return a clone of the currently configured trace defaults."""
+def _current_trace_defaults() -> _TraceContextConfig:
+    """Return a clone of the currently configured trace defaults (Internal)."""
     with _LOCK:
         return _DEFAULT_CONTEXT.clone()
 
 
-def apply_trace_defaults(span: Span, defaults: TraceContextConfig | None = None) -> None:
+def configure_global_metadata(metadata: dict[str, Any] | None) -> None:
+    """
+    Configure global observability metadata applied to all traces.
+
+    Args:
+        metadata: Dictionary of metadata key-value pairs.
+    """
+    config = _TraceContextConfig(observe_metadata=metadata)
+    _set_trace_defaults(config)
+
+
+def apply_trace_defaults(span: Span, defaults: _TraceContextConfig | None = None) -> None:
     """Attach the configured defaults to the provided span."""
-    context = defaults.clone() if defaults else current_trace_defaults()
+    context = defaults.clone() if defaults else _current_trace_defaults()
+
+    # Experiments are attached to root spans only (checked by processor usually, but good to have helper)
     if isinstance(context.experiment, TraceExperiment):
+        # Note: The processor calling this should check for root span if strict adherence is needed here,
+        # but we'll set attributes and let the processor decide or we check here.
+        # For now, we just set attributes. The processor `_set_default_metadata` handles the root check.
         span.set_attribute(semconv.BasaltExperiment.ID, context.experiment.id)
         if context.experiment.name:
             span.set_attribute(semconv.BasaltExperiment.NAME, context.experiment.name)
         if context.experiment.feature_slug:
             span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, context.experiment.feature_slug)
-    if context.metadata:
-        for key, value in context.metadata.items():
+
+    if context.observe_metadata:
+        for key, value in context.observe_metadata.items():
             span.set_attribute(f"{semconv.BASALT_META_PREFIX}{key}", value)
-
-
-def update_default_evaluators(new_evaluators: Iterable[Any]) -> None:
-    """Add evaluators to the default context without replacing the configuration."""
-    global _DEFAULT_CONTEXT
-    with _LOCK:
-        merged = list(_DEFAULT_CONTEXT.evaluators) if _DEFAULT_CONTEXT.evaluators is not None else []
-        for spec in new_evaluators:
-            if spec not in merged:
-                merged.append(spec)
-        _DEFAULT_CONTEXT = replace(_DEFAULT_CONTEXT, evaluators=merged)
 
 
 def get_context_user() -> TraceIdentity | None:

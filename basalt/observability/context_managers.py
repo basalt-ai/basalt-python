@@ -19,11 +19,11 @@ from . import semconv
 from .trace_context import (
     ORGANIZATION_CONTEXT_KEY,
     USER_CONTEXT_KEY,
-    TraceContextConfig,
     TraceIdentity,
+    _current_trace_defaults,
+    _TraceContextConfig,
     apply_organization_from_context,
     apply_user_from_context,
-    current_trace_defaults,
 )
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
@@ -192,6 +192,22 @@ def get_tracer(tracer_name: str = "basalt.observability") -> Tracer:
     return trace.get_tracer(tracer_name)
 
 
+def get_current_span() -> Span | None:  # Lightweight alias
+    """Return the active OpenTelemetry span if valid, else None."""
+    span = trace.get_current_span()
+    if span is None or not span.get_span_context().is_valid:
+        return None
+    return span
+
+
+def get_current_span_handle() -> SpanHandle | None:
+    """Return a handle for the current span."""
+    span = get_current_span()
+    if not span:
+        return None
+    return SpanHandle(span)
+
+
 class SpanHandle:
     """Helper around an OTEL span with convenience methods."""
 
@@ -199,7 +215,7 @@ class SpanHandle:
         self,
         span: Span,
         parent_span: Span | None = None,
-        defaults: TraceContextConfig | None = None,
+        defaults: _TraceContextConfig | None = None,
     ):
         self._span = span
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
@@ -219,9 +235,6 @@ class SpanHandle:
         if context_metadata and isinstance(context_metadata, Mapping):
             self.set_evaluator_metadata(context_metadata)
 
-        if defaults and defaults.evaluators:
-            for attachment in normalize_evaluator_specs(defaults.evaluators):
-                self._append_evaluator(attachment)
 
 
     def set_attribute(self, key: str, value: Any) -> None:
@@ -685,7 +698,7 @@ def _with_span_handle(
     ensure_output: bool = True,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
-    defaults = current_trace_defaults()
+    defaults = _current_trace_defaults()
 
     parent_span = trace.get_current_span()
     if parent_span and not parent_span.get_span_context().is_valid:
@@ -735,199 +748,13 @@ def _with_span_handle(
             detach(token)
 
 
-@contextmanager
-def trace_span(
-    name: str,
-    *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
-    variables: Mapping[str, Any] | None = None,
-    evaluators: Sequence[Any] | None = None,
-    user: TraceIdentity | Mapping[str, Any] | None = None,
-    organization: TraceIdentity | Mapping[str, Any] | None = None,
-    attributes: dict[str, Any] | None = None,
-    tracer_name: str = "basalt.observability",
-    span_type: str | None = "span",
-) -> Generator[SpanHandle, None, None]:
-    """
-    Context manager for a generic span.
-    Args:
-        name: The name of the span.
-        input_payload: Optional input payload to record.
-        output_payload: Optional output payload to record.
-        variables: Optional variables mapping to record.
-        evaluators: Optional list of evaluator specifications to attach.
-        user: Optional user identity for this span (propagates to children).
-        organization: Optional organization identity for this span (propagates to children).
-        attributes: Optional dictionary of attributes to set on the span.
-        tracer_name: The name of the tracer to use.
-        span_type: Optional type of the span (e.g., "generation", "retrieval").
-    Yields:
-        SpanHandle: A handle to interact with the span within the context.
-    """
-    if input_payload is None:
-        logger.debug("trace_span '%s' initialized without an input payload.", name)
-    with _with_span_handle(
-        name,
-        attributes,
-        tracer_name,
-        SpanHandle,
-        span_type=span_type,
-        input_payload=input_payload,
-        output_payload=output_payload,
-        variables=variables,
-        evaluators=evaluators,
-        user=user,
-        organization=organization,
-    ) as handle:
-        yield handle
+def set_trace_user(user_id: str, name: str | None = None) -> None:
+    """Set the user identity for the current trace context."""
+    identity = TraceIdentity(id=user_id, name=name)
+    attach(set_value(USER_CONTEXT_KEY, identity))
 
 
-@contextmanager
-def trace_generation(
-    name: str,
-    *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
-    variables: Mapping[str, Any] | None = None,
-    evaluators: Sequence[Any] | None = None,
-    user: TraceIdentity | Mapping[str, Any] | None = None,
-    organization: TraceIdentity | Mapping[str, Any] | None = None,
-    attributes: dict[str, Any] | None = None,
-    tracer_name: str = "basalt.observability.generation",
-) -> Generator[LLMSpanHandle, None, None]:
-    """Context manager for LLM/GenAI generation spans."""
-    with _with_span_handle(
-        name,
-        attributes,
-        tracer_name,
-        LLMSpanHandle,
-        span_type="generation",
-        input_payload=input_payload,
-        output_payload=output_payload,
-        variables=variables,
-        evaluators=evaluators,
-        user=user,
-        organization=organization,
-    ) as handle:
-        yield handle  # type: ignore[misc]
-
-
-@contextmanager
-def trace_retrieval(
-    name: str,
-    *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
-    variables: Mapping[str, Any] | None = None,
-    evaluators: Sequence[Any] | None = None,
-    user: TraceIdentity | Mapping[str, Any] | None = None,
-    organization: TraceIdentity | Mapping[str, Any] | None = None,
-    attributes: dict[str, Any] | None = None,
-    tracer_name: str = "basalt.observability.retrieval",
-) -> Generator[RetrievalSpanHandle, None, None]:
-    """Context manager for retrieval/vector DB spans."""
-    with _with_span_handle(
-        name,
-        attributes,
-        tracer_name,
-        RetrievalSpanHandle,
-        span_type="retrieval",
-        input_payload=input_payload,
-        output_payload=output_payload,
-        variables=variables,
-        evaluators=evaluators,
-        user=user,
-        organization=organization,
-    ) as handle:
-        yield handle  # type: ignore[misc]
-
-
-@contextmanager
-def trace_function(
-    name: str,
-    *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
-    variables: Mapping[str, Any] | None = None,
-    evaluators: Sequence[Any] | None = None,
-    user: TraceIdentity | Mapping[str, Any] | None = None,
-    organization: TraceIdentity | Mapping[str, Any] | None = None,
-    attributes: dict[str, Any] | None = None,
-    tracer_name: str = "basalt.observability.function",
-) -> Generator[FunctionSpanHandle, None, None]:
-    """Context manager for compute/function spans."""
-    with _with_span_handle(
-        name,
-        attributes,
-        tracer_name,
-        FunctionSpanHandle,
-        span_type="function",
-        input_payload=input_payload,
-        output_payload=output_payload,
-        variables=variables,
-        evaluators=evaluators,
-        user=user,
-        organization=organization,
-    ) as handle:
-        yield handle  # type: ignore[misc]
-
-
-@contextmanager
-def trace_tool(
-    name: str,
-    *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
-    variables: Mapping[str, Any] | None = None,
-    evaluators: Sequence[Any] | None = None,
-    user: TraceIdentity | Mapping[str, Any] | None = None,
-    organization: TraceIdentity | Mapping[str, Any] | None = None,
-    attributes: dict[str, Any] | None = None,
-    tracer_name: str = "basalt.observability.tool",
-) -> Generator[ToolSpanHandle, None, None]:
-    """Context manager for tool invocation spans."""
-    with _with_span_handle(
-        name,
-        attributes,
-        tracer_name,
-        ToolSpanHandle,
-        span_type="tool",
-        input_payload=input_payload,
-        output_payload=output_payload,
-        variables=variables,
-        evaluators=evaluators,
-        user=user,
-        organization=organization,
-    ) as handle:
-        yield handle  # type: ignore[misc]
-
-
-@contextmanager
-def trace_event(
-    name: str,
-    *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
-    variables: Mapping[str, Any] | None = None,
-    evaluators: Sequence[Any] | None = None,
-    user: TraceIdentity | Mapping[str, Any] | None = None,
-    organization: TraceIdentity | Mapping[str, Any] | None = None,
-    attributes: dict[str, Any] | None = None,
-    tracer_name: str = "basalt.observability.event",
-) -> Generator[EventSpanHandle, None, None]:
-    """Context manager for custom application event spans."""
-    with _with_span_handle(
-        name,
-        attributes,
-        tracer_name,
-        EventSpanHandle,
-        span_type="event",
-        input_payload=input_payload,
-        output_payload=output_payload,
-        variables=variables,
-        evaluators=evaluators,
-        user=user,
-        organization=organization,
-    ) as handle:
-        yield handle  # type: ignore[misc]
+def set_trace_organization(organization_id: str, name: str | None = None) -> None:
+    """Set the organization identity for the current trace context."""
+    identity = TraceIdentity(id=organization_id, name=name)
+    attach(set_value(ORGANIZATION_CONTEXT_KEY, identity))

@@ -1,40 +1,12 @@
-"""
-Example: Gather random data from a public API, query Gemini (Google AI Studio), and fetch
-a prompt from Basalt's API with full OpenTelemetry instrumentation.
-
-This example demonstrates:
-- External HTTP calls with httpx (optionally instrumented)
-- Basalt Prompt API integration (internal calls are instrumented)
-- Gemini LLM calls with automatic instrumentation
-- Custom OTLP exporter configuration
-
-Requirements:
-- `httpx` for HTTP calls (optional HTTP client instrumentation)
-- `google-genai` for Gemini (NEW SDK - `from google import genai`)
-- `opentelemetry-instrumentation-google-genai` for automatic Gemini instrumentation
-- `opentelemetry-instrumentation-httpx` (optional) for HTTPX client instrumentation
-- Basalt SDK installed
-
-Install with:
-    pip install httpx google-genai opentelemetry-instrumentation-google-genai \
-                basalt-sdk
-    # Optional: add HTTPX instrumentation
-    pip install opentelemetry-instrumentation-httpx
-
-Note: This example uses the NEW Google GenAI SDK (google-genai).
-      For the legacy SDK (google-generativeai), use opentelemetry-instrumentation-google-generativeai instead.
-"""
-
 import logging
 import os
 
 import httpx
-from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability.context_managers import trace_span
-from basalt.observability.decorators import evaluator, trace_retrieval
+from basalt.observability.api import Observe
+from basalt.observability.decorators import ObserveKind, evaluate
 
 
 # --- 1. Build Basalt client with custom OTLP exporter ---
@@ -47,7 +19,7 @@ def build_custom_exporter_client() -> Basalt:
     automatically when building the default exporter from environment variables.
     """
     # Get API key for authentication
-    api_key = os.getenv("BASALT_API_KEY", "fake-key")
+    api_key = os.getenv("BASALT_API_KEY", "valid-token")
 
     # Create a custom exporter with authentication headers
     # For local development without authentication, you can omit the headers parameter
@@ -74,7 +46,7 @@ def build_custom_exporter_client() -> Basalt:
 basalt_client = build_custom_exporter_client()
 
 # --- 2. Gather random data from a public API ---
-@trace_retrieval(name="http.get_random_joke")
+@Observe(name="http.get_random_joke", kind=ObserveKind.RETRIEVAL)
 def get_random_joke() -> str:
     """Fetch a random joke from the Official Joke API using httpx (instrumented)."""
     with httpx.Client() as client:
@@ -115,7 +87,7 @@ try:
 except ImportError:
     genai = None
 
-@evaluator(
+@evaluate(
     slugs=["hallucinations", "clarity"],
     sample_rate=1.0,
     metadata=lambda joke, **kwargs: {
@@ -141,9 +113,6 @@ def summarize_joke_with_gemini(joke: str) -> str | None:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", "fake-key"))
     response = client.models.generate_content(model=model_name, contents=joke)
 
-    span = trace.get_current_span()
-    span.set_attribute("gemini.model", model_name)
-
     logging.debug(f"Gemini response: {getattr(response, 'text', response)}")
     return response.text
 
@@ -153,11 +122,10 @@ def main():
 
     # Wrap the entire workflow in a single trace span with user/org
     # User/org will automatically propagate to all child spans (including Gemini auto-instrumented spans)
-    with trace_span(
+    with Observe(
         "workflow.gemini_random_data",
-        user={"id": "user-1234", "name": "Demo User"},
-        organization={"id": "org-5678", "name": "Demo Org"},
-        attributes={
+        identity={"organization": "org_123", "user": "user_456"},
+        metadata={
             "workflow.type": "gemini-joke-demo",
             "service": "gemini-random-demo"
         }
@@ -176,9 +144,9 @@ def main():
         span.set_attribute("joke.length", len(joke))
 
         # 2. Fetch a prompt from Basalt API (internal SDK call - instrumented)
-        prompt_slug = os.getenv("BASALT_TEST_PROMPT_SLUG", "joke-analyzer")
+        prompt_slug = "joke-analyzer"
         prompt_text = get_prompt_from_basalt(prompt_slug, joke, "a curious geek adult")
-        logging.info(f"Basalt prompt preview: {prompt_text[:100]}...")
+        #logging.info(f"Basalt prompt preview: {prompt_text[:100]}...")
 
         # 3. Query Gemini with the joke (LLM call - instrumented)
         try:

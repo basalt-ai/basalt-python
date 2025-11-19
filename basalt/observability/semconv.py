@@ -590,22 +590,7 @@ Examples: basalt.meta.session_id, basalt.meta.request_id
 # ============================================================================
 
 
-class Service:
-    """Standard OpenTelemetry service resource attributes."""
 
-    NAME: Final[str] = "service.name"
-    """
-    Logical name of the service.
-    Type: string
-    Examples: "my-app", "prompt-service"
-    """
-
-    VERSION: Final[str] = "service.version"
-    """
-    Version of the service.
-    Type: string
-    Examples: "1.0.0", "v2.3.4"
-    """
 
 
 class Deployment:
