@@ -44,12 +44,7 @@ async def trace_async_request(
             status_code = getattr(exc, "status_code", None)
             observe.output({"error": str(exc), "status_code": status_code})
             span_data.finalize(
-                span.span, # finalize expects the raw Span or handle?
-                # span_data.finalize expects 'span' which seems to be 'Span' or 'SpanHandle'?
-                # Let's check spans.py or assume SpanHandle wrapper exposes .span or behaves like one.
-                # SpanHandle has .span property.
-                # But finalize likely calls set_attribute on it. SpanHandle has set_attribute.
-                # Let's pass the handle 'span'.
+                span,
                 duration_s=time.perf_counter() - start,
                 status_code=status_code,
                 error=exc,
@@ -59,7 +54,7 @@ async def trace_async_request(
         status_code = getattr(result, "status_code", None)
         observe.output({"status_code": status_code})
         span_data.finalize(
-            span.span, # Passing the raw span to be safe if finalize expects OTEL span
+            span,
             duration_s=time.perf_counter() - start,
             status_code=status_code,
             error=None,
@@ -99,7 +94,7 @@ def trace_sync_request(
             status_code = getattr(exc, "status_code", None)
             observe.output({"error": str(exc), "status_code": status_code})
             span_data.finalize(
-                span.span,
+                span,
                 duration_s=time.perf_counter() - start,
                 status_code=status_code,
                 error=exc,
@@ -109,7 +104,7 @@ def trace_sync_request(
         status_code = getattr(result, "status_code", None)
         observe.output({"status_code": status_code})
         span_data.finalize(
-            span.span,
+            span,
             duration_s=time.perf_counter() - start,
             status_code=status_code,
             error=None,
