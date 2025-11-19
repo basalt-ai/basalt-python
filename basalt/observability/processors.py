@@ -54,8 +54,10 @@ def _set_default_metadata(span: Span, defaults: TraceContextConfig) -> None:
     if not span.is_recording():
         return
 
+    # Only attach experiments to root spans (spans without a parent)
+    is_root_span = span.parent is None
     experiment = defaults.experiment if isinstance(defaults.experiment, TraceExperiment) else None
-    if experiment:
+    if experiment and is_root_span:
         span.set_attribute(semconv.BasaltExperiment.ID, experiment.id)
         if experiment.name:
             span.set_attribute(semconv.BasaltExperiment.NAME, experiment.name)
