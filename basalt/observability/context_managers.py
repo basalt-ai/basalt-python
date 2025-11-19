@@ -424,7 +424,21 @@ class SpanHandle:
     ) -> None:
         """
         Set the experiment identity for the span.
+
+        Experiments can only be attached to root spans (spans without a parent).
+        If called on a child span, a warning is logged and the experiment is not attached.
         """
+        # Only attach experiments to root spans
+        parent_ctx = getattr(self._span, "parent", None)
+        if parent_ctx is not None and hasattr(parent_ctx, "is_valid") and parent_ctx.is_valid:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "Experiments can only be attached to root spans. "
+                "Skipping experiment attachment for child span."
+            )
+            return
+
         self._span.set_attribute(semconv.BasaltExperiment.ID, experiment_id)
         if name:
             self._span.set_attribute(semconv.BasaltExperiment.NAME, name)
