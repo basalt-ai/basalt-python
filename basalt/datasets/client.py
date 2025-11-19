@@ -127,8 +127,6 @@ class DatasetsClient(BaseServiceClient):
             raise BasaltAPIError("Empty response from dataset API")
 
         payload = response.json() or {}
-        if payload.get("error"):
-            raise BasaltAPIError(payload["error"])
 
         dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
@@ -163,8 +161,6 @@ class DatasetsClient(BaseServiceClient):
             raise BasaltAPIError("Empty response from dataset API")
 
         payload = response.json() or {}
-        if payload.get("error"):
-            raise BasaltAPIError(payload["error"])
 
         dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
@@ -224,8 +220,6 @@ class DatasetsClient(BaseServiceClient):
             raise BasaltAPIError("Empty response from dataset add row API")
 
         payload = response.json() or {}
-        if payload.get("error"):
-            raise BasaltAPIError(payload["error"])
 
         row_data = payload.get("datasetRow", {})
         warning = payload.get("warning")
@@ -285,8 +279,6 @@ class DatasetsClient(BaseServiceClient):
             raise BasaltAPIError("Empty response from dataset add row API")
 
         payload = response.json() or {}
-        if payload.get("error"):
-            raise BasaltAPIError(payload["error"])
 
         row_data = payload.get("datasetRow", {})
         warning = payload.get("warning")
