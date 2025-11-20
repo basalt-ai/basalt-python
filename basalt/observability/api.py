@@ -18,6 +18,7 @@ from .context_managers import (
     _with_span_handle,
     get_current_span,
     get_current_span_handle,
+    get_root_span_handle,
     set_trace_organization,
     set_trace_user,
 )
@@ -306,6 +307,30 @@ class Observe(ContextDecorator):
 
         for k, v in payload.items():
             handle.set_attribute(k, v)
+
+    @staticmethod
+    def update_metadata(data: dict[str, Any] | None = None, **kwargs) -> None:
+        """Merge metadata into the current span, updating existing keys."""
+        handle = get_current_span_handle()
+        if not handle:
+            return
+
+        payload = {}
+        if data:
+            payload.update(data)
+        payload.update(kwargs)
+
+        for k, v in payload.items():
+            handle.set_attribute(k, v)
+
+    @staticmethod
+    def root_span() -> SpanHandle | None:
+        """Get the root span handle of the current trace.
+
+        Returns the handle for the root span, enabling late-binding of
+        identify() or metadata from deeply nested contexts.
+        """
+        return get_root_span_handle()
 
     @staticmethod
     def input(data: Any) -> None:

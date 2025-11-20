@@ -30,6 +30,7 @@ SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
 EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
 EVALUATOR_CONFIG_CONTEXT_KEY: Final[str] = "basalt.context.evaluator_config"
 EVALUATOR_METADATA_CONTEXT_KEY: Final[str] = "basalt.context.evaluator_metadata"
+ROOT_SPAN_CONTEXT_KEY: Final[str] = "basalt.context.root_span"
 logger = logging.getLogger(__name__)
 
 
@@ -208,6 +209,18 @@ def get_current_span_handle() -> SpanHandle | None:
     return SpanHandle(span)
 
 
+def get_root_span_handle() -> SpanHandle | None:
+    """Return a handle for the root span of the current trace.
+
+    This allows accessing the root span from deeply nested contexts,
+    enabling late-binding of identify() or metadata operations.
+    """
+    root_span = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY)
+    if root_span and isinstance(root_span, Span):
+        return SpanHandle(root_span)
+    return None
+
+
 class SpanHandle:
     """Helper around an OTEL span with convenience methods."""
 
@@ -239,11 +252,11 @@ class SpanHandle:
 
     def set_attribute(self, key: str, value: Any) -> None:
         """
-        Sets an attribute on the current span.
+        Sets metadata on the current span.
 
         Args:
-            key (str): The name of the attribute to set.
-            value (Any): The value of the attribute.
+            key (str): The metadata key to set.
+            value (Any): The metadata value.
 
         Returns:
             None
@@ -380,7 +393,7 @@ class SpanHandle:
         """Set span-scoped evaluator metadata.
 
         The metadata applies to all evaluators attached to this span.
-        Metadata is stored as separate span attributes under the evaluator prefix.
+        Metadata is stored as span metadata under the evaluator namespace.
 
         Args:
             metadata: A mapping of metadata key-value pairs.
@@ -718,8 +731,16 @@ def _with_span_handle(
         if org_identity:
             tokens.append(attach(set_value(ORGANIZATION_CONTEXT_KEY, org_identity)))
 
+    # If this is a root span (no parent), store it in context
+    is_root = parent_span is None
+    root_span_token = None
+
     try:
         with tracer.start_as_current_span(name) as span:
+            # Store root span in context for retrieval from nested spans
+            if is_root:
+                root_span_token = attach(set_value(ROOT_SPAN_CONTEXT_KEY, span))
+
             _attach_attributes(span, attributes)
             if span_type:
                 span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
@@ -743,6 +764,10 @@ def _with_span_handle(
                 if io.get("output") is None:
                     logger.debug("Span '%s' completed without an output payload.", name)
     finally:
+        # Detach root span token if it was set
+        if root_span_token is not None:
+            detach(root_span_token)
+
         # Detach context tokens in reverse order
         for token in reversed(tokens):
             detach(token)
