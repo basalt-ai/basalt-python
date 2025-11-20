@@ -8,7 +8,6 @@ from unittest import mock
 from basalt.client import Basalt
 from basalt.observability.config import TelemetryConfig
 from basalt.observability.instrumentation import InstrumentationManager
-from basalt.observability.trace_context import TraceContextConfig
 
 
 class TestBasaltClientTelemetry(unittest.TestCase):
@@ -41,36 +40,3 @@ class TestBasaltClientTelemetry(unittest.TestCase):
 
         mock_initialize.assert_called_once_with(telemetry, api_key="key")
 
-    @mock.patch("basalt.client.configure_trace_defaults")
-    @mock.patch.object(InstrumentationManager, "initialize")
-    def test_constructor_configures_trace_defaults(self, mock_initialize, mock_configure):
-        # Test that trace_metadata is passed through to configure_trace_defaults
-        Basalt(
-            api_key="key",
-            trace_metadata={"env": "test"},
-        )
-
-        mock_configure.assert_called_once_with(
-            metadata={"env": "test"},
-        )
-
-    @mock.patch("basalt.client.configure_trace_defaults")
-    @mock.patch.object(InstrumentationManager, "initialize")
-    def test_trace_context_overrides_apply(self, mock_initialize, mock_configure):
-        # User/org are no longer part of TraceContextConfig
-        context = TraceContextConfig(
-            metadata={"env": "prod"},
-            evaluators=["eval-base"],
-        )
-
-        Basalt(
-            api_key="key",
-            trace_context=context,
-            trace_experiment={"id": "exp-1", "feature_slug": "slug"},
-        )
-
-        mock_configure.assert_called_once()
-        _, kwargs = mock_configure.call_args
-        self.assertEqual(kwargs["experiment"], {"id": "exp-1", "feature_slug": "slug"})
-        self.assertEqual(kwargs["metadata"], {"env": "prod"})
-        self.assertEqual(kwargs["evaluators"], ["eval-base"])

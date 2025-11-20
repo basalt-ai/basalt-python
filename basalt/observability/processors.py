@@ -44,8 +44,9 @@ def _merge_evaluators(span: Span, slugs: Sequence[str]) -> None:
 
     merged: list[str] = []
     for slug in [*existing, *slugs]:
-        if slug and slug not in merged:
-            merged.append(slug)
+        normalized = str(slug).strip()
+        if normalized and normalized not in merged:
+            merged.append(normalized)
 
     span.set_attribute(semconv.BasaltSpan.EVALUATORS, merged)
 
@@ -57,15 +58,23 @@ def _set_default_metadata(span: Span, defaults: _TraceContextConfig) -> None:
     # Only attach experiments to root spans (spans without a parent)
     # We check both span.parent (SpanContext) and our own internal tracking if needed
     parent_ctx = span.parent
-    is_root_span = parent_ctx is None or (hasattr(parent_ctx, "is_valid") and not parent_ctx.is_valid)
+    is_root_span = parent_ctx is None or (
+        hasattr(parent_ctx, "is_valid") and not parent_ctx.is_valid
+    )
 
-    experiment = defaults.experiment if isinstance(defaults.experiment, TraceExperiment) else None
+    experiment = (
+        defaults.experiment
+        if isinstance(defaults.experiment, TraceExperiment)
+        else None
+    )
     if experiment and is_root_span:
         span.set_attribute(semconv.BasaltExperiment.ID, experiment.id)
         if experiment.name:
             span.set_attribute(semconv.BasaltExperiment.NAME, experiment.name)
         if experiment.feature_slug:
-            span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, experiment.feature_slug)
+            span.set_attribute(
+                semconv.BasaltExperiment.FEATURE_SLUG, experiment.feature_slug
+            )
 
     for key, value in (defaults.observe_metadata or {}).items():
         span.set_attribute(f"{semconv.BASALT_META_PREFIX}{key}", value)
@@ -147,23 +156,34 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Failed to normalize call evaluators: %s", exc)
             else:
-                slugs = [attachment.slug for attachment in attachments if attachment.slug]
+                slugs = [
+                    attachment.slug for attachment in attachments if attachment.slug
+                ]
                 _merge_evaluators(span, slugs)
 
         # Attach evaluator config from context
-        context_config = otel_context.get_value(EVALUATOR_CONFIG_CONTEXT_KEY, parent_context)
+        context_config = otel_context.get_value(
+            EVALUATOR_CONFIG_CONTEXT_KEY, parent_context
+        )
         if context_config and isinstance(context_config, EvaluatorConfig):
             try:
                 import json
-                span.set_attribute(semconv.BasaltSpan.EVALUATORS_CONFIG, json.dumps(context_config.to_dict()))
+
+                span.set_attribute(
+                    semconv.BasaltSpan.EVALUATORS_CONFIG,
+                    json.dumps(context_config.to_dict()),
+                )
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Failed to set evaluator config: %s", exc)
 
         # Attach evaluator metadata from context
-        context_metadata = otel_context.get_value(EVALUATOR_METADATA_CONTEXT_KEY, parent_context)
+        context_metadata = otel_context.get_value(
+            EVALUATOR_METADATA_CONTEXT_KEY, parent_context
+        )
         if context_metadata and isinstance(context_metadata, dict):
             try:
                 import json
+
                 for key, value in context_metadata.items():
                     attr_key = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.{key}"
                     # Serialize value if needed

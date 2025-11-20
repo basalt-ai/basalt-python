@@ -310,7 +310,8 @@ class HTTPClient:
             if is_json:
                 try:
                     json_response = response.json()
-                except Exception:
+                except Exception as e:
+                    logger.debug("Expected JSON response but failed to parse", exc_info=e)
                     return HTTPResponse(
                         status_code=status,
                         data=None,
@@ -360,6 +361,7 @@ class HTTPClient:
                 data=json_response if json_response else None,
                 headers=dict(response.headers),
             )
+        return None
 
     @staticmethod
     def _raise_for_status(

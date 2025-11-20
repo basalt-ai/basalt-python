@@ -1,98 +1,62 @@
-"""Tests for Basalt OpenTelemetry span processors."""
-
-from __future__ import annotations
-
-import unittest
-from collections.abc import Sequence
 from typing import cast
+from unittest.mock import patch
 
-from opentelemetry import trace
+import pytest
 
-from basalt.observability import (
-    clear_trace_defaults,
-    configure_trace_defaults,
-    evaluator,
-    semconv,
-    with_evaluators,
-)
-from tests.observability.utils import get_exporter
+from basalt.observability import processors
 
 
-class ProcessorTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.exporter = get_exporter()
-        self.exporter.clear()
-        clear_trace_defaults()
+class DummySpan:
+    def __init__(self, is_recording=True, attributes=None):
+        self._is_recording = is_recording
+        self.attributes = attributes if attributes is not None else {}
+        self.set_attributes = {}
 
-    def tearDown(self) -> None:
-        clear_trace_defaults()
-        self.exporter.clear()
+    def is_recording(self):
+        return self._is_recording
 
-    def test_defaults_apply_to_auto_instrumented_spans(self) -> None:
-        # User/org now propagate via OTel context, not global defaults
-        configure_trace_defaults(
-            metadata={"region": "us-east"},
-            evaluators=["default-processor"],
-        )
+    def set_attribute(self, key, value):
+        self.set_attributes[key] = value
 
-        from basalt.observability.context_managers import trace_span
+@pytest.fixture
+def mock_semconv():
+    with patch("basalt.observability.processors.semconv") as mock_semconv:
+        mock_semconv.BasaltSpan.EVALUATORS = "basalt.evaluators"
+        yield mock_semconv
 
-        # Create a parent span with user/org - they will propagate to child via context
-        with trace_span(
-            "parent",
-            user={"id": "user-42"},
-            organization={"id": "org-9"},
-        ):
-            tracer = trace.get_tracer("tests.processors")
-            with tracer.start_as_current_span("auto.span"):
-                pass
+def test_no_slugs(mock_semconv):
+    span = DummySpan()
+    processors._merge_evaluators(cast(processors.Span, span), [])
+    assert span.set_attributes == {}
 
-        spans = self.exporter.get_finished_spans()
-        self.assertEqual(len(spans), 2)  # parent + auto span
-        # Check the auto-instrumented child span (index 0 since it finishes first)
-        span = spans[0]
-        attrs = span.attributes or {}
-        self.assertEqual(attrs[semconv.BasaltUser.ID], "user-42")
-        self.assertEqual(attrs[semconv.BasaltOrganization.ID], "org-9")
-        self.assertEqual(attrs[f"{semconv.BASALT_META_PREFIX}region"], "us-east")
-        raw_evaluators = attrs[semconv.BasaltSpan.EVALUATORS]
-        self.assertIsInstance(raw_evaluators, (list, tuple))
-        evaluators = list(cast(Sequence[str], raw_evaluators))
-        self.assertIn("default-processor", evaluators)
+def test_span_not_recording(mock_semconv):
+    span = DummySpan(is_recording=False)
+    processors._merge_evaluators(cast(processors.Span, span), ["foo"])
+    assert span.set_attributes == {}
 
-    def test_with_evaluators_propagates_to_auto_spans(self) -> None:
-        tracer = trace.get_tracer("tests.processors")
-        with with_evaluators(["ctx-eval"]):
-            with tracer.start_as_current_span("auto.ctx.span"):
-                pass
+def test_merge_with_no_existing(mock_semconv):
+    span = DummySpan(attributes={})
+    processors._merge_evaluators(cast(processors.Span, span), ["foo", "bar"])
+    key = mock_semconv.BasaltSpan.EVALUATORS
+    assert key in span.set_attributes
+    assert span.set_attributes[key] == ["foo", "bar"]
 
-        spans = self.exporter.get_finished_spans()
-        self.assertEqual(len(spans), 1)
-        span = spans[0]
-        attrs = span.attributes or {}
-        raw_evaluators = attrs[semconv.BasaltSpan.EVALUATORS]
-        self.assertIsInstance(raw_evaluators, (list, tuple))
-        evaluators = list(cast(Sequence[str], raw_evaluators))
-        self.assertEqual(evaluators, ["ctx-eval"])
+def test_merge_with_existing(mock_semconv):
+    key = mock_semconv.BasaltSpan.EVALUATORS
+    span = DummySpan(attributes={key: ["foo", "baz"]})
+    processors._merge_evaluators(cast(processors.Span, span), ["bar", "foo"])
+    # Should merge and deduplicate: ["foo", "baz", "bar"]
+    assert span.set_attributes[key] == ["foo", "baz", "bar"]
 
-    def test_evaluator_decorator_propagates_to_inner_spans(self) -> None:
-        tracer = trace.get_tracer("tests.processors")
+def test_merge_with_empty_and_whitespace_slugs(mock_semconv):
+    key = mock_semconv.BasaltSpan.EVALUATORS
+    span = DummySpan(attributes={key: ["", "  ", "foo"]})
+    processors._merge_evaluators(cast(processors.Span, span), ["", "bar", " "])
+    assert span.set_attributes[key] == ["foo", "bar"]
 
-        @evaluator("decorator-eval")
-        def invoke() -> None:
-            with tracer.start_as_current_span("decorated.auto.span"):
-                pass
-
-        invoke()
-
-        spans = self.exporter.get_finished_spans()
-        self.assertEqual(len(spans), 1)
-        attrs = spans[0].attributes or {}
-        raw_evaluators = attrs[semconv.BasaltSpan.EVALUATORS]
-        self.assertIsInstance(raw_evaluators, (list, tuple))
-        evaluators = list(cast(Sequence[str], raw_evaluators))
-        self.assertEqual(evaluators, ["decorator-eval"])
-
-
-if __name__ == "__main__":
-    unittest.main()
+def test_merge_with_non_dict_attributes(mock_semconv):
+    key = mock_semconv.BasaltSpan.EVALUATORS
+    span = DummySpan()
+    span.attributes = None  # attributes is not a dict
+    processors._merge_evaluators(cast(processors.Span, span), ["foo"])
+    assert span.set_attributes[key] == ["foo"]

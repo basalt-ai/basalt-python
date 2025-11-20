@@ -70,7 +70,8 @@ class Observe(ContextDecorator):
         self._span_handle: SpanHandle | None = None
         self._ctx_manager = None
 
-    def _get_config_for_kind(self, kind_str: str):
+    @staticmethod
+    def _get_config_for_kind(kind_str: str):
         """Return handle class, tracer name, and default resolvers for the kind."""
         if kind_str == "generation":
             return (
@@ -122,6 +123,12 @@ class Observe(ContextDecorator):
             kind_str = self.kind.value
         else:
             kind_str = str(self.kind).lower()
+            # Validate that the string kind is valid
+            valid_kinds = {k.value for k in ObserveKind}
+            if kind_str not in valid_kinds:
+                raise ValueError(
+                    f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}"
+                )
 
         handle_cls, tracer_name, _, _ = self._get_config_for_kind(kind_str)
         user_identity, org_identity = resolve_identity_payload(self.identity_resolver, None)
@@ -146,6 +153,7 @@ class Observe(ContextDecorator):
     def __exit__(self, exc_type, exc_value, traceback):
         if self._ctx_manager:
             return self._ctx_manager.__exit__(exc_type, exc_value, traceback)
+        return None
 
     def __call__(self, func: F) -> F:
         if self.name is None:

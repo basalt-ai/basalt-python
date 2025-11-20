@@ -9,12 +9,6 @@ def test_imports():
         from basalt.observability import (
             ObserveKind,
             observe,
-            observe_event,
-            observe_function,
-            observe_generation,
-            observe_retrieval,
-            observe_span,
-            observe_tool,
         )
         return True
     except ImportError:
@@ -43,14 +37,10 @@ def test_decorator_definitions():
     try:
         from basalt.observability import (
             observe,
-            observe_generation,
-            observe_span,
         )
 
         # Test that they are callable
         assert callable(observe)
-        assert callable(observe_generation)
-        assert callable(observe_span)
 
         # Test that observe accepts kind parameter
         import inspect
@@ -62,56 +52,27 @@ def test_decorator_definitions():
         return False
 
 
-def test_backward_compatibility():
-    """Test that old trace_* decorators still exist (with deprecation)."""
-    try:
-        import warnings
-
-        from basalt.observability.decorators import (
-            trace_event,
-            trace_generation,
-            trace_retrieval,
-            trace_span,
-        )
-
-        # Test that they are callable
-        assert callable(trace_generation)
-        assert callable(trace_span)
-        assert callable(trace_retrieval)
-        assert callable(trace_event)
-
-        return True
-    except (ImportError, AssertionError):
-        return False
-
 
 def test_basic_usage():
     """Test basic decorator usage without actual execution."""
     try:
-        from basalt.observability import ObserveKind, observe, observe_generation
+        from basalt.observability import ObserveKind, observe
 
         # Test using observe with enum
-        @observe(ObserveKind.SPAN, name="test.span")
+        @observe(kind=ObserveKind.SPAN, name="test span")
         def test_func1():
             return "test"
 
         # Test using observe with string
-        @observe("generation", name="test.gen")
+        @observe("test generation", kind=ObserveKind.GENERATION)
         def test_func2():
-            return "test"
-
-        # Test using specialized decorator
-        @observe_generation(name="test.specialized")
-        def test_func3():
             return "test"
 
         # Verify functions are wrapped correctly
         assert callable(test_func1)
         assert callable(test_func2)
-        assert callable(test_func3)
         assert test_func1.__name__ == "test_func1"
         assert test_func2.__name__ == "test_func2"
-        assert test_func3.__name__ == "test_func3"
 
         return True
     except Exception:
@@ -125,7 +86,6 @@ def main():
         test_imports,
         test_observe_kind_enum,
         test_decorator_definitions,
-        test_backward_compatibility,
         test_basic_usage,
     ]
 

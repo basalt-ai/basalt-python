@@ -3,8 +3,10 @@ from unittest.mock import Mock, patch
 
 import httpx
 import pytest
+from httpx import Response
 
 from basalt._internal.http import HTTPClient, HTTPResponse
+from basalt.observability import Observe, ObserveKind
 from basalt.types.exceptions import (
     BadRequestError,
     ForbiddenError,
@@ -357,3 +359,63 @@ class TestHTTPClient:
 
         # Verify no warning was logged
         mock_logger.warning.assert_not_called()
+
+
+    def test_handle_response_200_with_json(self):
+        """Test handling of a successful 200 response with valid JSON."""
+        response_data = {"key": "value"}
+        mock_response = Response(
+            status_code=200,
+            json=response_data,
+            headers={"Content-Type": "application/json"}
+        )
+        result = HTTPClient._handle_response(mock_response)
+        assert isinstance(result, HTTPResponse)
+        assert result.status_code == 200
+        assert result.data == response_data
+
+    def test_handle_response_204_no_content(self):
+        """Test handling of a 204 No Content response."""
+        mock_response = Response(
+            status_code=204,
+            content=b"",
+            headers={"Content-Type": "application/json"}
+        )
+        result = HTTPClient._handle_response(mock_response)
+        assert result is not None
+        assert result.status_code == 204
+        assert result.data is None
+
+    def test_handle_response_400_with_json(self):
+        """Test handling of a 400 Bad Request response with JSON error."""
+        response_data = {"error": "Invalid data"}
+        mock_response = Response(
+            status_code=400,
+            json=response_data,
+            headers={"Content-Type": "application/json"}
+        )
+        with pytest.raises(BadRequestError) as exc_info:
+            HTTPClient._handle_response(mock_response)
+        assert str(exc_info.value) == "Invalid data"
+
+    def test_handle_response_500_with_plain_text(self):
+        """Test handling of a 500 Internal Server Error response with plain text."""
+        mock_response = Response(
+            status_code=500,
+            content=b"Internal Error",
+            headers={"Content-Type": "text/plain"}
+        )
+        with pytest.raises(NetworkError) as exc_info:
+            HTTPClient._handle_response(mock_response)
+        assert "Internal Error" in str(exc_info.value)
+
+    def test_handle_response_invalid_json(self):
+        """Test handling of a response with invalid JSON when JSON is expected."""
+        mock_response = Response(
+            status_code=200,
+            content=b"invalid-json",
+            headers={"Content-Type": "application/json"}
+        )
+        with pytest.raises(NetworkError) as exc_info:
+            HTTPClient._handle_response(mock_response)
+        assert "Invalid JSON response" in str(exc_info.value)

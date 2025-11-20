@@ -156,10 +156,10 @@ def install_anthropic_mock():
 
 def make_google_genai_client():
     """Create Google Generative AI client (works with mock or real API key)."""
-    import google.generativeai as genai
+    import google.genai as genai
 
-    genai.configure(api_key=os.getenv("GOOGLE_API_KEY", "fake-api-key"))
-    return genai.GenerativeModel(os.getenv("GOOGLE_TEST_MODEL", "gemini-1.5-flash"))
+    client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY", "fake-api-key"))
+    return client
 
 
 def call_google_genai(client):

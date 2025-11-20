@@ -122,7 +122,8 @@ def with_evaluators(
     """
 
     attachments = normalize_evaluator_specs(evaluators)
-    if not attachments and not config and not metadata:
+    # Only short-circuit when nothing at all provided. Empty metadata should still attach.
+    if not attachments and not config and metadata is None:
         yield
         return
 
@@ -714,7 +715,7 @@ def _with_span_handle(
     defaults = _current_trace_defaults()
 
     parent_span = trace.get_current_span()
-    if parent_span and not parent_span.get_span_context().is_valid:
+    if parent_span and (not parent_span.get_span_context().is_valid or not parent_span.is_recording()):
         parent_span = None
 
     # Prepare context tokens for user/org propagation
