@@ -6,7 +6,6 @@ import pytest
 from httpx import Response
 
 from basalt._internal.http import HTTPClient, HTTPResponse
-from basalt.observability import Observe, ObserveKind
 from basalt.types.exceptions import (
     BadRequestError,
     ForbiddenError,

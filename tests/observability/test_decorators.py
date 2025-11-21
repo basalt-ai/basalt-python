@@ -1,11 +1,11 @@
 # File: tests/test_decorators.py
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from basalt.observability.context_managers import EvaluatorConfig, with_evaluators
+from basalt.observability.context_managers import with_evaluators
 from basalt.observability.decorators import evaluate
 
 
@@ -58,7 +58,7 @@ def test_evaluate_with_metadata_callable():
 
     with patch("basalt.observability.decorators.with_evaluators", wraps=with_evaluators) as mock_with_evaluators:
         result = function_with_metadata("test-param")
-    
+
     assert result == "Metadata resolved for test-param", "Function should return a correctly formatted string."
     mock_with_evaluators.assert_called_once()
 

@@ -216,7 +216,7 @@ def test_get_root_span():
 
     exporter = get_exporter()
     exporter.clear()
-    
+
     root_span = None
 
     @Observe(name="Root Function")
