@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from opentelemetry import trace as otel_trace
-
-from .api import Observe, observe
+from .api import Observe, observe, start_observe
 from .config import TelemetryConfig
 from .context_managers import (
     EvaluatorConfig,
@@ -32,27 +28,23 @@ __all__ = [
     # High-level API
     "observe",
     "Observe",
+    "start_observe",
     "ObserveKind",
     "evaluate",
-
     # Low-level API
     "trace",
     "Trace",
-
     # Config & Types
     "TelemetryConfig",
     "InstrumentationManager",
     "EvaluatorConfig",
     "TraceIdentity",
     "TraceExperiment",
-
     # Processors
     "BasaltContextProcessor",
     "BasaltCallEvaluatorProcessor",
-
     # Helpers
     "with_evaluators",
-
     # Span Handles (Advanced usage)
     "SpanHandle",
     "LLMSpanHandle",

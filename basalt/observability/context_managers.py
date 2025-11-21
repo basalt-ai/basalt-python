@@ -249,8 +249,6 @@ class SpanHandle:
         if context_metadata and isinstance(context_metadata, Mapping):
             self.set_evaluator_metadata(context_metadata)
 
-
-
     def set_attribute(self, key: str, value: Any) -> None:
         """
         Sets metadata on the current span.
@@ -428,7 +426,7 @@ class SpanHandle:
 
     def set_user(self, user_id: str, name: str | None = None) -> None:
         """
-            Set the user identity for the span.
+        Set the user identity for the span.
         """
         self._span.set_attribute(semconv.BasaltUser.ID, user_id)
         if name:
@@ -459,10 +457,10 @@ class SpanHandle:
         parent_ctx = getattr(self._span, "parent", None)
         if parent_ctx is not None and hasattr(parent_ctx, "is_valid") and parent_ctx.is_valid:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(
-                "Experiments can only be attached to root spans. "
-                "Skipping experiment attachment for child span."
+                "Experiments can only be attached to root spans. Skipping experiment attachment for child span."
             )
             return
 
@@ -709,6 +707,7 @@ def _with_span_handle(
     evaluators: Sequence[Any] | None = None,
     user: TraceIdentity | Mapping[str, Any] | None = None,
     organization: TraceIdentity | Mapping[str, Any] | None = None,
+    evaluator_config: EvaluatorConfig | None = None,
     ensure_output: bool = True,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
@@ -722,12 +721,14 @@ def _with_span_handle(
     tokens = []
     if user is not None:
         from .trace_context import _coerce_identity
+
         user_identity = _coerce_identity(user)
         if user_identity:
             tokens.append(attach(set_value(USER_CONTEXT_KEY, user_identity)))
 
     if organization is not None:
         from .trace_context import _coerce_identity
+
         org_identity = _coerce_identity(organization)
         if org_identity:
             tokens.append(attach(set_value(ORGANIZATION_CONTEXT_KEY, org_identity)))

@@ -9,6 +9,8 @@ from typing import Any, TypeVar
 from opentelemetry.trace import StatusCode
 
 from .context_managers import (
+    ROOT_SPAN_CONTEXT_KEY,
+    EvaluatorConfig,
     EventSpanHandle,
     FunctionSpanHandle,
     LLMSpanHandle,
@@ -41,6 +43,144 @@ from .utils import (
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+class StartObserve(ContextDecorator):
+    """
+    Entry point for Basalt observability.
+    Must be used as the root span of a trace.
+    """
+
+    def __init__(
+        self,
+        name: str | None = None,
+        *,
+        identity: Any = None,
+        evaluate_config: EvaluatorConfig | None = None,
+        experiment: Any = None,
+        metadata: dict[str, Any] | None = None,
+    ):
+        self.name = name
+        self.identity_resolver = identity
+        self.evaluate_config = evaluate_config
+        self.experiment = experiment
+        self._metadata = metadata
+        self._span_handle: SpanHandle | None = None
+        self._ctx_manager = None
+
+    def __enter__(self) -> SpanHandle:
+        span_name = self.name or "basalt_trace"
+
+        # Resolve identity
+        user_identity, org_identity = resolve_identity_payload(self.identity_resolver, None)
+
+        # Initialize context manager
+        self._ctx_manager = _with_span_handle(
+            name=span_name,
+            attributes=self._metadata,
+            tracer_name="basalt.observability",
+            handle_cls=SpanHandle,
+            span_type="basalt_trace",
+            user=user_identity,
+            organization=org_identity,
+            evaluator_config=self.evaluate_config,
+        )
+        self._span_handle = self._ctx_manager.__enter__()
+
+        # Attach experiment if provided (only on root span, which this is)
+        if self.experiment:
+            # Assuming experiment is a dict or object with id/name/variant
+            # We need to resolve it. For now, let's assume it matches the structure expected by set_experiment
+            # or we need a resolver.
+            # The user request said "experimemt to attach".
+            # Let's assume it's a simple dict or object for now, or use a resolver if we have one.
+            # Looking at existing code, `experiment` static method takes id and variant.
+            # Let's support a dict with id, name, variant.
+            if isinstance(self.experiment, dict):
+                self._span_handle.set_experiment(
+                    experiment_id=self.experiment.get("id"),
+                    name=self.experiment.get("name"),
+                    feature_slug=self.experiment.get("variant") or self.experiment.get("feature_slug"),
+                )
+            # If it's an object, we might need more logic, but dict is safe for now.
+
+        return self._span_handle
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self._ctx_manager:
+            return self._ctx_manager.__exit__(exc_type, exc_value, traceback)
+        return None
+
+    def __call__(self, func: F) -> F:
+        if self.name is None:
+            self.name = f"{func.__module__}.{func.__qualname__}"
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Resolve identity from args/kwargs if needed
+            bound = resolve_bound_arguments(func, args, kwargs)
+            user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
+
+            with _with_span_handle(
+                name=self.name,
+                attributes=self._metadata,
+                tracer_name="basalt.observability",
+                handle_cls=SpanHandle,
+                span_type="basalt_trace",
+                user=user_identity,
+                organization=org_identity,
+                evaluator_config=self.evaluate_config,
+            ) as span:
+                # Attach experiment
+                if self.experiment:
+                    if isinstance(self.experiment, dict):
+                        span.set_experiment(
+                            experiment_id=self.experiment.get("id"),
+                            name=self.experiment.get("name"),
+                            feature_slug=self.experiment.get("variant") or self.experiment.get("feature_slug"),
+                        )
+
+                try:
+                    return func(*args, **kwargs)
+                except Exception as exc:
+                    span.record_exception(exc)
+                    span.set_status(StatusCode.ERROR, str(exc))
+                    raise
+
+        if inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                bound = resolve_bound_arguments(func, args, kwargs)
+                user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
+
+                with _with_span_handle(
+                    name=self.name,
+                    attributes=self._metadata,
+                    tracer_name="basalt.observability",
+                    handle_cls=SpanHandle,
+                    span_type="basalt_trace",
+                    user=user_identity,
+                    organization=org_identity,
+                    evaluator_config=self.evaluate_config,
+                ) as span:
+                    if self.experiment:
+                        if isinstance(self.experiment, dict):
+                            span.set_experiment(
+                                experiment_id=self.experiment.get("id"),
+                                name=self.experiment.get("name"),
+                                feature_slug=self.experiment.get("variant") or self.experiment.get("feature_slug"),
+                            )
+                    try:
+                        return await func(*args, **kwargs)
+                    except Exception as exc:
+                        span.record_exception(exc)
+                        span.set_status(StatusCode.ERROR, str(exc))
+                        raise
+
+            return async_wrapper  # type: ignore
+
+        return wrapper  # type: ignore
+
+
 class Observe(ContextDecorator):
     """
     Unified observability interface for Basalt.
@@ -57,7 +197,6 @@ class Observe(ContextDecorator):
         input: Any = None,
         output: Any = None,
         variables: Any = None,
-        identity: Any = None,
     ):
         self.name = name
         self.kind = kind
@@ -66,7 +205,6 @@ class Observe(ContextDecorator):
         self.input_resolver = input
         self.output_resolver = output
         self.variables_resolver = variables
-        self.identity_resolver = identity
         self._span_handle: SpanHandle | None = None
         self._ctx_manager = None
 
@@ -126,12 +264,18 @@ class Observe(ContextDecorator):
             # Validate that the string kind is valid
             valid_kinds = {k.value for k in ObserveKind}
             if kind_str not in valid_kinds:
-                raise ValueError(
-                    f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}"
-                )
+                raise ValueError(f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}")
 
         handle_cls, tracer_name, _, _ = self._get_config_for_kind(kind_str)
-        user_identity, org_identity = resolve_identity_payload(self.identity_resolver, None)
+
+        # Check for root span
+        from opentelemetry import context as otel_context
+
+        if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning("Observe used without a preceding start_observe. This may lead to missing trace context.")
 
         self._ctx_manager = _with_span_handle(
             name=span_name,
@@ -140,8 +284,6 @@ class Observe(ContextDecorator):
             handle_cls=handle_cls,
             span_type=kind_str,
             evaluators=self.evaluators,
-            user=user_identity,
-            organization=org_identity,
             # In context manager mode, we don't auto-resolve input/vars from args
             # User must call observe.input() or pass explicit input_payload if we added it to __init__
             # But __init__ has resolvers, not values.
@@ -177,7 +319,17 @@ class Observe(ContextDecorator):
             input_payload = resolve_payload_from_bound(input_resolver, bound)
             variables_payload = resolve_variables_payload(variables_resolver, bound)
             pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
-            user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
+
+            # Check for root span
+            from opentelemetry import context as otel_context
+
+            if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    "Observe used without a preceding start_observe. This may lead to missing trace context."
+                )
 
             # Pre-hooks
             def apply_pre(span, bound):
@@ -202,8 +354,6 @@ class Observe(ContextDecorator):
                 input_payload=input_payload,
                 variables=variables_payload,
                 evaluators=pre_evaluators,
-                user=user_identity,
-                organization=org_identity,
             ) as span:
                 if apply_pre:
                     apply_pre(span, bound)
@@ -226,6 +376,7 @@ class Observe(ContextDecorator):
                     raise
 
         if inspect.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 computed_attrs = resolve_attributes(self._metadata, args, kwargs)
@@ -233,7 +384,17 @@ class Observe(ContextDecorator):
                 input_payload = resolve_payload_from_bound(input_resolver, bound)
                 variables_payload = resolve_variables_payload(variables_resolver, bound)
                 pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
-                user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
+
+                # Check for root span
+                from opentelemetry import context as otel_context
+
+                if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
+                    import logging
+
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        "Observe used without a preceding start_observe. This may lead to missing trace context."
+                    )
 
                 # Pre-hooks (same as sync)
                 def apply_pre(span, bound):
@@ -258,8 +419,6 @@ class Observe(ContextDecorator):
                     input_payload=input_payload,
                     variables=variables_payload,
                     evaluators=pre_evaluators,
-                    user=user_identity,
-                    organization=org_identity,
                 ) as span:
                     if apply_pre:
                         apply_pre(span, bound)
@@ -280,9 +439,10 @@ class Observe(ContextDecorator):
                         span.set_output({"error": str(exc)})
                         span.set_status(StatusCode.ERROR, str(exc))
                         raise
-            return async_wrapper # type: ignore
 
-        return wrapper # type: ignore
+            return async_wrapper  # type: ignore
+
+        return wrapper  # type: ignore
 
     # Static Domain Methods
 
@@ -369,11 +529,7 @@ class Observe(ContextDecorator):
             return
 
         if isinstance(status, str):
-            status_map = {
-                "ok": StatusCode.OK,
-                "error": StatusCode.ERROR,
-                "unset": StatusCode.UNSET
-            }
+            status_map = {"ok": StatusCode.OK, "error": StatusCode.ERROR, "unset": StatusCode.UNSET}
             code = status_map.get(status.lower(), StatusCode.UNSET)
         else:
             code = status
@@ -403,3 +559,4 @@ class Observe(ContextDecorator):
 
 # Singleton instance
 observe = Observe
+start_observe = StartObserve

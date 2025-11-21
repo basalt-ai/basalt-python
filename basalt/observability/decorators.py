@@ -5,7 +5,6 @@ from __future__ import annotations
 import enum
 import functools
 import inspect
-import random
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, TypeAlias, TypeVar
 
@@ -34,7 +33,6 @@ AttributeSpec: TypeAlias = dict[str, Any] | Callable[..., dict[str, Any]] | None
 def evaluate(
     slugs: str | Sequence[str],
     *,
-    sample_rate: float = 1.0,
     metadata: Mapping[str, Any] | Callable[..., Mapping[str, Any]] | None = None,
 ) -> Callable[[F], F]:
     """
@@ -48,8 +46,6 @@ def evaluate(
 
     Args:
         slugs: One or more evaluator slugs to attach.
-        sample_rate: Probability (0.0-1.0) that this evaluator will be attached to spans.
-                    Default is 1.0 (100% of traces). Use lower values to reduce evaluation costs.
         metadata: Optional metadata for evaluators. Can be a static dict or a callable that
                  receives function arguments and returns a dict.
 
@@ -70,16 +66,12 @@ def evaluate(
     slug_list = list(dict.fromkeys(slug_list))
     if not slug_list:
         raise ValueError("At least one evaluator slug must be provided.")
-    if not 0.0 <= sample_rate <= 1.0:
-        raise ValueError("sample_rate must be within [0.0, 1.0].")
 
     def decorator(func: F) -> F:
         is_async = inspect.iscoroutinefunction(func)
 
         def _should_attach() -> bool:
-            if sample_rate >= 1.0:
-                return True
-            return random.random() <= sample_rate
+            return True
 
         def _resolve_metadata(args, kwargs):
             """Resolve metadata from callable or static value."""
@@ -104,13 +96,10 @@ def evaluate(
                 if not _should_attach():
                     return await func(*args, **kwargs)
 
-                from .context_managers import EvaluatorConfig
-
                 # Resolve metadata before entering context
                 resolved_metadata = _resolve_metadata(args, kwargs)
-                config = EvaluatorConfig(sample_rate=sample_rate)
 
-                with with_evaluators(slug_list, config=config, metadata=resolved_metadata):
+                with with_evaluators(slug_list, config=None, metadata=resolved_metadata):
                     return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]
@@ -120,13 +109,10 @@ def evaluate(
             if not _should_attach():
                 return func(*args, **kwargs)
 
-            from .context_managers import EvaluatorConfig
-
             # Resolve metadata before entering context
             resolved_metadata = _resolve_metadata(args, kwargs)
-            config = EvaluatorConfig(sample_rate=sample_rate)
 
-            with with_evaluators(slug_list, config=config, metadata=resolved_metadata):
+            with with_evaluators(slug_list, config=None, metadata=resolved_metadata):
                 return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]

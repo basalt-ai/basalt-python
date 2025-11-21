@@ -11,11 +11,16 @@ The core of Basalt's observability is the `observe` class. It unifies tracing, l
 Every operation you track is recorded as a **Span**. Spans can have a `kind` that describes their semantic meaning.
 
 ```python
-from basalt.observability import observe, ObserveKind
+from basalt.observability import observe, start_observe, ObserveKind
 
-# Generic span (default)
-@observe(name="process_request")
+# Start a trace (Root Span)
+@start_observe(name="process_request")
 def process():
+    pass
+
+# Nested span
+@observe(name="sub_task")
+def sub_task():
     pass
 
 # Generation (LLM calls)

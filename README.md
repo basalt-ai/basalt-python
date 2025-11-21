@@ -124,7 +124,7 @@ The SDK includes comprehensive OpenTelemetry integration for observability:
   - **Context Managers**: `trace_span()`, `trace_generation()`, `trace_retrieval()`, `trace_tool()`, `trace_event()`
 
 ```python
-from basalt.observability import observe
+from basalt.observability import observe, start_observe
 
 # Using decorators for automatic tracing
 @observe(kind="span", name="dataset.process")
@@ -138,7 +138,8 @@ def generate_summary(model: str, prompt: str) -> dict:
 
 # Using context managers for manual tracing
 def custom_workflow():
-    with observe(kind="span", name="custom.section", metadata={"feature": "demo"}) as span:
+    # Start a trace with start_observe
+    with start_observe(name="custom.section", metadata={"feature": "demo"}) as span:
         span.add_event("processing_started")
         # Your code here
         span.set_status("ok")
