@@ -1,8 +1,8 @@
 from typing import Optional, Dict, Tuple, cast
 
-from ..ressources.monitor.generation_types import GenerationParams, PromptReference
 from ..ressources.monitor.trace_types import TraceParams
 from ..ressources.prompts.prompt_types import Prompt as IPrompt, PromptParams
+from ..utils.protocols import IPromptSDK
 from ..utils.dtos import (
 	GetPromptDTO,
 	GetPromptResult,
@@ -28,7 +28,7 @@ from ..objects.prompt import Prompt
 from ..utils.flusher import Flusher
 from datetime import datetime
 
-class PromptSDK:
+class PromptSDK(IPromptSDK):
     """
     SDK for interacting with Basalt prompts.
     """
@@ -50,8 +50,8 @@ class PromptSDK:
     async def get(
         self,
         slug: str,
-        version: Optional[str] = None,
         tag: Optional[str] = None,
+        version: Optional[str] = None,
         variables: Optional[Dict[str, str]] = None,
         cache_enabled: bool = True
     ) -> GetPromptResult:
@@ -111,8 +111,8 @@ class PromptSDK:
     def get_sync(
         self,
         slug: str,
-        version: Optional[str] = None,
         tag: Optional[str] = None,
+        version: Optional[str] = None,
         variables: Optional[Dict[str, str]] = None,
         cache_enabled: bool = True
     ) -> GetPromptResult:
@@ -210,8 +210,8 @@ class PromptSDK:
     async def describe(
         self,
         slug: str,
-        version: Optional[str] = None,
         tag: Optional[str] = None,
+        version: Optional[str] = None,
     ) -> DescribeResult:
         """
         Get details about a prompt by slug, optionally specifying version and tag.
@@ -250,8 +250,8 @@ class PromptSDK:
     def describe_sync(
         self,
         slug: str,
-        version: Optional[str] = None,
         tag: Optional[str] = None,
+        version: Optional[str] = None,
     ) -> DescribeResult:
         """
         Synchronously get details about a prompt by slug, optionally specifying version and tag.
