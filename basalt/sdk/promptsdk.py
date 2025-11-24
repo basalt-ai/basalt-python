@@ -50,8 +50,8 @@ class PromptSDK:
     async def get(
         self,
         slug: str,
-        version: Optional[str] = None,
         tag: Optional[str] = None,
+        version: Optional[str] = None,
         variables: Optional[Dict[str, str]] = None,
         cache_enabled: bool = True
     ) -> GetPromptResult:
