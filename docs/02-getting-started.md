@@ -43,53 +43,93 @@ client = Basalt(
 
 ## Basic Usage
 
-The Basalt SDK provides a unified `observe` API to track your application's execution. You can use it as a decorator or a context manager.
+The Basalt SDK provides `start_observe` and `observe` APIs to track your application's execution.
 
-### Using the Decorator
+### Root Span with start_observe
 
-The simplest way to instrument your code is using the `@observe` decorator.
+Every trace must begin with a **root span** using `start_observe`. This is the entry point that supports identity tracking, experiment attachment, and evaluator configuration.
 
 ```python
-from basalt.observability import observe
+from basalt.observability import start_observe, observe
 
-@observe(name="my_function")
-def my_function(arg):
-    return f"Processed {arg}"
+@start_observe(
+    name="my_workflow",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    },
+    metadata={"version": "1.0", "environment": "production"}
+)
+def my_workflow(arg):
+    # Identity and metadata automatically propagate to child spans
+    observe.input({"arg": arg})
+    result = process_data(arg)
+    observe.output({"result": result})
+    return result
 
-result = my_function("data")
+@observe(name="process_data")
+def process_data(data):
+    # This is a child span - inherits identity from root
+    return f"Processed {data}"
+
+result = my_workflow("data")
 ```
 
-### Using the Context Manager
+### Context Manager Form
 
-For more granular control, or to trace specific blocks of code, use the `with observe(...)` context manager.
+For more granular control, use context managers:
 
 ```python
-from basalt.observability import observe
+from basalt.observability import start_observe, observe
 
-def process_data(data):
-    with observe(name="process_block") as span:
-        # Do some work
-        result = data.upper()
-        
-        # Add metadata
-        observe.metadata({"complexity": "low"})
-        
+def process_request(user_id, data):
+    # Create root span with identity
+    with start_observe(
+        name="process_request",
+        identity={"user": user_id},
+        metadata={"source": "api"}
+    ):
+        observe.input({"data": data})
+
+        # Nested span for specific operation
+        with observe(name="validate_data", kind="function") as span:
+            validated = validate(data)
+            span.set_output({"valid": validated})
+
+        result = process(validated)
+        observe.output({"result": result})
         return result
 ```
 
 ## Observability Features
 
-The `observe` API provides static methods to enrich your traces with domain-specific information.
+The `start_observe` and `observe` APIs provide comprehensive ways to enrich your traces.
 
-### Identity
+### Identity Tracking
 
-Track which user or organization triggered the operation:
+Track users and organizations at the root span level or dynamically:
 
 ```python
-@observe(name="chat_handler")
-def handle_chat(user_id, message):
-    observe.identify(user=user_id, organization="acme-corp")
-    # ...
+from basalt.observability import start_observe, observe
+
+# Method 1: Set on root span (recommended)
+@start_observe(
+    name="chat_handler",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
+def handle_chat(message):
+    # Identity automatically propagates to all child spans
+    pass
+
+# Method 2: Set dynamically
+@start_observe(name="api_handler")
+def handle_request(auth_token):
+    user_data = verify_token(auth_token)
+    observe.identify(user=user_data["user_id"], organization=user_data["org_id"])
+    # Identity now set for entire trace
 ```
 
 ### Metadata
@@ -97,7 +137,13 @@ def handle_chat(user_id, message):
 Add custom key-value pairs to your spans:
 
 ```python
-observe.metadata({"model": "gpt-4", "temperature": 0.7})
+# On root span
+@start_observe(name="workflow", metadata={"model": "gpt-4", "temperature": 0.7})
+def workflow():
+    pass
+
+# Or dynamically
+observe.metadata({"status": "processing", "batch_id": "123"})
 ```
 
 ### Input & Output

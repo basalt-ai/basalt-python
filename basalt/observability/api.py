@@ -4,9 +4,11 @@ import functools
 import inspect
 from collections.abc import Callable, Sequence
 from contextlib import ContextDecorator
-from typing import Any, TypeVar
+from typing import Any, NotRequired, TypedDict, TypeVar
 
 from opentelemetry.trace import StatusCode
+
+from basalt.experiments.models import Experiment  # Allow passing Experiment dataclass instances
 
 from .context_managers import (
     ROOT_SPAN_CONTEXT_KEY,
@@ -43,6 +45,33 @@ from .utils import (
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+class _IdentityEntity(TypedDict):
+    """Identity entity with required id and optional name."""
+    id: str
+    name: NotRequired[str]
+
+
+class IdentityDict(TypedDict, total=False):
+    """
+    Identity structure for user and organization tracking.
+
+    Example:
+        {
+            "organization": {"id": "123", "name": "ACME"},
+            "user": {"id": "456", "name": "John Doe"}
+        }
+    """
+    organization: NotRequired[_IdentityEntity]
+    user: NotRequired[_IdentityEntity]
+
+
+class ExperimentDict(TypedDict):
+    """Experiment metadata with required id and optional name/featureSlug."""
+    id: str
+    name: NotRequired[str]
+    featureSlug: NotRequired[str]
+
+
 class StartObserve(ContextDecorator):
     """
     Entry point for Basalt observability.
@@ -53,9 +82,9 @@ class StartObserve(ContextDecorator):
         self,
         name: str | None = None,
         *,
-        identity: Any = None,
+        identity: IdentityDict | Callable[..., IdentityDict | None] | None = None,
         evaluate_config: EvaluatorConfig | None = None,
-        experiment: Any = None,
+        experiment: ExperimentDict | Experiment | None = None,
         metadata: dict[str, Any] | None = None,
     ):
         self.name = name
@@ -87,20 +116,7 @@ class StartObserve(ContextDecorator):
 
         # Attach experiment if provided (only on root span, which this is)
         if self.experiment:
-            # Assuming experiment is a dict or object with id/name/variant
-            # We need to resolve it. For now, let's assume it matches the structure expected by set_experiment
-            # or we need a resolver.
-            # The user request said "experimemt to attach".
-            # Let's assume it's a simple dict or object for now, or use a resolver if we have one.
-            # Looking at existing code, `experiment` static method takes id and variant.
-            # Let's support a dict with id, name, variant.
-            if isinstance(self.experiment, dict):
-                self._span_handle.set_experiment(
-                    experiment_id=self.experiment.get("id"),
-                    name=self.experiment.get("name"),
-                    feature_slug=self.experiment.get("variant") or self.experiment.get("feature_slug"),
-                )
-            # If it's an object, we might need more logic, but dict is safe for now.
+            self._apply_experiment(self._span_handle)
 
         return self._span_handle
 
@@ -119,8 +135,9 @@ class StartObserve(ContextDecorator):
             bound = resolve_bound_arguments(func, args, kwargs)
             user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
 
+            span_name = self.name or "basalt_trace"
             with _with_span_handle(
-                name=self.name,
+                name=span_name,
                 attributes=self._metadata,
                 tracer_name="basalt.observability",
                 handle_cls=SpanHandle,
@@ -129,14 +146,9 @@ class StartObserve(ContextDecorator):
                 organization=org_identity,
                 evaluator_config=self.evaluate_config,
             ) as span:
-                # Attach experiment
+                # Attach experiment if provided
                 if self.experiment:
-                    if isinstance(self.experiment, dict):
-                        span.set_experiment(
-                            experiment_id=self.experiment.get("id"),
-                            name=self.experiment.get("name"),
-                            feature_slug=self.experiment.get("variant") or self.experiment.get("feature_slug"),
-                        )
+                    self._apply_experiment(span)
 
                 try:
                     return func(*args, **kwargs)
@@ -152,8 +164,9 @@ class StartObserve(ContextDecorator):
                 bound = resolve_bound_arguments(func, args, kwargs)
                 user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
 
+                span_name = self.name or "basalt_trace"
                 with _with_span_handle(
-                    name=self.name,
+                    name=span_name,
                     attributes=self._metadata,
                     tracer_name="basalt.observability",
                     handle_cls=SpanHandle,
@@ -163,12 +176,7 @@ class StartObserve(ContextDecorator):
                     evaluator_config=self.evaluate_config,
                 ) as span:
                     if self.experiment:
-                        if isinstance(self.experiment, dict):
-                            span.set_experiment(
-                                experiment_id=self.experiment.get("id"),
-                                name=self.experiment.get("name"),
-                                feature_slug=self.experiment.get("variant") or self.experiment.get("feature_slug"),
-                            )
+                        self._apply_experiment(span)
                     try:
                         return await func(*args, **kwargs)
                     except Exception as exc:
@@ -179,6 +187,46 @@ class StartObserve(ContextDecorator):
             return async_wrapper  # type: ignore
 
         return wrapper  # type: ignore
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _apply_experiment(self, span: SpanHandle | None) -> None:
+        """Apply experiment metadata to the provided span.
+
+        Supports either a raw experiment dict (ExperimentDict) or an
+        `Experiment` dataclass instance from `basalt.experiments.models`.
+        """
+        if span is None or not self.experiment:
+            return
+
+        exp_id: str | None = None
+        exp_name: str | None = None
+        exp_feature_slug: str | None = None
+
+        if isinstance(self.experiment, Experiment):
+            exp_id = self.experiment.id
+            exp_name = self.experiment.name or None
+            # Dataclass uses `feature_slug`
+            exp_feature_slug = self.experiment.feature_slug or None
+        elif isinstance(self.experiment, dict):  # ExperimentDict
+            exp_id = self.experiment.get("id")
+            exp_name = self.experiment.get("name")
+            # Accept multiple key styles: variant, feature_slug, featureSlug
+            exp_feature_slug = (
+                self.experiment.get("variant")
+                or self.experiment.get("feature_slug")
+                or self.experiment.get("featureSlug")
+            )
+
+        if not exp_id:
+            return  # Must have an id to attach
+
+        span.set_experiment(
+            experiment_id=exp_id,
+            name=exp_name,
+            feature_slug=exp_feature_slug,
+        )
 
 
 class Observe(ContextDecorator):

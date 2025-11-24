@@ -29,81 +29,156 @@ User and organization data is stored using standardized span attributes:
 
 ## Quick Start
 
-### Setting User on a Span
+### Setting Identity on Root Span
+
+The recommended approach is to set identity using the `identity` parameter on `start_observe`:
 
 ```python
-from basalt.observability import trace_span
+from basalt.observability import start_observe
 
-with trace_span("my.operation") as span:
-    span.set_user("user-123", name="Alice Johnson")
-    # Your operation here
-```
+# With both user and organization
+@start_observe(
+    name="my.operation",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
+def my_operation():
+    # Identity automatically propagates to all child spans
+    pass
 
-### Setting Organization on a Span
+# With just user ID (simple form)
+@start_observe(
+    name="process",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
+def process():
+    pass
 
-```python
-from basalt.observability import trace_span
-
-with trace_span("my.operation") as span:
-    span.set_organization("org-456", name="Acme Corp")
-    # Your operation here
-```
-
-### Setting Both User and Organization
-
-```python
-from basalt.observability import trace_span
-
-with trace_span("my.operation") as span:
-    span.set_user("user-123", name="Alice Johnson")
-    span.set_organization("org-456", name="Acme Corp")
-    # Your operation here
-```
-
-## Setting User IDs
-
-### Method 1: SpanHandle.set_user()
-
-Directly set user on a span handle:
-
-```python
-from basalt.observability import trace_span
-
-with trace_span("my.operation") as span:
-    span.set_user("user-123", name="Alice Johnson")
-```
-
-
-### Method 2: Context Manager Parameter
-
-Pass user when creating the span:
-
-```python
-from basalt.observability import trace_span
-
-with trace_span(
-    "my.operation",
-    user={"id": "user-123", "name": "Alice"}
-) as span:
-    # User is automatically set
+# Context manager form
+with start_observe(
+    name="batch_job",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+):
+    # Your code here
     pass
 ```
 
+### Dynamic Identity Resolution
 
-### Method 3: Decorator Parameter
-
-Use decorators with user parameter:
+Use a callable for identity when values depend on function arguments:
 
 ```python
-from basalt.observability import observe_generation
+from basalt.observability import start_observe
 
-@observe_generation(
-    user={"id": "user-123", "name": "Alice"}
+@start_observe(
+    name="handle_request",
+    identity=lambda user_id, org_id, **kwargs: {
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
 )
-def process_data(query: str) -> str:
-    return query.upper()
+def handle_request(user_id: str, org_id: str, data: dict):
+    # Identity resolved from function arguments
+    return process(data)
 ```
 
+### Setting Identity Dynamically
+
+Use `observe.identify()` to set identity at runtime:
+
+```python
+from basalt.observability import start_observe, observe
+
+@start_observe(name="api_handler")
+def handle_api_request(auth_token):
+    # Extract identity from auth token
+    user_data = verify_token(auth_token)
+
+    # Set identity dynamically
+    observe.identify(
+        user={"id": "456", "name": "John Doe"},
+        organization={"id": "123", "name": "ACME"}
+    )
+
+    # Identity now propagates to all subsequent operations
+    process_request()
+```
+
+## Setting Identity
+
+### Method 1: start_observe identity Parameter (Recommended)
+
+Set identity on the root span using the `identity` parameter:
+
+```python
+from basalt.observability import start_observe
+
+@start_observe(
+    name="my.operation",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
+def my_operation():
+    # Identity set on root and propagates to children
+    pass
+```
+
+### Method 2: observe.identify() Static Method
+
+Set identity dynamically from anywhere in your code:
+
+```python
+from basalt.observability import observe
+
+def handle_request(auth_data):
+    # Extract identity from runtime data
+    observe.identify(
+        user={"id": "456", "name": "John Doe"},
+        organization={"id": "123", "name": "ACME"}
+    )
+    # Identity propagates to all spans in this trace
+```
+
+### Method 3: SpanHandle Methods
+
+Use span handles for fine-grained control:
+
+```python
+from basalt.observability import start_observe, observe
+
+with start_observe(name="my.operation") as span:
+    span.set_user("456", name="John Doe")
+    span.set_organization("123", name="ACME")
+```
+
+### Method 4: Callable Identity Resolver
+
+For decorator-based identity resolution from function arguments:
+
+```python
+from basalt.observability import start_observe
+
+@start_observe(
+    name="process_user_data",
+    identity=lambda user_id, **kwargs: {
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
+def process_user_data(user_id: str, data: dict):
+    # user_id automatically extracted and set as identity
+    pass
+```
 
 ### Method 4: set_trace_user() Helper
 
@@ -112,7 +187,7 @@ Set user on the current active span:
 ```python
 from basalt.observability import set_trace_user
 
-set_trace_user("user-123", name="Alice Johnson")
+set_trace_user("456", name="John Doe")
 ```
 
 ## Setting Organization IDs
@@ -125,7 +200,7 @@ Directly set organization on a span handle:
 from basalt.observability import trace_span
 
 with trace_span("my.operation") as span:
-    span.set_organization("org-456", name="Acme Corp")
+    span.set_organization("123", name="ACME")
 ```
 
 ### Method 2: Context Manager Parameter
@@ -137,7 +212,7 @@ from basalt.observability import trace_span
 
 with trace_span(
     "my.operation",
-    organization={"id": "org-456", "name": "Acme Corp"}
+    organization={"id": "123", "name": "ACME"}
 ) as span:
     # Organization is automatically set
     pass
@@ -152,7 +227,7 @@ Use decorators with organization parameter:
 from basalt.observability import observe_generation
 
 @observe_generation(
-    organization={"id": "org-456", "name": "Acme Corp"}
+    organization={"id": "123", "name": "ACME"}
 )
 def call_llm(prompt: str) -> str:
     return model.generate(prompt)
@@ -165,7 +240,7 @@ Set organization on the current active span:
 ```python
 from basalt.observability import set_trace_organization
 
-set_trace_organization("org-456", name="Acme Corp")
+set_trace_organization("123", name="ACME")
 ```
 
 ## Context Managers with User/Org
@@ -179,8 +254,8 @@ from basalt.observability import trace_span
 
 with trace_span(
     "my.operation",
-    user={"id": "user-123", "name": "Alice"},
-    organization={"id": "org-456", "name": "Acme Corp"}
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
 ) as span:
     # Both user and org are set
     pass
@@ -196,8 +271,8 @@ from basalt.observability import trace_generation
 
 with trace_generation(
     "llm.generate",
-    user={"id": "user-123", "name": "Alice"},
-    organization={"id": "org-456", "name": "Acme Corp"}
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
 ) as span:
     span.set_model("gpt-4")
     span.set_prompt("Hello")
@@ -215,8 +290,8 @@ from basalt.observability import trace_retrieval
 
 with trace_retrieval(
     "vector_db.search",
-    user={"id": "user-123", "name": "Alice"},
-    organization={"id": "org-456", "name": "Acme Corp"}
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
 ) as span:
     span.set_query("What is observability?")
     span.set_top_k(10)
@@ -233,15 +308,27 @@ All other specialized context managers also support user and organization:
 from basalt.observability import trace_function, trace_tool, trace_event
 
 # Function execution
-with trace_function("my.func", user={"id": "user-123"}) as span:
+with trace_function(
+    "my.func",
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
+) as span:
     pass
 
 # Tool execution
-with trace_tool("my.tool", user={"id": "user-123"}) as span:
+with trace_tool(
+    "my.tool",
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
+) as span:
     pass
 
 # Event logging
-with trace_event("my.event", user={"id": "user-123"}) as span:
+with trace_event(
+    "my.event",
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
+) as span:
     pass
 ```
 
@@ -257,8 +344,8 @@ from basalt.observability import observe, ObserveKind
 
 @observe(
     ObserveKind.GENERATION,
-    user={"id": "user-123", "name": "Alice"},
-    organization={"id": "org-456", "name": "Acme Corp"}
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
 )
 def process_data(query: str) -> str:
     return query.upper()
@@ -271,8 +358,8 @@ def process_data(query: str) -> str:
 from basalt.observability import observe_generation
 
 @observe_generation(
-    user={"id": "user-123"},
-    organization={"id": "org-456"}
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
 )
 def call_llm(prompt: str) -> str:
     return model.generate(prompt)
@@ -291,19 +378,31 @@ from basalt.observability import (
     observe_event
 )
 
-@observe_retrieval(user={"id": "user-123"})
+@observe_retrieval(
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
+)
 def search(query: str):
     pass
 
-@observe_function(user={"id": "user-123"})
+@observe_function(
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
+)
 def process(data: str):
     pass
 
-@observe_tool(user={"id": "user-123"})
+@observe_tool(
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
+)
 def execute_tool(params: dict):
     pass
 
-@observe_event(user={"id": "user-123"})
+@observe_event(
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
+)
 def log_event(event: str):
     pass
 ```
@@ -319,8 +418,12 @@ from basalt.observability import observe_generation, TraceIdentity
 
 @observe_generation(
     user=lambda bound: TraceIdentity(
-        id=bound.arguments.get("user_id"),
-        name=bound.arguments.get("username")
+        id="456",
+        name="John Doe"
+    ),
+    organization=lambda bound: TraceIdentity(
+        id="123",
+        name="ACME"
     )
 )
 def process(user_id: str, username: str, prompt: str) -> str:
@@ -328,11 +431,11 @@ def process(user_id: str, username: str, prompt: str) -> str:
 
 # When called:
 result = process(
-    user_id="user-123",
-    username="Alice",
+    user_id="456",
+    username="John Doe",
     prompt="Hello"
 )
-# User "user-123" (Alice) is automatically attached to the span
+# User "456" (John Doe) is automatically attached to the span
 ```
 
 
@@ -340,9 +443,13 @@ result = process(
 
 ```python
 @observe_generation(
+    user=lambda bound: {
+        "id": "456",
+        "name": "John Doe"
+    },
     organization=lambda bound: {
-        "id": bound.arguments.get("org_id"),
-        "name": bound.arguments.get("org_name")
+        "id": "123",
+        "name": "ACME"
     }
 )
 def handle_request(org_id: str, org_name: str, query: str) -> str:
@@ -358,12 +465,12 @@ from basalt.observability import trace_span
 
 with trace_span(
     "parent.operation",
-    user={"id": "user-123", "name": "Alice"},
-    organization={"id": "org-456", "name": "Acme Corp"}
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
 ):
     # Child span automatically inherits user and org
     with trace_span("child.operation") as child:
-        # child span has user-123 and org-456 automatically
+        # child span has 456 and 123 automatically
         pass
 ```
 
@@ -379,8 +486,8 @@ client = OpenAI(api_key="your-key")
 
 with trace_span(
     "user.request",
-    user={"id": "user-123"},
-    organization={"id": "org-456"}
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
 ):
     # This auto-instrumented OpenAI call inherits user and org
     response = client.chat.completions.create(
@@ -411,8 +518,8 @@ def handle_customer_query(user_id: str, user_name: str, org_id: str, org_name: s
 
     with trace_span(
         "support.handle_query",
-        user={"id": user_id, "name": user_name},
-        organization={"id": org_id, "name": org_name}
+        user={"id": "456", "name": "John Doe"},
+        organization={"id": "123", "name": "ACME"}
     ) as root_span:
         root_span.set_input({"query": query})
 
@@ -443,10 +550,10 @@ def handle_customer_query(user_id: str, user_name: str, org_id: str, org_name: s
 
 # Call the function
 response = handle_customer_query(
-    user_id="user-123",
-    user_name="Alice Johnson",
-    org_id="org-456",
-    org_name="Acme Corp",
+    user_id="456",
+    user_name="John Doe",
+    org_id="123",
+    org_name="ACME",
     query="How do I reset my password?"
 )
 
@@ -463,8 +570,8 @@ User and organization accept multiple input formats:
 ```python
 from basalt.observability import TraceIdentity, trace_span
 
-user = TraceIdentity(id="user-123", name="Alice")
-org = TraceIdentity(id="org-456", name="Acme Corp")
+user = TraceIdentity(id="456", name="John Doe")
+org = TraceIdentity(id="123", name="ACME")
 
 with trace_span("my.op", user=user, organization=org) as span:
     pass
@@ -475,8 +582,8 @@ with trace_span("my.op", user=user, organization=org) as span:
 ```python
 with trace_span(
     "my.op",
-    user={"id": "user-123", "name": "Alice"},
-    organization={"id": "org-456", "name": "Acme Corp"}
+    user={"id": "456", "name": "John Doe"},
+    organization={"id": "123", "name": "ACME"}
 ) as span:
     pass
 ```
@@ -489,20 +596,4 @@ with trace_span(
 )
 def process(user_id: str) -> str:
     pass
-```
-
-### Validation
-
-The SDK validates user and organization inputs:
-
-```python
-# Valid
-TraceIdentity(id="user-123", name="Alice")  # ✓
-{"id": "user-123", "name": "Alice"}         # ✓
-{"id": "user-123"}                          # ✓ (name optional)
-
-# Invalid
-{"name": "Alice"}                           # ✗ (missing id)
-{"id": ""}                                  # ✗ (empty id)
-{"id": "user-123", "name": 123}             # ✗ (name not string)
 ```

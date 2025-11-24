@@ -5,8 +5,7 @@ import httpx
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability.api import Observe
-from basalt.observability.decorators import ObserveKind, evaluate
+from basalt.observability import ObserveKind, evaluate, observe, start_observe
 
 
 # --- 1. Build Basalt client with custom OTLP exporter ---
@@ -21,11 +20,14 @@ def build_custom_exporter_client() -> Basalt:
     # Get API key for authentication
     api_key = os.getenv("BASALT_API_KEY", "valid-token")
 
+    # Use environment variable for OTLP endpoint or default to localhost
+    otlp_endpoint = os.getenv("BASALT_OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+
     # Create a custom exporter with authentication headers
     # For local development without authentication, you can omit the headers parameter
     exporter = OTLPSpanExporter(
-        endpoint="http://127.0.0.1:4317",
-        headers={"authorization": f"Bearer {api_key}"},  # Add auth headers manually
+        endpoint=otlp_endpoint,
+        headers={"authorization": f"Bearer {api_key}"},
         insecure=True,
         timeout=10
     )
@@ -33,8 +35,6 @@ def build_custom_exporter_client() -> Basalt:
     telemetry = TelemetryConfig(
         service_name="gemini-demo",
         exporter=exporter,
-        enable_llm_instrumentation=True,  # Enable automatic Gemini instrumentation
-        llm_trace_content=True,
         llm_enabled_providers=["google_generativeai"],  # Only instrument Gemini calls
     )
 
@@ -46,7 +46,7 @@ def build_custom_exporter_client() -> Basalt:
 basalt_client = build_custom_exporter_client()
 
 # --- 2. Gather random data from a public API ---
-@Observe(name="http.get_random_joke", kind=ObserveKind.RETRIEVAL)
+@observe(name="http.get_random_joke", kind=ObserveKind.RETRIEVAL)
 def get_random_joke() -> str:
     """Fetch a random joke from the Official Joke API using httpx (instrumented)."""
     with httpx.Client() as client:
@@ -87,13 +87,7 @@ try:
 except ImportError:
     genai = None
 
-@evaluate(
-    slugs=["hallucinations", "clarity"],
-    sample_rate=1.0,
-    metadata=lambda joke, **kwargs: {
-        "joke_length": len(joke),
-    }
-)
+@evaluate(slugs=["hallucinations", "clarity"])
 def summarize_joke_with_gemini(joke: str) -> str | None:
     """
     Send the joke to Gemini and get a summary or explanation.
@@ -117,56 +111,54 @@ def summarize_joke_with_gemini(joke: str) -> str | None:
     return response.text
 
 
+@start_observe(
+    name="workflow.gemini_random_data",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    },
+    metadata={
+        "workflow.type": "gemini-joke-demo",
+        "service": "gemini-random-demo"
+    }
+)
 def main():
     logging.basicConfig(level=logging.DEBUG)
 
-    # Wrap the entire workflow in a single trace span with user/org
-    # User/org will automatically propagate to all child spans (including Gemini auto-instrumented spans)
-    with Observe(
-        "workflow.gemini_random_data",
-        identity={"organization": "org_123", "user": "user_456"},
-        metadata={
-            "workflow.type": "gemini-joke-demo",
-            "service": "gemini-random-demo"
-        }
-    ) as span:
+    # 1. Fetch a random joke using httpx (external HTTP call - instrumented)
+    joke = get_random_joke()
 
-        # 1. Fetch a random joke using httpx (external HTTP call - instrumented)
-        joke = get_random_joke()
+    observe.metadata({"joke.length": len(joke)})
+    observe.input({"joke": joke})
 
-        span.add_evaluator("joke-quality-check")
-        span.set_evaluator_config({"sample_rate": 0.8})
+    logging.info(f"Random joke: {joke}")
 
-        span.set_input({"joke": joke})
+    # 2. Fetch a prompt from Basalt API (internal SDK call - instrumented)
+    prompt_slug = "joke-analyzer"
+    prompt_text = get_prompt_from_basalt(prompt_slug, joke, "a curious geek adult")
+    #logging.info(f"Basalt prompt preview: {prompt_text[:100]}...")
 
-        logging.info(f"Random joke: {joke}")
+    # 3. Query Gemini with the joke (LLM call - instrumented)
+    try:
+        gemini_result = summarize_joke_with_gemini(prompt_text)
+        logging.info(f"Gemini summary: {gemini_result}")
+        observe.metadata({
+            "gemini.status": "success",
+            "gemini.response_length": len(gemini_result) if gemini_result else 0
+        })
+        observe.output({
+            "summary": gemini_result,
+            "status": "success",
+        })
 
-        span.set_attribute("joke.length", len(joke))
-
-        # 2. Fetch a prompt from Basalt API (internal SDK call - instrumented)
-        prompt_slug = "joke-analyzer"
-        prompt_text = get_prompt_from_basalt(prompt_slug, joke, "a curious geek adult")
-        #logging.info(f"Basalt prompt preview: {prompt_text[:100]}...")
-
-        # 3. Query Gemini with the joke (LLM call - instrumented)
-        try:
-            gemini_result = summarize_joke_with_gemini(prompt_text)
-            logging.info(f"Gemini summary: {gemini_result}")
-            span.set_attribute("gemini.status", "success")
-            span.set_attribute("gemini.response_length", len(gemini_result) if gemini_result else 0)
-            span.set_output({
-                "summary": gemini_result,
-                "status": "success",
-            })
-
-        except Exception as exc:
-            logging.error(f"Gemini error: {exc}")
-            span.record_exception(exc)
-            span.set_attribute("gemini.status", "error")
-            span.set_output({
-                "status": "error",
-                "error": str(exc),
-            })
+    except Exception as exc:
+        logging.error(f"Gemini error: {exc}")
+        observe.fail(exc)
+        observe.metadata({"gemini.status": "error"})
+        observe.output({
+            "status": "error",
+            "error": str(exc),
+        })
 
     # Shutdown and flush telemetry
     logging.info("Shutting down and flushing telemetry...")

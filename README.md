@@ -21,13 +21,10 @@ The SDK includes optional OpenTelemetry instrumentation packages for various LLM
 pip install basalt-sdk[openai]
 pip install basalt-sdk[anthropic]
 pip install basalt-sdk[google-generativeai]  # Google Gemini
-pip install basalt-sdk[cohere]
 pip install basalt-sdk[bedrock]
 pip install basalt-sdk[vertex-ai]
 pip install basalt-sdk[ollama]
-pip install basalt-sdk[mistralai]
-pip install basalt-sdk[together]
-pip install basalt-sdk[replicate]
+...
 
 # Multiple providers
 pip install basalt-sdk[openai,anthropic]
@@ -56,7 +53,6 @@ pip install basalt-sdk[vector-all]
 # Individual frameworks
 pip install basalt-sdk[langchain]
 pip install basalt-sdk[llamaindex]
-pip install basalt-sdk[haystack]
 
 # All frameworks
 pip install basalt-sdk[framework-all]
@@ -90,8 +86,6 @@ basalt = Basalt(api_key="my-dev-api-key", enable_telemetry=False)
 telemetry = TelemetryConfig(
     service_name="my-app",
     environment="staging",
-    enable_llm_instrumentation=True,
-    llm_trace_content=False,
     llm_enabled_providers=["openai", "anthropic"],  # Optional: selective instrumentation
 )
 basalt = Basalt(api_key="my-dev-api-key", telemetry_config=telemetry)
@@ -120,46 +114,35 @@ The SDK includes comprehensive OpenTelemetry integration for observability:
   - LLM provider instrumentation with fine-grained control over which providers to instrument
 - Quick disable via `enable_telemetry=False` bypasses all instrumentation without touching application code.
 - Built-in decorators and context managers simplify manual span creation:
-  - **Decorators**: `@trace_span`, `@trace_generation`, `@trace_http`
-  - **Context Managers**: `trace_span()`, `trace_generation()`, `trace_retrieval()`, `trace_tool()`, `trace_event()`
+  - **Root Spans**: `@start_observe` - Creates trace entry point with identity and experiment tracking
+  - **Nested Spans**: `@observe` with `kind` parameter - For generation, retrieval, tool, event, function spans
 
 ```python
 from basalt.observability import observe, start_observe
 
-# Using decorators for automatic tracing
-@observe(kind="span", name="dataset.process")
-def process_dataset(slug: str) -> str:
-    return f"processed:{slug}"
+# Root span with identity tracking
+@start_observe(
+    name="process_workflow",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    },
+    metadata={"environment": "production"}
+)
+def process_dataset(slug: str, user_id: str) -> str:
+    # Identity automatically propagates to child spans
+    observe.input({"slug": slug})
+    result = f"processed:{slug}"
+    observe.output({"result": result})
+    return result
 
+# Nested LLM span
 @observe(kind="generation", name="llm.generate")
 def generate_summary(model: str, prompt: str) -> dict:
     # Your LLM call here
     return {"choices": [{"message": {"content": "Summary"}}]}
 
-# Using context managers for manual tracing
-def custom_workflow():
-    # Start a trace with start_observe
-    with start_observe(name="custom.section", metadata={"feature": "demo"}) as span:
-        span.add_event("processing_started")
-        # Your code here
-        span.set_status("ok")
 
-    with observe(kind="generation", name="manual.llm") as llm_span:
-        llm_span.set_model("gpt-4")
-        llm_span.set_prompt("Tell me a joke")
-        # Make your LLM call
-        llm_span.set_completion("Response here")
-        llm_span.set_tokens(input=10, output=20)
-
-    with observe(kind="tool", name="manual.tool") as tool_span:
-        tool_span.set_tool_name("http_fetch")
-        tool_span.set_input({"url": "https://getbasalt.ai"})
-        # Execute your tool call
-        tool_span.set_output({"status": 200})
-
-    with observe(kind="event", name="workflow.event") as event_span:
-        event_span.set_event_type("checkpoint")
-        event_span.set_payload({"step": 3, "status": "ok"})
 ```
 
 

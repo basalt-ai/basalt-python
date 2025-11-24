@@ -96,7 +96,7 @@ class TelemetryConfig:
     service_name: str = "basalt-sdk"
     service_version: str | None = basalt_sdk_config.get("sdk_version", "unknown")
     environment: str | None = None
-    enable_llm_instrumentation: bool = False
+    enable_llm_instrumentation: bool = True
     """Enable automatic instrumentation of LLM provider SDKs."""
 
     llm_trace_content: bool = True

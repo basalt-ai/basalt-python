@@ -4,22 +4,71 @@ Basalt provides a powerful and intuitive observability API designed to help you 
 
 ## The `observe` API
 
-The core of Basalt's observability is the `observe` class. It unifies tracing, logging, and context management into a single, easy-to-use interface.
+The core of Basalt's observability is the `observe` and `start_observe` classes. They unify tracing, logging, and context management into a single, easy-to-use interface.
+
+### Root Spans with `start_observe`
+
+Every trace must start with a **root span** created using `start_observe`. This is the entry point for your observability and supports identity tracking, experiment attachment, and evaluator configuration.
+
+```python
+from basalt.observability import start_observe, observe, ObserveKind
+
+# Root span with identity tracking
+@start_observe(
+    name="process_request",
+    identity={"user": {"id": "user_123", "name": "Alice"}, "organization": {"id": "org_abc"}},
+    metadata={"environment": "production", "version": "2.0"}
+)
+def process():
+    # Identity automatically propagates to all child spans
+    pass
+
+# Root span with experiment tracking
+@start_observe(
+    name="ml_workflow",
+    experiment={"id": "exp_456", "name": "Model Comparison"},
+    identity={"user": "analyst_001"}
+)
+def run_experiment():
+    pass
+
+# Context manager form
+with start_observe(
+    name="batch_job",
+    identity={"organization": {"id": "org_xyz", "name": "Acme Corp"}},
+    metadata={"job_id": "batch_123"}
+):
+    # Your code here
+    pass
+```
+
+**Key features of `start_observe`:**
+- **`identity`**: Dict with `user` and/or `organization` keys for tracking. Can also use simple string format or callables for dynamic resolution.
+- **`experiment`**: Dict with `id`, `name`, and `variant` keys for A/B testing and feature tracking.
+- **`evaluate_config`**: Configuration for evaluators attached to the root span.
+- **`metadata`**: Custom key-value pairs attached to the span.
 
 ### Spans and Kinds
 
-Every operation you track is recorded as a **Span**. Spans can have a `kind` that describes their semantic meaning.
+Nested operations are tracked using `observe` with different `kind` values that describe their semantic meaning.
 
 ```python
 from basalt.observability import observe, start_observe, ObserveKind
 
-# Start a trace (Root Span)
-@start_observe(name="process_request")
+# Root span (required as entry point)
+@start_observe(
+    name="process_request",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
 def process():
-    pass
+    sub_task()
+    return "done"
 
-# Nested span
-@observe(name="sub_task")
+# Nested span (automatically inherits identity)
+@observe(name="sub_task", kind=ObserveKind.SPAN)
 def sub_task():
     pass
 
@@ -38,6 +87,8 @@ def search():
 def calculate():
     pass
 ```
+
+**Important:** Always use `start_observe` for the outermost/root span in your trace. Nested spans use `observe`. Identity, experiment, and other context set on `start_observe` automatically propagates to child spans.
 
 ### Enriching Spans
 
@@ -155,11 +206,12 @@ async def child():
 Sometimes you need to set metadata or identity on the root span from deeply nested operations:
 
 ```python
-from basalt.observability import observe
+from basalt.observability import observe, start_observe
 
-@observe(name="API Handler")
+@start_observe(name="API Handler")
 def handle_request(user_id):
-    # Root span starts here
+    # Root span starts here with identity tracking
+    observe.input({"user_id": user_id})
     authenticate(user_id)
     process_data()
 
@@ -174,15 +226,20 @@ def process_data():
     root = observe.root_span()
     if root:
         root.set_attribute("processing_stage", "data_validation")
-    
+
     # Or use identify() which works on the current context
-    observe.identify(user="user_123")
+    observe.identify(user={"id": "user_123", "name": "Alice"})
 ```
 
 **When to use `root_span()`:**
 - Setting metadata on the top-level operation from nested functions
 - Accessing the parent trace context for late-binding operations
 - Coordinating behavior across the entire trace hierarchy
+
+**When to use `observe.identify()`:**
+- Setting identity dynamically based on runtime data
+- Works from any nested context and propagates to the trace root
+- Simpler API when you don't need direct span handle access
 
 ## Global Configuration
 

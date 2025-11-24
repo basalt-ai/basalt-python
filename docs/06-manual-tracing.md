@@ -1,21 +1,52 @@
 # Manual Tracing
 
-Learn how to create custom traces using the unified `observe` interface.
+Learn how to create custom traces using the unified `start_observe` and `observe` interfaces.
 
 ## Overview
 
-Basalt provides a unified `observe` API that works as both:
+Basalt provides two main observability APIs:
+- **`start_observe`**: Creates root spans with identity, experiment, and evaluator configuration
+- **`observe`**: Creates nested spans with different kinds (generation, retrieval, tool, etc.)
+
+Both work as:
 - **Decorator**: Apply to functions for automatic span creation
 - **Context Manager**: Fine-grained control within code blocks
 
 ## Quick Start
+
+### Root Span with start_observe
+
+Every trace must begin with a root span created using `start_observe`:
+
+```python
+from basalt.observability import start_observe, observe
+
+@start_observe(
+    name="Data Processing Workflow",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    },
+    metadata={"version": "v2", "environment": "production"}
+)
+def process_data(data):
+    # Identity and metadata automatically propagate to child spans
+    prepare_data(data)
+    transform_data(data)
+    return result
+
+@observe(name="Data Preparation")
+def prepare_data(data):
+    # This is a child span - inherits identity from root
+    pass
+```
 
 ### Using as a Decorator
 
 ```python
 from basalt.observability import observe
 
-@observe(name="Data Processing")
+@observe(name="Data Processing", kind="function")
 def process_data(data):
     # Function automatically wrapped in a span
     return transform(data)
@@ -24,26 +55,82 @@ def process_data(data):
 ### Using as a Context Manager
 
 ```python
-from basalt.observability import observe
+from basalt.observability import start_observe
 
 def process_request():
-    with observe(name="Request Processing") as span:
-        span.set_input({"data": "..."})
+    with start_observe(
+        name="Request Processing",
+        identity={
+            "organization": {"id": "123", "name": "ACME"},
+            "user": {"id": "456", "name": "John Doe"}
+        }
+    ):
+        observe.input({"data": "..."})
         result = do_work()
-        span.set_output(result)
+        observe.output(result)
         return result
 ```
 
-## The observe Interface
+## The start_observe and observe Interfaces
 
-### Basic Usage
+### start_observe: Root Span Entry Point
 
-`observe` can be used with or without a specific kind. By default, it creates a generic span:
+Use `start_observe` to create the root span of your trace. This is required as the entry point and supports:
 
 ```python
-from basalt.observability import observe
+from basalt.observability import start_observe
 
-@observe(name="Custom Operation", metadata={"version": "v2"})
+# With identity tracking
+@start_observe(
+    name="Main Workflow",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    },
+    metadata={"environment": "production"}
+)
+def main_workflow(data):
+    return process(data)
+
+# With experiment tracking
+@start_observe(
+    name="A/B Test",
+    experiment={"id": "exp_001", "name": "Model Comparison", "variant": "model_a"},
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
+def run_experiment():
+    return results
+
+# Context manager form
+with start_observe(
+    name="Batch Job",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+):
+    # Your code here
+    pass
+```
+
+**Key `start_observe` parameters:**
+- `name`: Span name (defaults to function name if used as decorator)
+- `identity`: Dict with `user` and/or `organization` keys for tracking
+- `experiment`: Dict with `id`, `name`, and `variant` for A/B testing
+- `evaluate_config`: Evaluator configuration for the root span
+- `metadata`: Custom key-value pairs
+
+### observe: Nested Spans
+
+Use `observe` for nested operations within a root span:
+
+```python
+from basalt.observability import observe, ObserveKind
+
+@observe(name="Custom Operation", kind=ObserveKind.FUNCTION, metadata={"version": "v2"})
 def my_operation(data):
     return result
 ```
@@ -81,22 +168,32 @@ def search_db(query):
 
 ### Nested Spans
 
-Decorators automatically create parent-child relationships:
+Decorators automatically create parent-child relationships. Always start with `start_observe` as the root:
 
 ```python
-from basalt.observability import observe
+from basalt.observability import start_observe, observe
 
-@observe(name="Main Workflow")
+@start_observe(
+    name="Main Workflow",
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
 def main_workflow():
+    # Root span created here
     prepare_data()  # Creates child span
     process_data()  # Creates child span
+    return result
 
 @observe(name="Data Preparation")
 def prepare_data():
+    # Child span - inherits identity from root
     pass
 
 @observe(name="Data Processing")
 def process_data():
+    # Another child span
     pass
 ```
 
@@ -170,12 +267,9 @@ from basalt.observability import observe
 def handle_request(user_id, org_id):
     # Set user and organization for the current trace
     observe.identify(
-        user={"id": user_id, "name": "Alice"},
-        organization={"id": org_id, "name": "Acme Corp"}
+        user={"id": "456", "name": "John Doe"},
+        organization={"id": "123", "name": "ACME"}
     )
-    
-    # Or with just IDs
-    observe.identify(user=user_id, organization=org_id)
 ```
 
 ### Metadata Management

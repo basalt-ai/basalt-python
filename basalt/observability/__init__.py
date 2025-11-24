@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .api import Observe, observe, start_observe
+from .api import ExperimentDict, IdentityDict, Observe, observe, start_observe
 from .config import TelemetryConfig
 from .context_managers import (
     EvaluatorConfig,
@@ -40,6 +40,8 @@ __all__ = [
     "EvaluatorConfig",
     "TraceIdentity",
     "TraceExperiment",
+    "IdentityDict",
+    "ExperimentDict",
     # Processors
     "BasaltContextProcessor",
     "BasaltCallEvaluatorProcessor",

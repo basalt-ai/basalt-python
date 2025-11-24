@@ -45,20 +45,72 @@ class TraceExperiment:
 
 ## Quick Start
 
-### Attaching Experiments to Spans
+### Attaching Experiments at Root Span
 
-The simplest way to track experiments is using `span.set_experiment()`:
+The recommended way to track experiments is using the `experiment` parameter on `start_observe`:
 
 ```python
-from basalt.observability import trace_span
+from basalt.observability import start_observe, observe
 
-with trace_span("experiment.variant_a") as span:
-    span.set_experiment("exp-456", name="Model Comparison A/B Test")
-    span.set_input({"variant": "A", "model": "gpt-4o"})
+@start_observe(
+    name="experiment.variant_a",
+    experiment={"id": "exp-456", "name": "Model Comparison A/B Test", "variant": "model_a"},
+    identity={
+        "organization": {"id": "123", "name": "ACME"},
+        "user": {"id": "456", "name": "John Doe"}
+    }
+)
+def run_variant_a():
+    # Experiment metadata automatically attached to root span
+    observe.input({"variant": "A", "model": "gpt-4o"})
 
     result = run_test()
 
-    span.set_output({"variant": "A", "result": result})
+    observe.output({"variant": "A", "result": result})
+    return result
+
+# Or using context manager
+with start_observe(
+    name="experiment.variant_b",
+    experiment={"id": "exp-456", "variant": "model_b"}
+):
+    # Your experiment code
+    pass
+```
+
+### Dynamic Experiment Assignment
+
+You can also set experiments dynamically using `observe.experiment()`:
+
+```python
+from basalt.observability import start_observe, observe
+
+@start_observe(name="adaptive_experiment")
+def run_adaptive_test(user_segment):
+    # Determine experiment variant at runtime
+    if user_segment == "premium":
+        observe.experiment("exp-789", variant="premium_model")
+    else:
+        observe.experiment("exp-789", variant="standard_model")
+
+    result = run_test()
+    return result
+```
+
+### Setting Experiments on Nested Spans
+
+You can also use span handles directly:
+
+```python
+from basalt.observability import start_observe, observe
+
+@start_observe(name="main_workflow")
+def main():
+    with observe(name="experiment.test", kind="span") as span:
+        span.set_experiment("exp-456", name="Model Comparison A/B Test")
+        span.set_input({"variant": "A"})
+        result = run_test()
+        span.set_output({"result": result})
 ```
 
 ## Creating Experiments
@@ -75,7 +127,7 @@ client = ExperimentsClient(api_key="your-api-key")
 # Create experiment synchronously
 experiment = client.create_sync(
     feature_slug="my-feature",
-    name="GPT-4 vs GPT-3.5 Test"
+    name="GPT-5.1 vs GPT-5 Test"
 )
 
 print(f"Created experiment: {experiment.id}")
