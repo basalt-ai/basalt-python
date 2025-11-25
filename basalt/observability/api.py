@@ -4,11 +4,12 @@ import functools
 import inspect
 from collections.abc import Callable, Sequence
 from contextlib import ContextDecorator
-from typing import Any, NotRequired, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, TypeVar
 
 from opentelemetry.trace import StatusCode
 
-from basalt.experiments.models import Experiment  # Allow passing Experiment dataclass instances
+if TYPE_CHECKING:
+    from basalt.experiments.models import Experiment
 
 from .context_managers import (
     ROOT_SPAN_CONTEXT_KEY,
@@ -81,6 +82,7 @@ class StartObserve(ContextDecorator):
     def __init__(
         self,
         name: str | None = None,
+        feature_slug: str | None = None,
         *,
         identity: IdentityDict | Callable[..., IdentityDict | None] | None = None,
         evaluate_config: EvaluatorConfig | None = None,
@@ -88,6 +90,7 @@ class StartObserve(ContextDecorator):
         metadata: dict[str, Any] | None = None,
     ):
         self.name = name
+        self.feature_slug = feature_slug
         self.identity_resolver = identity
         self.evaluate_config = evaluate_config
         self.experiment = experiment
@@ -111,6 +114,7 @@ class StartObserve(ContextDecorator):
             user=user_identity,
             organization=org_identity,
             evaluator_config=self.evaluate_config,
+            feature_slug=self.feature_slug,
         )
         self._span_handle = self._ctx_manager.__enter__()
 
@@ -145,6 +149,7 @@ class StartObserve(ContextDecorator):
                 user=user_identity,
                 organization=org_identity,
                 evaluator_config=self.evaluate_config,
+                feature_slug=self.feature_slug,
             ) as span:
                 # Attach experiment if provided
                 if self.experiment:
@@ -174,6 +179,7 @@ class StartObserve(ContextDecorator):
                     user=user_identity,
                     organization=org_identity,
                     evaluator_config=self.evaluate_config,
+                    feature_slug=self.feature_slug,
                 ) as span:
                     if self.experiment:
                         self._apply_experiment(span)
@@ -204,11 +210,13 @@ class StartObserve(ContextDecorator):
         exp_name: str | None = None
         exp_feature_slug: str | None = None
 
-        if isinstance(self.experiment, Experiment):
-            exp_id = self.experiment.id
-            exp_name = self.experiment.name or None
+        # Check if it's an Experiment dataclass by looking for the 'id' attribute
+        # (avoid isinstance to prevent circular import at runtime)
+        if hasattr(self.experiment, "id") and not isinstance(self.experiment, dict):
+            exp_id = self.experiment.id  # type: ignore[attr-defined]
+            exp_name = getattr(self.experiment, "name", None)
             # Dataclass uses `feature_slug`
-            exp_feature_slug = self.experiment.feature_slug or None
+            exp_feature_slug = getattr(self.experiment, "feature_slug", None)
         elif isinstance(self.experiment, dict):  # ExperimentDict
             exp_id = self.experiment.get("id")
             exp_name = self.experiment.get("name")

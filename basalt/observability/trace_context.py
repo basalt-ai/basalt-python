@@ -15,6 +15,7 @@ from . import semconv
 # Context keys for user and organization propagation
 USER_CONTEXT_KEY: Final[str] = "basalt.context.user"
 ORGANIZATION_CONTEXT_KEY: Final[str] = "basalt.context.organization"
+FEATURE_SLUG_CONTEXT_KEY: Final[str] = "basalt.context.feature_slug"
 
 
 @dataclass(frozen=True, slots=True)

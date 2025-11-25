@@ -708,6 +708,7 @@ def _with_span_handle(
     user: TraceIdentity | Mapping[str, Any] | None = None,
     organization: TraceIdentity | Mapping[str, Any] | None = None,
     evaluator_config: EvaluatorConfig | None = None,
+    feature_slug: str | None = None,
     ensure_output: bool = True,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
@@ -732,6 +733,11 @@ def _with_span_handle(
         org_identity = _coerce_identity(organization)
         if org_identity:
             tokens.append(attach(set_value(ORGANIZATION_CONTEXT_KEY, org_identity)))
+
+    if feature_slug is not None:
+        from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+
+        tokens.append(attach(set_value(FEATURE_SLUG_CONTEXT_KEY, feature_slug)))
 
     # If this is a root span (no parent), store it in context
     is_root = parent_span is None

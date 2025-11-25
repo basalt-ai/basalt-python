@@ -328,6 +328,10 @@ class BasaltSpan:
     Examples: "basalt.span.evaluator.sample_rate" = 0.5
     """
 
+    FEATURE_SLUG: Final[str] = "basalt.span.feature_slug"
+
+
+
 
 class BasaltAPI:
     """Basalt API client operation attributes."""
@@ -530,30 +534,6 @@ class BasaltExperiment:
     Feature slug for the experiment.
     Type: string
     Examples: "prompt-v2", "new-model-test"
-    """
-
-class BasaltObserve:
-    """Basalt observation/debugging attributes."""
-
-    ARGS_COUNT: Final[str] = "basalt.observe.args_count"
-    """
-    Number of positional arguments passed to the function.
-    Type: int
-    Examples: 2, 5
-    """
-
-    KWARGS_COUNT: Final[str] = "basalt.observe.kwargs_count"
-    """
-    Number of keyword arguments passed to the function.
-    Type: int
-    Examples: 3, 7
-    """
-
-    RETURN_TYPE: Final[str] = "basalt.observe.return_type"
-    """
-    Type name of the return value.
-    Type: string
-    Examples: "dict", "str", "list"
     """
 
 

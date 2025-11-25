@@ -100,6 +100,21 @@ def _apply_user_org_from_context(span: Span, parent_context: Any | None = None) 
             span.set_attribute(semconv.BasaltOrganization.NAME, org.name)
 
 
+def _apply_feature_slug_from_context(span: Span, parent_context: Any | None = None) -> None:
+    """Apply feature slug from OpenTelemetry context to the span."""
+    if not span.is_recording():
+        return
+
+    from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+
+    # Read feature_slug from context
+    feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY, parent_context)
+
+    if isinstance(feature_slug, str) and feature_slug.strip():
+        span.set_attribute(semconv.BasaltSpan.FEATURE_SLUG, feature_slug)
+        logger.debug(f"Set feature_slug={feature_slug} on span={span.name}")
+
+
 class BasaltContextProcessor(SpanProcessor):
     """Apply Basalt trace defaults to every started span."""
 
@@ -110,6 +125,8 @@ class BasaltContextProcessor(SpanProcessor):
         _set_default_metadata(span, defaults)
         # Apply user/org from OpenTelemetry context (enables propagation to child spans)
         _apply_user_org_from_context(span, parent_context)
+        # Apply feature_slug from OpenTelemetry context (enables propagation to child spans)
+        _apply_feature_slug_from_context(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
         return
