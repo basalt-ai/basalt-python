@@ -393,7 +393,8 @@ class Observe(ContextDecorator):
             import json
 
             # Override input resolver with prompt.text
-            input_resolver = lambda bound: self.prompt.text
+            def input_resolver(bound):
+                return self.prompt.text
 
             # Prepare prompt metadata for span attributes
             prompt_metadata = {
@@ -563,23 +564,17 @@ class Observe(ContextDecorator):
                 set_trace_organization(organization_id=organization.get("id", "unknown"), name=organization.get("name"))
 
     @staticmethod
-    def metadata(data: dict[str, Any] | None = None, **kwargs) -> None:
-        """Add metadata to the current span."""
-        handle = get_current_span_handle()
-        if not handle:
-            return
-
-        payload = {}
-        if data:
-            payload.update(data)
-        payload.update(kwargs)
-
-        for k, v in payload.items():
-            handle.set_attribute(k, v)
-
-    @staticmethod
-    def update_metadata(data: dict[str, Any] | None = None, **kwargs) -> None:
-        """Merge metadata into the current span, updating existing keys."""
+    def set_metadata(data: dict[str, Any] | None = None, **kwargs) -> None:
+        """Add or merge metadata into the current span.
+        
+        Metadata is merged - calling this multiple times will update existing keys
+        and add new ones without removing previously set keys.
+        
+        Example:
+            observe.set_metadata({"a": 1, "c": 0})
+            observe.set_metadata({"a": 2, "b": 999})
+            # Result: {"a": 2, "c": 0, "b": 999}
+        """
         handle = get_current_span_handle()
         if not handle:
             return

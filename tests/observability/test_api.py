@@ -228,3 +228,205 @@ def test_get_root_span():
     result = root_function()
     assert result is True
     assert root_span is not None
+
+
+def test_observe_with_prompt_parameter_decorator():
+    """Test Observe decorator with a Prompt object."""
+    from dataclasses import dataclass
+
+    from basalt.prompts.models import PromptModel, PromptModelParameters
+
+    from .utils import get_exporter
+
+    exporter = get_exporter()
+    exporter.clear()
+
+    # Create a mock Prompt object
+    @dataclass
+    class MockPrompt:
+        slug: str
+        text: str
+        raw_text: str
+        version: str
+        model: PromptModel
+        variables: dict | None = None
+        system_text: str | None = None
+        raw_system_text: str | None = None
+        tag: str | None = None
+
+    mock_model = PromptModel(
+        provider="openai",
+        model="gpt-4",
+        version="1.0",
+        parameters=PromptModelParameters(
+            temperature=0.7,
+            max_length=100,
+            response_format="text",
+            top_k=None,
+            top_p=None,
+            frequency_penalty=None,
+            presence_penalty=None,
+            json_object=None,
+        )
+    )
+
+    mock_prompt = MockPrompt(
+        slug="test-prompt",
+        text="Hello, world!",
+        raw_text="Hello, {{name}}!",
+        version="1.0.0",
+        model=mock_model,
+        variables={"name": "world"}
+    )
+
+    @Observe(kind=ObserveKind.GENERATION, name="test_with_prompt", prompt=mock_prompt)
+    def generate_text():
+        return "Generated response"
+
+    result = generate_text()
+    assert result == "Generated response"
+
+    # Verify span attributes contain prompt metadata
+    spans = exporter.get_finished_spans()
+    assert len(spans) > 0
+
+    span = spans[-1]
+    assert span.attributes.get("basalt.prompt.slug") == "test-prompt"
+    assert span.attributes.get("basalt.prompt.version") == "1.0.0"
+    assert span.attributes.get("basalt.prompt.model.provider") == "openai"
+    assert span.attributes.get("basalt.prompt.model.model") == "gpt-4"
+    # Variables are stored as JSON string for OpenTelemetry compatibility
+    import json
+    assert json.loads(span.attributes.get("basalt.prompt.variables")) == {"name": "world"}
+
+
+def test_observe_with_prompt_parameter_context_manager():
+    """Test Observe as context manager with a Prompt object."""
+    from dataclasses import dataclass
+
+    from basalt.prompts.models import PromptModel, PromptModelParameters
+
+    from .utils import get_exporter
+
+    exporter = get_exporter()
+    exporter.clear()
+
+    # Create a mock Prompt object
+    @dataclass
+    class MockPrompt:
+        slug: str
+        text: str
+        raw_text: str
+        version: str
+        model: PromptModel
+        variables: dict | None = None
+        system_text: str | None = None
+        raw_system_text: str | None = None
+        tag: str | None = None
+
+    mock_model = PromptModel(
+        provider="anthropic",
+        model="claude-3-opus",
+        version="1.0",
+        parameters=PromptModelParameters(
+            temperature=0.5,
+            max_length=200,
+            response_format="text",
+            top_k=None,
+            top_p=None,
+            frequency_penalty=None,
+            presence_penalty=None,
+            json_object=None,
+        )
+    )
+
+    mock_prompt = MockPrompt(
+        slug="context-prompt",
+        text="Context manager test",
+        raw_text="Context manager {{test}}",
+        version="2.0.0",
+        model=mock_model,
+        variables={"test": "value"}
+    )
+
+    with Observe(kind=ObserveKind.GENERATION, name="test_context_with_prompt", prompt=mock_prompt) as span:
+        pass
+
+    # Verify span attributes contain prompt metadata
+    spans = exporter.get_finished_spans()
+    assert len(spans) > 0
+
+    span = spans[-1]
+    assert span.attributes.get("basalt.prompt.slug") == "context-prompt"
+    assert span.attributes.get("basalt.prompt.version") == "2.0.0"
+    assert span.attributes.get("basalt.prompt.model.provider") == "anthropic"
+    assert span.attributes.get("basalt.prompt.model.model") == "claude-3-opus"
+    # Variables are stored as JSON string for OpenTelemetry compatibility
+    import json
+    assert json.loads(span.attributes.get("basalt.prompt.variables")) == {"test": "value"}
+
+
+def test_observe_prompt_without_variables():
+    """Test Observe with a Prompt object that has no variables."""
+    from dataclasses import dataclass
+
+    from basalt.prompts.models import PromptModel, PromptModelParameters
+
+    from .utils import get_exporter
+
+    exporter = get_exporter()
+    exporter.clear()
+
+    # Create a mock Prompt object without variables
+    @dataclass
+    class MockPrompt:
+        slug: str
+        text: str
+        raw_text: str
+        version: str
+        model: PromptModel
+        variables: dict | None = None
+        system_text: str | None = None
+        raw_system_text: str | None = None
+        tag: str | None = None
+
+    mock_model = PromptModel(
+        provider="openai",
+        model="gpt-3.5-turbo",
+        version="1.0",
+        parameters=PromptModelParameters(
+            temperature=0.7,
+            max_length=100,
+            response_format="text",
+            top_k=None,
+            top_p=None,
+            frequency_penalty=None,
+            presence_penalty=None,
+            json_object=None,
+        )
+    )
+
+    mock_prompt = MockPrompt(
+        slug="no-vars-prompt",
+        text="Simple prompt",
+        raw_text="Simple prompt",
+        version="1.0.0",
+        model=mock_model,
+        variables=None
+    )
+
+    @Observe(kind=ObserveKind.GENERATION, name="test_no_vars", prompt=mock_prompt)
+    def generate_text():
+        return "Response"
+
+    result = generate_text()
+    assert result == "Response"
+
+    # Verify span attributes contain prompt metadata but no variables
+    spans = exporter.get_finished_spans()
+    assert len(spans) > 0
+
+    span = spans[-1]
+    assert span.attributes.get("basalt.prompt.slug") == "no-vars-prompt"
+    assert span.attributes.get("basalt.prompt.version") == "1.0.0"
+    assert "basalt.prompt.variables" not in span.attributes

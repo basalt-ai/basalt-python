@@ -99,7 +99,7 @@ You can enrich spans with various types of data using static methods on `observe
 Associate traces with users and organizations to track usage and costs.
 
 ```python
-observe.identify(user="user_123", organization="org_abc")
+observe.set_identity(user="user_123", organization="org_abc")
 ```
 
 #### Metadata (`observe.metadata`, `observe.update_metadata`)

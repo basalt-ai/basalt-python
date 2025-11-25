@@ -7,12 +7,9 @@ from opentelemetry.trace import Span, SpanContext
 from opentelemetry.trace.status import StatusCode
 
 from basalt.observability.context_managers import (
-    EVALUATOR_CONFIG_CONTEXT_KEY,
     EVALUATOR_CONTEXT_KEY,
-    EVALUATOR_METADATA_CONTEXT_KEY,
     ROOT_SPAN_CONTEXT_KEY,
     EvaluatorAttachment,
-    EvaluationConfig,
     SpanHandle,
     _normalize_evaluator_entry,
     get_root_span_handle,
@@ -407,7 +404,7 @@ def test_identify_with_user_only():
 
     mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.identify(user_id="user-123", user_name="John Doe")
+    span_handle.set_identity(user_id="user-123", user_name="John Doe")
 
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-123"
     assert mock_span.attributes[semconv.BasaltUser.NAME] == "John Doe"
@@ -420,7 +417,7 @@ def test_identify_with_organization_only():
 
     mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.identify(organization_id="org-456", organization_name="Acme Corp")
+    span_handle.set_identity(organization_id="org-456", organization_name="Acme Corp")
 
     assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-456"
     assert mock_span.attributes[semconv.BasaltOrganization.NAME] == "Acme Corp"
@@ -433,7 +430,7 @@ def test_identify_with_both_user_and_organization():
 
     mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.identify(
+    span_handle.set_identity(
         user_id="user-123",
         user_name="John Doe",
         organization_id="org-456",
@@ -452,7 +449,7 @@ def test_identify_with_ids_only():
 
     mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.identify(user_id="user-789", organization_id="org-101")
+    span_handle.set_identity(user_id="user-789", organization_id="org-101")
 
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-789"
     assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-101"
@@ -466,7 +463,7 @@ def test_identify_with_no_parameters():
 
     mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.identify()
+    span_handle.set_identity()
 
     assert semconv.BasaltUser.ID not in mock_span.attributes
     assert semconv.BasaltOrganization.ID not in mock_span.attributes

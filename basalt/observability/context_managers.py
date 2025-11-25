@@ -13,7 +13,7 @@ from typing import Any, Final
 from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.context import attach, detach, set_value
-from opentelemetry.trace import Span, Status, StatusCode, Tracer
+from opentelemetry.trace import Span, Tracer
 
 from . import semconv
 from .trace_context import (
@@ -240,36 +240,6 @@ class SpanHandle:
         """
         self._span.set_attribute(key, value)
 
-    def add_event(self, name: str, attributes: dict[str, Any] | None = None) -> None:
-        """
-        Add a custom event to the current span.
-
-        Args:
-            name: Event name.
-            attributes: Optional event attributes.
-        """
-        self._span.add_event(name, attributes=attributes)
-
-    def set_status(self, status_code: StatusCode, description: str | None = None) -> None:
-        """
-        Sets the status of the current span.
-        Args:
-            status_code (StatusCode): The status code to set.
-            description (str | None): An optional description for the status.
-        Returns:
-            None
-        """
-        self._span.set_status(Status(status_code, description))
-
-    def record_exception(self, exc: BaseException) -> None:
-        """
-        Record an exception on the current span.
-        Args:
-            exc (BaseException): The exception to record.
-        Returns:
-            None
-        """
-        self._span.record_exception(exc)
 
     # ------------------------------------------------------------------
     # IO helpers
@@ -324,12 +294,6 @@ class SpanHandle:
                 if self._parent_span:
                     _set_serialized_attribute(self._parent_span, semconv.BasaltSpan.VARIABLES, variables)
 
-    def io_snapshot(self) -> dict[str, Any]:
-        """Return a shallow copy of the tracked IO payload."""
-        snapshot = dict(self._io_payload)
-        if snapshot["variables"] is not None:
-            snapshot["variables"] = dict(snapshot["variables"])
-        return snapshot
 
     # ------------------------------------------------------------------
     # Evaluators
@@ -356,24 +320,22 @@ class SpanHandle:
     def add_evaluator(
         self,
         evaluator_slug: str,
-        metadata: Mapping[str, Any] | None = None,
     ) -> None:
         """
         Attach an evaluator slug to the span.
 
         Args:
             evaluator_slug: The evaluator slug to attach.
-            metadata: Optional metadata specific to this evaluator attachment.
         """
-        attachment = EvaluatorAttachment(slug=evaluator_slug, metadata=metadata)
+        attachment = EvaluatorAttachment(slug=evaluator_slug, metadata=None)
         self._append_evaluator(attachment)
 
-    def add_evaluators(self, *evaluators: Any) -> None:
+    def add_evaluators(self, *evaluators: Sequence[str]) -> None:
         """Attach multiple evaluators to the span."""
         for attachment in normalize_evaluator_specs(evaluators):
             self._append_evaluator(attachment)
 
-    def identify(
+    def set_identity(
         self,
         *,
         user_id: str | None = None,
