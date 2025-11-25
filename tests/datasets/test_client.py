@@ -112,8 +112,6 @@ def test_get_sync_success(common_client):
         # Verify dataset
         assert isinstance(dataset, Dataset)
         assert dataset.slug == "test-dataset"
-        # warning is set from top-level response
-        assert dataset.warning == "Some rows contained columns that do not exist in the dataset and were omitted."
         assert len(dataset.rows) == 1
         assert dataset.rows[0].values == {"input": "hello", "output": "world"}
         assert dataset.rows[0].ideal_output == "This is the expected output"
@@ -158,7 +156,7 @@ def test_add_row_sync_success(common_client):
             "warning": None,
         })
 
-        row, warning = client.add_row_sync(
+        row = client.add_row_sync(
             slug="test-dataset",
             values={"col1": "value1", "col2": "value2"},
             name="test-row",
@@ -181,7 +179,6 @@ def test_add_row_sync_success(common_client):
         assert row.values == {"col1": "value1", "col2": "value2"}
         assert row.name == "test-row"
         assert row.ideal_output == "expected"
-        assert warning is None
 
 
 def test_add_row_sync_with_warning(common_client):
@@ -194,12 +191,15 @@ def test_add_row_sync_with_warning(common_client):
             "warning": "Some warning message",
         })
 
-        row, warning = client.add_row_sync(
-            slug="test-dataset",
-            values={"col1": "value1"},
-        )
+        with patch.object(client._logger, 'warning') as mock_logger:
+            row = client.add_row_sync(
+                slug="test-dataset",
+                values={"col1": "value1"},
+            )
 
-        assert warning == "Some warning message"
+            # Verify warning was logged
+            mock_logger.assert_called_once()
+            assert "Some warning message" in str(mock_logger.call_args)
 
 
 def test_add_row_sync_with_error(common_client):
@@ -317,14 +317,13 @@ class TestDatasetsClientAsync:
                 "warning": None
             })
 
-            row, warning = await client.add_row("test", {"col1": "val1"})
+            row = await client.add_row("test", {"col1": "val1"})
 
             # Verify API was called
             mock_fetch.assert_called_once()
 
             # Verify response
             assert row.values == {"col1": "val1"}
-            assert warning is None
 
     async def test_list_async_error(self, common_client):
         """Test async list with error."""

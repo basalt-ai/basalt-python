@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import functools
+import logging
+import os
 from collections.abc import Mapping
 from typing import Any
 
@@ -18,9 +20,27 @@ from .http import HTTPClient
 class BaseServiceClient:
     """Provide request execution helpers with consistent tracing behaviour."""
 
-    def __init__(self, *, client_name: str, http_client: HTTPClient | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        client_name: str,
+        http_client: HTTPClient | None = None,
+        log_level: str | None = None,
+    ) -> None:
         self._client_name = client_name
         self._http_client = http_client or HTTPClient()
+
+        # Initialize logger for this client
+        self._logger = logging.getLogger(f"basalt.{client_name}")
+
+        # Set log level from parameter, environment variable, or default to WARNING
+        level_str = log_level or os.getenv("BASALT_LOG_LEVEL", "WARNING")
+        try:
+            level = getattr(logging, level_str.upper())
+            self._logger.setLevel(level)
+        except (AttributeError, ValueError):
+            # If invalid level, default to WARNING
+            self._logger.setLevel(logging.WARNING)
 
     @staticmethod
     def _filter_attributes(attributes: Mapping[str, Any] | None) -> dict[str, Any] | None:

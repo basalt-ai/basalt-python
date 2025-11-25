@@ -110,22 +110,18 @@ def normalize_evaluator_specs(evaluators: Sequence[Any] | None) -> list[Evaluato
 @contextmanager
 def with_evaluators(
     evaluators: Sequence[Any] | None,
-    config: EvaluatorConfig | None = None,
-    metadata: Mapping[str, Any] | None = None,
+
 ) -> Generator[None, None, None]:
     """Propagate evaluator slugs, config, and metadata through the OpenTelemetry context.
 
     Args:
         evaluators: Evaluator specifications to propagate.
-        config: Optional evaluator config to attach to spans.
-        metadata: Optional evaluator metadata to attach to spans.
+
     """
 
     attachments = normalize_evaluator_specs(evaluators)
     # Only short-circuit when nothing at all provided. Empty metadata should still attach.
-    if not attachments and not config and metadata is None:
-        yield
-        return
+
 
     # Propagate evaluator slugs
     tokens = []
@@ -140,18 +136,6 @@ def with_evaluators(
                 combined.append(attachment.slug)
 
         tokens.append(attach(set_value(EVALUATOR_CONTEXT_KEY, tuple(combined))))
-
-    # Propagate evaluator config
-    if config is not None:
-        tokens.append(attach(set_value(EVALUATOR_CONFIG_CONTEXT_KEY, config)))
-
-    # Propagate evaluator metadata
-    if metadata is not None:
-        # Merge with existing metadata
-        existing_metadata = otel_context.get_value(EVALUATOR_METADATA_CONTEXT_KEY)
-        merged_metadata = dict(existing_metadata) if isinstance(existing_metadata, Mapping) else {}
-        merged_metadata.update(metadata)
-        tokens.append(attach(set_value(EVALUATOR_METADATA_CONTEXT_KEY, merged_metadata)))
 
     try:
         yield

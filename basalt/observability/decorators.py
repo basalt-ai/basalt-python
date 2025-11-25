@@ -32,8 +32,6 @@ AttributeSpec: TypeAlias = dict[str, Any] | Callable[..., dict[str, Any]] | None
 
 def evaluate(
     slugs: str | Sequence[str],
-    *,
-    metadata: Mapping[str, Any] | Callable[..., Mapping[str, Any]] | None = None,
 ) -> Callable[[F], F]:
     """
     Decorator that propagates evaluator slugs through OpenTelemetry context.
@@ -46,8 +44,7 @@ def evaluate(
 
     Args:
         slugs: One or more evaluator slugs to attach.
-        metadata: Optional metadata for evaluators. Can be a static dict or a callable that
-                 receives function arguments and returns a dict.
+
 
     Example - Basic usage:
         >>> @evaluate("joke-quality")
@@ -55,6 +52,7 @@ def evaluate(
         ... def summarize_joke_with_gemini(joke: str) -> str:
         ...     return call_llm(joke)
     """
+
 
     if isinstance(slugs, str):
         slug_list = [slugs.strip()]
@@ -73,22 +71,6 @@ def evaluate(
         def _should_attach() -> bool:
             return True
 
-        def _resolve_metadata(args, kwargs):
-            """Resolve metadata from callable or static value."""
-            if metadata is None:
-                return None
-            if callable(metadata):
-                try:
-                    resolved = metadata(*args, **kwargs)
-                    if resolved and isinstance(resolved, Mapping):
-                        return resolved
-                except Exception:
-                    pass  # Silently skip if metadata resolution fails
-                return None
-            elif isinstance(metadata, Mapping):
-                return metadata
-            return None
-
         if is_async:
 
             @functools.wraps(func)
@@ -96,10 +78,8 @@ def evaluate(
                 if not _should_attach():
                     return await func(*args, **kwargs)
 
-                # Resolve metadata before entering context
-                resolved_metadata = _resolve_metadata(args, kwargs)
 
-                with with_evaluators(slug_list, config=None, metadata=resolved_metadata):
+                with with_evaluators(slug_list):
                     return await func(*args, **kwargs)
 
             return async_wrapper  # type: ignore[return-value]

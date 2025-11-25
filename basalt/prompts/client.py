@@ -36,6 +36,7 @@ class PromptsClient(BaseServiceClient):
         fallback_cache: CacheProtocol,
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
+        log_level: str | None = None,
     ):
         """
         Initialize the PromptsClient.
@@ -45,12 +46,13 @@ class PromptsClient(BaseServiceClient):
             cache: Primary cache instance for storing prompt responses.
             fallback_cache: Fallback cache for graceful degradation on API failures.
             base_url: Optional base URL for the API (defaults to config value).
+            log_level: Optional log level for the client logger.
         """
         self._api_key = api_key
         self._cache = cache
         self._fallback_cache = fallback_cache
         self._base_url = base_url or config["api_url"]
-        super().__init__(client_name="prompts", http_client=http_client)
+        super().__init__(client_name="prompts", http_client=http_client, log_level=log_level)
 
         # Cache responses for 5 minutes
         self._cache_duration = 5 * 60

@@ -26,6 +26,7 @@ class DatasetsClient(BaseServiceClient):
         api_key: str,
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
+        log_level: str | None = None,
     ):
         """
         Initialize the DatasetsClient.
@@ -34,10 +35,11 @@ class DatasetsClient(BaseServiceClient):
             api_key: The Basalt API key for authentication.
             logger: Logger instance for logging operations.
             base_url: Optional base URL for the API (defaults to config value).
+            log_level: Optional log level for the client logger.
         """
         self._api_key = api_key
         self._base_url = base_url or config.get("api_url")
-        super().__init__(client_name="datasets", http_client=http_client)
+        super().__init__(client_name="datasets", http_client=http_client, log_level=log_level)
 
     async def list(self) -> list[Dataset]:
         """
@@ -130,7 +132,11 @@ class DatasetsClient(BaseServiceClient):
 
         dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
-        dataset.warning = payload.get("warning")
+        
+        # Log warning if present
+        if warning := payload.get("warning"):
+            self._logger.warning("Dataset API warning: %s", warning)
+        
         return dataset
 
     def get_sync(self, slug: str) -> Dataset:
@@ -164,7 +170,11 @@ class DatasetsClient(BaseServiceClient):
 
         dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
-        dataset.warning = payload.get("warning")
+        
+        # Log warning if present
+        if warning := payload.get("warning"):
+            self._logger.warning("Dataset API warning: %s", warning)
+        
         return dataset
 
     async def add_row(
@@ -174,7 +184,7 @@ class DatasetsClient(BaseServiceClient):
         name: str | None = None,
         ideal_output: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> tuple[DatasetRow, str | None]:
+    ) -> DatasetRow:
         """
         Create a new item (row) in a dataset.
 
@@ -186,7 +196,7 @@ class DatasetsClient(BaseServiceClient):
             metadata: An optional metadata dictionary.
 
         Returns:
-            A tuple containing the DatasetRow and an optional warning message.
+            The created DatasetRow.
 
         Raises:
             BasaltAPIError: If the API request fails.
@@ -222,9 +232,12 @@ class DatasetsClient(BaseServiceClient):
         payload = response.json() or {}
 
         row_data = payload.get("datasetRow", {})
-        warning = payload.get("warning")
-
-        return DatasetRow.from_dict(row_data), warning
+        
+        # Log warning if present
+        if warning := payload.get("warning"):
+            self._logger.warning("Dataset API warning: %s", warning)
+        
+        return DatasetRow.from_dict(row_data)
 
     def add_row_sync(
         self,
@@ -233,7 +246,7 @@ class DatasetsClient(BaseServiceClient):
         name: str | None = None,
         ideal_output: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> tuple[DatasetRow, str | None]:
+    ) -> DatasetRow:
         """
         Synchronously create a new item (row) in a dataset.
 
@@ -245,7 +258,7 @@ class DatasetsClient(BaseServiceClient):
             metadata: An optional metadata dictionary.
 
         Returns:
-            A tuple containing the DatasetRow and an optional warning message.
+            The created DatasetRow.
 
         Raises:
             BasaltAPIError: If the API request fails.
@@ -281,9 +294,12 @@ class DatasetsClient(BaseServiceClient):
         payload = response.json() or {}
 
         row_data = payload.get("datasetRow", {})
-        warning = payload.get("warning")
-
-        return DatasetRow.from_dict(row_data), warning
+        
+        # Log warning if present
+        if warning := payload.get("warning"):
+            self._logger.warning("Dataset API warning: %s", warning)
+        
+        return DatasetRow.from_dict(row_data)
 
     def _get_headers(self) -> dict[str, str]:
         """

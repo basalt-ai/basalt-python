@@ -110,7 +110,6 @@ class Dataset:
     # public attributes; rows kept mutable, columns are immutable objects
     columns: list[DatasetColumn] = field(default_factory=list)
     rows: list[DatasetRow] = field(default_factory=list)
-    warning: str | None = None
 
     @classmethod
     def from_dict(
@@ -150,6 +149,5 @@ class Dataset:
 
         slug_val = data.get("slug") if isinstance(data.get("slug"), str) else ""
         name_val = data.get("name") if isinstance(data.get("name"), str) else ""
-        warning = data.get("warning") if isinstance(data.get("warning"), str) else None
 
-        return cls(slug=str(slug_val), name=str(name_val), columns=column_definitions, rows=rows_list, warning=warning)
+        return cls(slug=str(slug_val), name=str(name_val), columns=column_definitions, rows=rows_list)

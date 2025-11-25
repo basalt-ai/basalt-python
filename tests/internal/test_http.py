@@ -295,7 +295,7 @@ class TestHTTPClient:
     @patch('basalt._internal.http.httpx.Client.request')
     @patch('basalt._internal.http.logger')
     def test_logs_warning_field_in_200_response(self, mock_logger, request_mock):
-        """Test that warning field in 2xx responses is logged."""
+        """Test that warning field in 2xx responses is returned but not logged by HTTPClient."""
         client = HTTPClient()
         mock_response = Mock()
         mock_response.status_code = 200
@@ -309,18 +309,16 @@ class TestHTTPClient:
 
         result = client.fetch_sync('http://test/abc', 'GET')
 
-        # Verify the warning was logged
-        mock_logger.warning.assert_called_once_with(
-            'API warning: %s',
-            'Deprecated API endpoint, please migrate to v2'
-        )
-        # Result should still be returned
+        # Verify the warning was NOT logged by HTTPClient (it's logged by the API clients)
+        mock_logger.warning.assert_not_called()
+        # Result should still contain the warning in the data
         assert result.json()['data'] == 'some data'
+        assert result.json()['warning'] == 'Deprecated API endpoint, please migrate to v2'
 
     @patch('basalt._internal.http.httpx.Client.request')
     @patch('basalt._internal.http.logger')
     def test_logs_warning_field_in_201_response(self, mock_logger, request_mock):
-        """Test that warning field in 201 Created responses is logged."""
+        """Test that warning field in 201 Created responses is returned but not logged by HTTPClient."""
         client = HTTPClient()
         mock_response = Mock()
         mock_response.status_code = 201
@@ -334,13 +332,11 @@ class TestHTTPClient:
 
         result = client.fetch_sync('http://test/abc', 'POST')
 
-        # Verify the warning was logged
-        mock_logger.warning.assert_called_once_with(
-            'API warning: %s',
-            'Resource created with default values'
-        )
-        # Result should still be returned
+        # Verify the warning was NOT logged by HTTPClient (it's logged by the API clients)
+        mock_logger.warning.assert_not_called()
+        # Result should still contain the warning in the data
         assert result.json()['id'] == '123'
+        assert result.json()['warning'] == 'Resource created with default values'
 
     @patch('basalt._internal.http.httpx.Client.request')
     @patch('basalt._internal.http.logger')

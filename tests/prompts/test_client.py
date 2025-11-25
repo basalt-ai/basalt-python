@@ -721,7 +721,7 @@ def test_publish_prompt_sync_parameter_combinations(common_client, slug, new_tag
             }
         })
 
-        client.publish_prompt_sync(
+        client.publish_sync(
             slug=slug,
             new_tag=new_tag,
             version=version,

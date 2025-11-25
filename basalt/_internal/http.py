@@ -317,9 +317,6 @@ class HTTPClient:
                         data=None,
                         headers=dict(response.headers),
                     )
-                # Log warning if present in response
-                if json_response and "warning" in json_response:
-                    logger.warning("API warning: %s", json_response["warning"])
                 return HTTPResponse(
                     status_code=status,
                     data=json_response if json_response is not None else None,
@@ -335,9 +332,6 @@ class HTTPClient:
             # Accept valid JSON from mock even if content is b'{}'
             try:
                 json_response = response.json()
-                # Log warning if present in response
-                if json_response and "warning" in json_response:
-                    logger.warning("API warning: %s", json_response["warning"])
                 return HTTPResponse(
                     status_code=status,
                     data=json_response if json_response is not None else None,
@@ -353,9 +347,6 @@ class HTTPClient:
                     json_response = response.json()
                 except Exception as exc:
                     raise NetworkError("Invalid JSON response") from exc
-                # Log warning if present in response
-                if json_response and "warning" in json_response:
-                    logger.warning("API warning: %s", json_response["warning"])
             return HTTPResponse(
                 status_code=status,
                 data=json_response if json_response else None,

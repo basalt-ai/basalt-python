@@ -49,6 +49,7 @@ class Basalt:
         base_url: str | None = None,
         observability_metadata: dict[str, Any] | None = None,
         cache : CacheProtocol | None = None,
+        log_level: str | None = None,
     ):
         """
         Initialize the Basalt client.
@@ -59,6 +60,7 @@ class Basalt:
             enable_telemetry: Convenience flag to quickly disable all telemetry.
             base_url: Optional base URL for the API (defaults to config value).
             observability_metadata: Arbitrary metadata dictionary applied to new traces.
+            log_level: Optional log level for API client loggers (e.g., 'DEBUG', 'INFO', 'WARNING').
         """
         self._api_key = api_key
         self._base_url = base_url
@@ -89,16 +91,19 @@ class Basalt:
             fallback_cache=self._fallback_cache,
             base_url=base_url,
             http_client=http_client,
+            log_level=log_level,
         )
         self._datasets_client = DatasetsClient(
             api_key=api_key,
             base_url=base_url,
             http_client=http_client,
+            log_level=log_level,
         )
         self._experiments_client = ExperimentsClient(
             api_key=api_key,
             base_url=base_url,
             http_client=http_client,
+            log_level=log_level,
         )
 
     @property

@@ -26,6 +26,7 @@ class ExperimentsClient(BaseServiceClient):
         api_key: str,
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
+        log_level: str | None = None,
     ):
         """
         Initialize the ExperimentsClient.
@@ -34,10 +35,11 @@ class ExperimentsClient(BaseServiceClient):
             api_key: The Basalt API key for authentication.
             base_url: Optional base URL for the API (defaults to config value).
             http_client: Optional HTTP client instance for making requests.
+            log_level: Optional log level for the client logger.
         """
         self._api_key = api_key
         self._base_url = base_url or config.get("api_url")
-        super().__init__(client_name="experiments", http_client=http_client)
+        super().__init__(client_name="experiments", http_client=http_client, log_level=log_level)
 
     async def create(
         self,
