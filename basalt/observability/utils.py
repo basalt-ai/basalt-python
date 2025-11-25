@@ -70,7 +70,7 @@ def resolve_payload_from_bound(
 
 
 def resolve_variables_payload(
-    resolver: Any,
+    resolver: dict[str, Any] | Callable[[inspect.BoundArguments | None], Mapping[str, Any]] | Sequence[str] | Mapping[str, Any] | None,
     bound: inspect.BoundArguments | None,
 ) -> Mapping[str, Any] | None:
     """Resolve variables payload."""

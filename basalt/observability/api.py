@@ -10,6 +10,7 @@ from opentelemetry.trace import StatusCode
 
 if TYPE_CHECKING:
     from basalt.experiments.models import Experiment
+    from basalt.prompts.models import Prompt
 
 from .context_managers import (
     ROOT_SPAN_CONTEXT_KEY,
@@ -246,7 +247,8 @@ class Observe(ContextDecorator):
         evaluators: Sequence[Any] | None = None,
         input: Any = None,
         output: Any = None,
-        variables: Any = None,
+        variables: dict[str, Any] | None = None,
+        prompt: Prompt | None = None,
     ):
         self.name = name
         self.kind = kind
@@ -255,6 +257,7 @@ class Observe(ContextDecorator):
         self.input_resolver = input
         self.output_resolver = output
         self.variables_resolver = variables
+        self.prompt = prompt
         self._span_handle: SpanHandle | None = None
         self._ctx_manager = None
 
@@ -318,6 +321,28 @@ class Observe(ContextDecorator):
 
         handle_cls, tracer_name, _, _ = self._get_config_for_kind(kind_str)
 
+        # Process prompt parameter if provided
+        if self.prompt is not None:
+            # Prepare prompt metadata for span attributes
+            import json
+
+            prompt_metadata = {
+                "basalt.prompt.slug": self.prompt.slug,
+                "basalt.prompt.version": self.prompt.version,
+                "basalt.prompt.model.provider": self.prompt.model.provider,
+                "basalt.prompt.model.model": self.prompt.model.model,
+            }
+
+            # Store prompt.variables separately if available (must serialize to JSON for OpenTelemetry)
+            if self.prompt.variables:
+                prompt_metadata["basalt.prompt.variables"] = json.dumps(self.prompt.variables)
+
+            # Merge with existing metadata
+            if self._metadata is None:
+                self._metadata = prompt_metadata
+            else:
+                self._metadata = {**self._metadata, **prompt_metadata}
+
         # Check for root span
         from opentelemetry import context as otel_context
 
@@ -362,9 +387,32 @@ class Observe(ContextDecorator):
         input_resolver = self.input_resolver if self.input_resolver is not None else default_input
         variables_resolver = self.variables_resolver if self.variables_resolver is not None else default_vars
 
+        # Process prompt parameter if provided
+        prompt_metadata = {}
+        if self.prompt is not None:
+            import json
+
+            # Override input resolver with prompt.text
+            input_resolver = lambda bound: self.prompt.text
+
+            # Prepare prompt metadata for span attributes
+            prompt_metadata = {
+                "basalt.prompt.slug": self.prompt.slug,
+                "basalt.prompt.version": self.prompt.version,
+                "basalt.prompt.model.provider": self.prompt.model.provider,
+                "basalt.prompt.model.model": self.prompt.model.model,
+            }
+
+            # Store prompt.variables separately if available (must serialize to JSON for OpenTelemetry)
+            if self.prompt.variables:
+                prompt_metadata["basalt.prompt.variables"] = json.dumps(self.prompt.variables)
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             computed_attrs = resolve_attributes(self._metadata, args, kwargs)
+            # Merge prompt metadata with computed attributes
+            if prompt_metadata:
+                computed_attrs = {**computed_attrs, **prompt_metadata} if computed_attrs else prompt_metadata
             bound = resolve_bound_arguments(func, args, kwargs)
             input_payload = resolve_payload_from_bound(input_resolver, bound)
             variables_payload = resolve_variables_payload(variables_resolver, bound)
@@ -430,6 +478,9 @@ class Observe(ContextDecorator):
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 computed_attrs = resolve_attributes(self._metadata, args, kwargs)
+                # Merge prompt metadata with computed attributes
+                if prompt_metadata:
+                    computed_attrs = {**computed_attrs, **prompt_metadata} if computed_attrs else prompt_metadata
                 bound = resolve_bound_arguments(func, args, kwargs)
                 input_payload = resolve_payload_from_bound(input_resolver, bound)
                 variables_payload = resolve_variables_payload(variables_resolver, bound)

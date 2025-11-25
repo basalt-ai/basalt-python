@@ -26,7 +26,7 @@ from .trace_context import (
     apply_user_from_context,
 )
 
-SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.TYPE
+SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.KIND
 EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
 EVALUATOR_CONFIG_CONTEXT_KEY: Final[str] = "basalt.context.evaluator_config"
 EVALUATOR_METADATA_CONTEXT_KEY: Final[str] = "basalt.context.evaluator_metadata"
