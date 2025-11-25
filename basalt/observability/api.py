@@ -22,7 +22,7 @@ from .context_managers import (
     SpanHandle,
     ToolSpanHandle,
     _with_span_handle,
-    get_current_span,
+    get_current_otel_span,
     get_current_span_handle,
     get_root_span_handle,
     set_trace_organization,
@@ -625,7 +625,7 @@ class Observe(ContextDecorator):
     @staticmethod
     def status(status: StatusCode | str, message: str | None = None) -> None:
         """Set the status of the current span."""
-        span = get_current_span()
+        span = get_current_otel_span()
         if not span:
             return
 
@@ -640,7 +640,7 @@ class Observe(ContextDecorator):
     @staticmethod
     def fail(exception: BaseException | str) -> None:
         """Record an error/exception and set status to ERROR."""
-        span = get_current_span()
+        span = get_current_otel_span()
         if not span:
             return
 

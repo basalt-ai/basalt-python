@@ -13,7 +13,6 @@ from . import semconv
 from .context_managers import (
     EVALUATOR_CONFIG_CONTEXT_KEY,
     EVALUATOR_CONTEXT_KEY,
-    EVALUATOR_METADATA_CONTEXT_KEY,
     EvaluationConfig,
     normalize_evaluator_specs,
 )
@@ -192,29 +191,6 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
                 )
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Failed to set evaluator config: %s", exc)
-
-        # Attach evaluator metadata from context
-        context_metadata = otel_context.get_value(
-            EVALUATOR_METADATA_CONTEXT_KEY, parent_context
-        )
-        if context_metadata and isinstance(context_metadata, dict):
-            try:
-                import json
-
-                for key, value in context_metadata.items():
-                    attr_key = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.{key}"
-                    # Serialize value if needed
-                    if value is None or isinstance(value, (str, bool, int, float)):
-                        serialized = value
-                    else:
-                        try:
-                            serialized = json.dumps(value)
-                        except Exception:
-                            serialized = str(value)
-                    if serialized is not None:
-                        span.set_attribute(attr_key, serialized)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.debug("Failed to set evaluator metadata: %s", exc)
 
     def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
         return

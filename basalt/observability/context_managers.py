@@ -178,7 +178,7 @@ def get_tracer(tracer_name: str = "basalt.observability") -> Tracer:
     return trace.get_tracer(tracer_name)
 
 
-def get_current_span() -> Span | None:  # Lightweight alias
+def get_current_otel_span() -> Span | None:  # Lightweight alias
     """Return the active OpenTelemetry span if valid, else None."""
     span = trace.get_current_span()
     if span is None or not span.get_span_context().is_valid:
@@ -188,7 +188,7 @@ def get_current_span() -> Span | None:  # Lightweight alias
 
 def get_current_span_handle() -> SpanHandle | None:
     """Return a handle for the current span."""
-    span = get_current_span()
+    span = get_current_otel_span()
     if not span:
         return None
     return SpanHandle(span)
@@ -220,18 +220,12 @@ class SpanHandle:
         self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
         self._evaluators: dict[str, EvaluatorAttachment] = {}
         self._evaluator_config: EvaluationConfig | None = None
-        self._evaluator_metadata: dict[str, Any] = {}
         self._hydrate_existing_evaluators()
 
         # Apply config from context if available
         context_config = otel_context.get_value(EVALUATOR_CONFIG_CONTEXT_KEY)
         if context_config and isinstance(context_config, EvaluationConfig):
-            self.set_evaluator_config(context_config)
-
-        # Apply metadata from context if available
-        context_metadata = otel_context.get_value(EVALUATOR_METADATA_CONTEXT_KEY)
-        if context_metadata and isinstance(context_metadata, Mapping):
-            self.set_evaluator_metadata(context_metadata)
+            self.set_evaluation_config(context_config)
 
     def set_attribute(self, key: str, value: Any) -> None:
         """
@@ -280,14 +274,14 @@ class SpanHandle:
     # ------------------------------------------------------------------
     # IO helpers
     # ------------------------------------------------------------------
-    def set_input(self, payload: Any) -> None:
+    def set_input(self, payload: str) -> None:
         """
         Sets the input payload for the current context manager.
         Stores the provided payload in the internal `_io_payload` dictionary under the "input" key.
         If trace content is enabled, serializes and attaches the input payload to the tracing span
         using the appropriate semantic convention.
         Args:
-            payload (Any): The input data to be recorded and optionally traced.
+            payload (str): The input data to be recorded and optionally traced.
         """
 
         self._io_payload["input"] = payload
@@ -340,7 +334,7 @@ class SpanHandle:
     # ------------------------------------------------------------------
     # Evaluators
     # ------------------------------------------------------------------
-    def set_evaluator_config(self, config: EvaluationConfig | Mapping[str, Any]) -> None:
+    def set_evaluation_config(self, config: EvaluationConfig | Mapping[str, Any]) -> None:
         """Attach span-scoped evaluator configuration.
 
         The configuration applies to all evaluators attached to this span.
@@ -358,22 +352,6 @@ class SpanHandle:
             _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config_dict)
         else:
             raise TypeError("Evaluator config must be an EvaluationConfig or a mapping.")
-
-    def set_evaluator_metadata(self, metadata: Mapping[str, Any]) -> None:
-        """Set span-scoped evaluator metadata.
-
-        The metadata applies to all evaluators attached to this span.
-        Metadata is stored as span metadata under the evaluator namespace.
-
-        Args:
-            metadata: A mapping of metadata key-value pairs.
-        """
-        if not isinstance(metadata, Mapping):
-            raise TypeError("Evaluator metadata must be a mapping.")
-        self._evaluator_metadata.update(metadata)
-        for key, value in metadata.items():
-            attr_key = f"{semconv.BasaltSpan.EVALUATOR_PREFIX}.metadata.{key}"
-            _set_serialized_attribute(self._span, attr_key, value)
 
     def add_evaluator(
         self,
@@ -462,10 +440,6 @@ class SpanHandle:
         self._evaluators[attachment.slug] = attachment
         evaluator_list = list(self._evaluators.keys())
         self._span.set_attribute(semconv.BasaltSpan.EVALUATORS, evaluator_list)
-
-        # Merge metadata from attachment into span-level metadata
-        if attachment.metadata:
-            self.set_evaluator_metadata(attachment.metadata)
 
     def _hydrate_existing_evaluators(self) -> None:
         """Populate evaluator cache from span attributes if present."""
