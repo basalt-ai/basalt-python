@@ -1,5 +1,5 @@
 # File: tests/test_context_managers.py
-from unittest.mock import MagicMock, Mock, create_autospec
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
 from opentelemetry import context as otel_context
@@ -116,70 +116,72 @@ def test_with_evaluators_propagates_evaluator_slugs():
 
 def test_set_io_with_all_fields():
     """Test set_io sets input, output, and variables when all are provided."""
-    span = Mock(SpanHandle)
+    mock_span = MagicMock(spec=Span)
+    span_handle = SpanHandle(span=mock_span)
     input_payload = {"key1": "value1"}
     output_payload = {"result": "success"}
     variables = {"var1": "data1"}
 
-    SpanHandle.set_io(
-        span,
+    span_handle.set_io(
         input_payload=input_payload,
         output_payload=output_payload,
         variables=variables,
     )
 
-    span.set_input.assert_called_once_with(input_payload)
-    span.set_output.assert_called_once_with(output_payload)
-    # Variables should be set directly in set_io, no longer calls set_variables
-    assert span._io_payload["variables"] == variables
+    assert span_handle._io_payload["input"] == input_payload
+    assert span_handle._io_payload["output"] == output_payload
+    assert span_handle._io_payload["variables"] == variables
 
 
 def test_set_io_with_only_input_payload():
     """Test set_io only sets input when only input_payload is provided."""
-    span = Mock(SpanHandle)
+    mock_span = MagicMock(spec=Span)
+    span_handle = SpanHandle(span=mock_span)
     input_payload = {"key": "value"}
 
-    SpanHandle.set_io(span, input_payload=input_payload)
+    span_handle.set_io(input_payload=input_payload)
 
-    span.set_input.assert_called_once_with(input_payload)
-    span.set_output.assert_not_called()
-    # No variables set
+    assert span_handle._io_payload["input"] == input_payload
+    assert span_handle._io_payload["output"] is None
+    assert span_handle._io_payload["variables"] is None
 
 
 def test_set_io_with_only_output_payload():
     """Test set_io only sets output when only output_payload is provided."""
-    span = Mock(SpanHandle)
+    mock_span = MagicMock(spec=Span)
+    span_handle = SpanHandle(span=mock_span)
     output_payload = {"result": "success"}
 
-    SpanHandle.set_io(span, output_payload=output_payload)
+    span_handle.set_io(output_payload=output_payload)
 
-    span.set_output.assert_called_once_with(output_payload)
-    span.set_input.assert_not_called()
-    # No variables set
+    assert span_handle._io_payload["input"] is None
+    assert span_handle._io_payload["output"] == output_payload
+    assert span_handle._io_payload["variables"] is None
 
 
 def test_set_io_with_only_variables():
     """Test set_io only sets variables when only variables are provided."""
-    span = Mock(SpanHandle)
+    mock_span = MagicMock(spec=Span)
+    span_handle = SpanHandle(span=mock_span)
     variables = {"var1": "data"}
 
-    SpanHandle.set_io(span, variables=variables)
+    span_handle.set_io(variables=variables)
 
-    # Variables should be set directly in set_io
-    assert span._io_payload["variables"] == variables
-    span.set_input.assert_not_called()
-    span.set_output.assert_not_called()
+    assert span_handle._io_payload["input"] is None
+    assert span_handle._io_payload["output"] is None
+    assert span_handle._io_payload["variables"] == variables
 
 
 def test_set_io_with_no_arguments():
     """Test set_io does nothing when no arguments are provided."""
-    span = Mock(SpanHandle)
+    mock_span = MagicMock(spec=Span)
+    span_handle = SpanHandle(span=mock_span)
 
-    SpanHandle.set_io(span)
+    span_handle.set_io()
 
-    span.set_input.assert_not_called()
-    span.set_output.assert_not_called()
-    # No variables set
+    assert span_handle._io_payload["input"] is None
+    assert span_handle._io_payload["output"] is None
+    assert span_handle._io_payload["variables"] is None
 
 
 class MockSpan(Span):
@@ -399,34 +401,37 @@ def test_io_snapshot(mock_span):
     assert span_handle._io_payload["variables"]["var1"] == "value1"
 
 
-def test_identify_with_user_only(mock_span):
+def test_identify_with_user_only():
     """Test SpanHandle.identify sets user attributes only."""
     from basalt.observability import semconv
-    
+
+    mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
     span_handle.identify(user_id="user-123", user_name="John Doe")
-    
+
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-123"
     assert mock_span.attributes[semconv.BasaltUser.NAME] == "John Doe"
     assert semconv.BasaltOrganization.ID not in mock_span.attributes
 
 
-def test_identify_with_organization_only(mock_span):
+def test_identify_with_organization_only():
     """Test SpanHandle.identify sets organization attributes only."""
     from basalt.observability import semconv
-    
+
+    mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
     span_handle.identify(organization_id="org-456", organization_name="Acme Corp")
-    
+
     assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-456"
     assert mock_span.attributes[semconv.BasaltOrganization.NAME] == "Acme Corp"
     assert semconv.BasaltUser.ID not in mock_span.attributes
 
 
-def test_identify_with_both_user_and_organization(mock_span):
+def test_identify_with_both_user_and_organization():
     """Test SpanHandle.identify sets both user and organization attributes."""
     from basalt.observability import semconv
-    
+
+    mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
     span_handle.identify(
         user_id="user-123",
@@ -434,33 +439,35 @@ def test_identify_with_both_user_and_organization(mock_span):
         organization_id="org-456",
         organization_name="Acme Corp"
     )
-    
+
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-123"
     assert mock_span.attributes[semconv.BasaltUser.NAME] == "John Doe"
     assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-456"
     assert mock_span.attributes[semconv.BasaltOrganization.NAME] == "Acme Corp"
 
 
-def test_identify_with_ids_only(mock_span):
+def test_identify_with_ids_only():
     """Test SpanHandle.identify sets IDs without names."""
     from basalt.observability import semconv
-    
+
+    mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
     span_handle.identify(user_id="user-789", organization_id="org-101")
-    
+
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-789"
     assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-101"
     assert semconv.BasaltUser.NAME not in mock_span.attributes
     assert semconv.BasaltOrganization.NAME not in mock_span.attributes
 
 
-def test_identify_with_no_parameters(mock_span):
+def test_identify_with_no_parameters():
     """Test SpanHandle.identify does nothing when no parameters are provided."""
     from basalt.observability import semconv
-    
+
+    mock_span = MockSpan()
     span_handle = SpanHandle(span=mock_span)
     span_handle.identify()
-    
+
     assert semconv.BasaltUser.ID not in mock_span.attributes
     assert semconv.BasaltOrganization.ID not in mock_span.attributes
 
