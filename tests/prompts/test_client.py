@@ -545,7 +545,7 @@ def test_publish_prompt_sync_success(common_client):
             }
         })
 
-        response = client.publish_prompt_sync(
+        response = client.publish_sync(
             slug="test-slug",
             new_tag="production",
             version="1.0.0",
@@ -575,7 +575,7 @@ def test_publish_prompt_sync_with_tag(common_client):
             }
         })
 
-        response = client.publish_prompt_sync(
+        response = client.publish_sync(
             slug="test-slug",
             new_tag="staging",
             tag="dev",
@@ -603,7 +603,7 @@ def test_publish_prompt_sync_minimal(common_client):
             }
         })
 
-        response = client.publish_prompt_sync(
+        response = client.publish_sync(
             slug="test-slug",
             new_tag="latest",
         )
@@ -626,7 +626,7 @@ def test_publish_prompt_sync_error(common_client):
         mock_fetch.side_effect = BadRequestError("Invalid tag name")
 
         with pytest.raises(BadRequestError):
-            client.publish_prompt_sync(slug="test-slug", new_tag="invalid tag")
+            client.publish_sync(slug="test-slug", new_tag="invalid tag")
 
 
 @pytest.mark.asyncio
@@ -641,7 +641,7 @@ async def test_publish_prompt_async_success(common_client):
             }
         })
 
-        response = await client.publish_prompt(
+        response = await client.publish(
             slug="test-slug",
             new_tag="production",
             version="2.0.0",
@@ -672,7 +672,7 @@ async def test_publish_prompt_async_with_both_version_and_tag(common_client):
             }
         })
 
-        response = await client.publish_prompt(
+        response = await client.publish(
             slug="test-slug",
             new_tag="release",
             version="1.5.0",
@@ -698,7 +698,7 @@ async def test_publish_prompt_async_error(common_client):
         mock_fetch.side_effect = UnauthorizedError("Invalid API key")
 
         with pytest.raises(UnauthorizedError):
-            await client.publish_prompt(slug="test-slug", new_tag="production")
+            await client.publish(slug="test-slug", new_tag="production")
 
 
 @pytest.mark.parametrize(

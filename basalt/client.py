@@ -11,6 +11,7 @@ from basalt._internal.http import HTTPClient
 from basalt.observability.config import TelemetryConfig
 from basalt.observability.instrumentation import InstrumentationManager
 from basalt.observability.trace_context import configure_global_metadata
+from basalt.types.cache import CacheProtocol
 
 from .datasets.client import DatasetsClient
 from .experiments.client import ExperimentsClient
@@ -47,7 +48,7 @@ class Basalt:
         enable_telemetry: bool = True,
         base_url: str | None = None,
         observability_metadata: dict[str, Any] | None = None,
-        cache : MemoryCache | None = None,
+        cache : CacheProtocol | None = None,
     ):
         """
         Initialize the Basalt client.

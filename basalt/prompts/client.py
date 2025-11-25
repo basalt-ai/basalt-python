@@ -393,7 +393,7 @@ class PromptsClient(BaseServiceClient):
             if isinstance(p, dict)
         ]
 
-    async def publish_prompt(
+    async def publish(
         self,
         slug: str,
         new_tag: str,
@@ -446,7 +446,7 @@ class PromptsClient(BaseServiceClient):
 
         return PublishPromptResponse.from_dict(payload)
 
-    def publish_prompt_sync(
+    def publish_sync(
         self,
         slug: str,
         new_tag: str,

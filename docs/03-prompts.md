@@ -255,7 +255,7 @@ from basalt import Basalt
 basalt = Basalt(api_key="your-api-key")
 
 # Publish version 1.2.0 to the 'production' tag
-result = basalt.prompts.publish_prompt_sync(
+result = basalt.prompt.publish_sync(
     slug='customer-greeting',
     new_tag='production',
     version='1.2.0'
@@ -264,6 +264,25 @@ result = basalt.prompts.publish_prompt_sync(
 print(f"Published: {result.slug} v{result.version} → tag '{result.new_tag}'")
 
 basalt.shutdown()
+```
+
+### Async Publish
+
+```python
+import asyncio
+from basalt import Basalt
+
+async def publish_async():
+    basalt = Basalt(api_key="your-api-key")
+    result = await basalt.prompt.publish(
+        slug="customer-greeting",
+        new_tag="staging",
+        version="1.2.0",
+    )
+    print(f"Published: {result.slug} v{result.version} → tag '{result.new_tag}'")
+    basalt.shutdown()
+
+asyncio.run(publish_async())
 ```
 
 ### Publishing Workflow Example
@@ -283,7 +302,7 @@ def deploy_prompt_to_production(slug: str, version: str):
             return False
 
         # Publish to production
-        result = basalt.prompts.publish_prompt_sync(
+        result = basalt.prompt.publish_sync(
             slug=slug,
             new_tag='production',
             version=version
