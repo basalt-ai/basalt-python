@@ -29,16 +29,16 @@ class TestTelemetryConfig(unittest.TestCase):
     def test_clone_returns_independent_copy_of_provider_lists(self):
         """Test that cloning creates independent copies of provider lists."""
         original = TelemetryConfig(
-            llm_enabled_providers=["openai", "anthropic"],
-            llm_disabled_providers=["langchain"],
+            enabled_providers=["openai", "anthropic"],
+            disabled_providers=["langchain"],
         )
 
         clone = original.clone()
-        if clone.llm_enabled_providers:
-            clone.llm_enabled_providers.append("cohere")
-        if clone.llm_disabled_providers:
-            clone.llm_disabled_providers.append("llamaindex")
+        if clone.enabled_providers:
+            clone.enabled_providers.append("cohere")
+        if clone.disabled_providers:
+            clone.disabled_providers.append("llamaindex")
 
         # Original should be unchanged
-        self.assertEqual(original.llm_enabled_providers, ["openai", "anthropic"])
-        self.assertEqual(original.llm_disabled_providers, ["langchain"])
+        self.assertEqual(original.enabled_providers, ["openai", "anthropic"])
+        self.assertEqual(original.disabled_providers, ["langchain"])

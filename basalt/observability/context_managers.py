@@ -109,7 +109,7 @@ def normalize_evaluator_specs(evaluators: Sequence[Any] | None) -> list[Evaluato
 
 @contextmanager
 def with_evaluators(
-    evaluators: Sequence[Any] | None,
+    evaluators: Sequence[Any],
 
 ) -> Generator[None, None, None]:
     """Propagate evaluator slugs, config, and metadata through the OpenTelemetry context.
@@ -307,25 +307,6 @@ class SpanHandle:
         if trace_content_enabled():
             _set_serialized_attribute(self._span, semconv.BasaltSpan.OUTPUT, payload)
 
-    def set_variables(self, variables: Mapping[str, Any] | None) -> None:
-        """
-        Sets the variables payload for the current context manager.
-        Stores the provided variables in the internal `_io_payload` dictionary under the "variables" key.
-        If trace content is enabled, serializes and attaches the variables to the tracing span
-        using the appropriate semantic convention.
-        Args:
-            variables (Mapping[str, Any] | None): The variables data to be recorded and optionally traced.
-        """
-        if variables is None:
-            return
-        if not isinstance(variables, Mapping):
-            raise TypeError("Span variables must be provided as a mapping.")
-        self._io_payload["variables"] = dict(variables)
-        if trace_content_enabled():
-            _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, variables)
-            if self._parent_span:
-                _set_serialized_attribute(self._parent_span, semconv.BasaltSpan.VARIABLES, variables)
-
     def set_io(
         self,
         *,
@@ -341,7 +322,13 @@ class SpanHandle:
         if output_payload is not None:
             self.set_output(output_payload)
         if variables is not None:
-            self.set_variables(variables)
+            if not isinstance(variables, Mapping):
+                raise TypeError("Span variables must be provided as a mapping.")
+            self._io_payload["variables"] = dict(variables)
+            if trace_content_enabled():
+                _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, variables)
+                if self._parent_span:
+                    _set_serialized_attribute(self._parent_span, semconv.BasaltSpan.VARIABLES, variables)
 
     def io_snapshot(self) -> dict[str, Any]:
         """Return a shallow copy of the tracked IO payload."""
@@ -408,21 +395,31 @@ class SpanHandle:
         for attachment in normalize_evaluator_specs(evaluators):
             self._append_evaluator(attachment)
 
-    def set_user(self, user_id: str, name: str | None = None) -> None:
+    def identify(
+        self,
+        *,
+        user_id: str | None = None,
+        user_name: str | None = None,
+        organization_id: str | None = None,
+        organization_name: str | None = None,
+    ) -> None:
         """
-        Set the user identity for the span.
-        """
-        self._span.set_attribute(semconv.BasaltUser.ID, user_id)
-        if name:
-            self._span.set_attribute(semconv.BasaltUser.NAME, name)
+        Set user and/or organization identity for the span.
 
-    def set_organization(self, organization_id: str, name: str | None = None) -> None:
+        Args:
+            user_id: User identifier to associate with the span.
+            user_name: Optional user display name.
+            organization_id: Organization identifier to associate with the span.
+            organization_name: Optional organization display name.
         """
-        Set the organization identity for the span.
-        """
-        self._span.set_attribute(semconv.BasaltOrganization.ID, organization_id)
-        if name:
-            self._span.set_attribute(semconv.BasaltOrganization.NAME, name)
+        if user_id is not None:
+            self._span.set_attribute(semconv.BasaltUser.ID, user_id)
+            if user_name is not None:
+                self._span.set_attribute(semconv.BasaltUser.NAME, user_name)
+        if organization_id is not None:
+            self._span.set_attribute(semconv.BasaltOrganization.ID, organization_id)
+            if organization_name is not None:
+                self._span.set_attribute(semconv.BasaltOrganization.NAME, organization_name)
 
     def set_experiment(
         self,
@@ -745,7 +742,7 @@ def _with_span_handle(
             if input_payload is not None:
                 handle.set_input(input_payload)
             if variables:
-                handle.set_variables(variables)
+                handle.set_io(variables=variables)
             if evaluators:
                 handle.add_evaluators(*evaluators)
             yield handle  # type: ignore[misc]

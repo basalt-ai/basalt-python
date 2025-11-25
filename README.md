@@ -86,9 +86,15 @@ basalt = Basalt(api_key="my-dev-api-key", enable_telemetry=False)
 telemetry = TelemetryConfig(
     service_name="my-app",
     environment="staging",
-    llm_enabled_providers=["openai", "anthropic"],  # Optional: selective instrumentation
+    enabled_providers=["openai", "anthropic"],  # Optional: selective instrumentation
 )
 basalt = Basalt(api_key="my-dev-api-key", telemetry_config=telemetry)
+
+# Or use client-level parameters (simpler)
+basalt = Basalt(
+    api_key="my-dev-api-key",
+    enabled_instruments=["openai", "anthropic"]
+)
 
 # Configure global metadata when constructing the client
 basalt = Basalt(
@@ -157,7 +163,9 @@ def generate_summary(model: str, prompt: str) -> dict:
 | `BASALT_ENVIRONMENT` | Sets `deployment.environment`. |
 | `BASALT_OTEL_EXPORTER_OTLP_ENDPOINT` | Custom OTLP HTTP endpoint for traces. Overrides the default Basalt OTEL collector endpoint. |
 | `BASALT_BUILD` | SDK build mode - set to `development` for local OTEL collector testing (default: `production`). |
-| `TRACELOOP_TRACE_CONTENT` | Controls whether prompts/completions are logged. **Note:** Set automatically by `TelemetryConfig.llm_trace_content` - you typically don't need to set this manually. |
+| `TRACELOOP_TRACE_CONTENT` | Controls whether prompts/completions are logged. **Note:** Set automatically by `TelemetryConfig.trace_content` - you typically don't need to set this manually. |
+| `BASALT_ENABLED_INSTRUMENTS` | Comma-separated list of instruments to enable (e.g., `openai,anthropic`). |
+| `BASALT_DISABLED_INSTRUMENTS` | Comma-separated list of instruments to disable (e.g., `langchain,llamaindex`). |
 
 **Default OTLP Exporter:**
 

@@ -114,46 +114,6 @@ def test_with_evaluators_propagates_evaluator_slugs():
         otel_context.detach(token)
 
 
-def test_with_evaluators_propagates_config():
-    """Test with_evaluators correctly attaches and detaches evaluator config."""
-    config = EvaluatorConfig(sample_rate=0.5)
-    context_key = EVALUATOR_CONFIG_CONTEXT_KEY
-
-    with with_evaluators(None, config=config):
-        attached_config = otel_context.get_value(context_key)
-        assert attached_config == config
-
-    assert otel_context.get_value(context_key) is None
-
-
-def test_with_evaluators_merges_metadata():
-    """Test with_evaluators combines metadata with existing values in context."""
-    metadata = {"key1": "value1", "key2": "value2"}
-    existing_metadata_key = EVALUATOR_METADATA_CONTEXT_KEY
-    initial_metadata = {"existingKey": "existingValue"}
-    token = otel_context.attach(otel_context.set_value(existing_metadata_key, initial_metadata))
-
-    try:
-        with with_evaluators(None, metadata=metadata):
-            combined_metadata = otel_context.get_value(existing_metadata_key)
-            assert combined_metadata == {"existingKey": "existingValue", "key1": "value1", "key2": "value2"}
-
-        assert otel_context.get_value(existing_metadata_key) == initial_metadata
-    finally:
-        otel_context.detach(token)
-
-
-def test_with_evaluators_handles_empty_metadata_gracefully():
-    """Test with_evaluators does not crash when empty metadata is provided."""
-    context_key = EVALUATOR_METADATA_CONTEXT_KEY
-
-    with with_evaluators(None, metadata={}):
-        attached_metadata = otel_context.get_value(context_key)
-        assert attached_metadata == {}
-
-    assert otel_context.get_value(context_key) is None
-
-
 def test_set_io_with_all_fields():
     """Test set_io sets input, output, and variables when all are provided."""
     span = Mock(SpanHandle)
@@ -170,7 +130,8 @@ def test_set_io_with_all_fields():
 
     span.set_input.assert_called_once_with(input_payload)
     span.set_output.assert_called_once_with(output_payload)
-    span.set_variables.assert_called_once_with(variables)
+    # Variables should be set directly in set_io, no longer calls set_variables
+    assert span._io_payload["variables"] == variables
 
 
 def test_set_io_with_only_input_payload():
@@ -182,7 +143,7 @@ def test_set_io_with_only_input_payload():
 
     span.set_input.assert_called_once_with(input_payload)
     span.set_output.assert_not_called()
-    span.set_variables.assert_not_called()
+    # No variables set
 
 
 def test_set_io_with_only_output_payload():
@@ -194,7 +155,7 @@ def test_set_io_with_only_output_payload():
 
     span.set_output.assert_called_once_with(output_payload)
     span.set_input.assert_not_called()
-    span.set_variables.assert_not_called()
+    # No variables set
 
 
 def test_set_io_with_only_variables():
@@ -204,7 +165,8 @@ def test_set_io_with_only_variables():
 
     SpanHandle.set_io(span, variables=variables)
 
-    span.set_variables.assert_called_once_with(variables)
+    # Variables should be set directly in set_io
+    assert span._io_payload["variables"] == variables
     span.set_input.assert_not_called()
     span.set_output.assert_not_called()
 
@@ -217,7 +179,7 @@ def test_set_io_with_no_arguments():
 
     span.set_input.assert_not_called()
     span.set_output.assert_not_called()
-    span.set_variables.assert_not_called()
+    # No variables set
 
 
 class MockSpan(Span):
@@ -398,25 +360,6 @@ def test_set_output(mock_span):
         assert span_handle._io_payload["output"] == payload
         mock_span.set_attribute.assert_called_once()
 
-def test_set_variables_with_valid_data(mock_span):
-    """Test SpanHandle.set_variables sets variables and serializes them if tracing is enabled."""
-    with pytest.MonkeyPatch().context() as monkeypatch:
-        monkeypatch.setattr(
-            "basalt.observability.context_managers.trace_content_enabled",
-            lambda: True
-        )
-        span_handle = SpanHandle(span=mock_span)
-        variables = {"var1": "value1", "var2": "value2"}
-        span_handle.set_variables(variables)
-        assert span_handle._io_payload["variables"] == variables
-        mock_span.set_attribute.assert_called_once()
-
-def test_set_variables_with_invalid_data(mock_span):
-    """Test SpanHandle.set_variables raises TypeError for non-mapping input."""
-    span_handle = SpanHandle(span=mock_span)
-    with pytest.raises(TypeError, match="Span variables must be provided as a mapping."):
-        span_handle.set_variables(42)  # type: ignore[arg-type]
-
 def test_set_io(mock_span):
     """Test SpanHandle.set_io sets all I/O payloads correctly."""
     with pytest.MonkeyPatch().context() as monkeypatch:
@@ -454,3 +397,70 @@ def test_io_snapshot(mock_span):
     # Ensure the snapshot is a copy and not a reference to the original
     snapshot["variables"]["var1"] = "modified"
     assert span_handle._io_payload["variables"]["var1"] == "value1"
+
+
+def test_identify_with_user_only(mock_span):
+    """Test SpanHandle.identify sets user attributes only."""
+    from basalt.observability import semconv
+    
+    span_handle = SpanHandle(span=mock_span)
+    span_handle.identify(user_id="user-123", user_name="John Doe")
+    
+    assert mock_span.attributes[semconv.BasaltUser.ID] == "user-123"
+    assert mock_span.attributes[semconv.BasaltUser.NAME] == "John Doe"
+    assert semconv.BasaltOrganization.ID not in mock_span.attributes
+
+
+def test_identify_with_organization_only(mock_span):
+    """Test SpanHandle.identify sets organization attributes only."""
+    from basalt.observability import semconv
+    
+    span_handle = SpanHandle(span=mock_span)
+    span_handle.identify(organization_id="org-456", organization_name="Acme Corp")
+    
+    assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-456"
+    assert mock_span.attributes[semconv.BasaltOrganization.NAME] == "Acme Corp"
+    assert semconv.BasaltUser.ID not in mock_span.attributes
+
+
+def test_identify_with_both_user_and_organization(mock_span):
+    """Test SpanHandle.identify sets both user and organization attributes."""
+    from basalt.observability import semconv
+    
+    span_handle = SpanHandle(span=mock_span)
+    span_handle.identify(
+        user_id="user-123",
+        user_name="John Doe",
+        organization_id="org-456",
+        organization_name="Acme Corp"
+    )
+    
+    assert mock_span.attributes[semconv.BasaltUser.ID] == "user-123"
+    assert mock_span.attributes[semconv.BasaltUser.NAME] == "John Doe"
+    assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-456"
+    assert mock_span.attributes[semconv.BasaltOrganization.NAME] == "Acme Corp"
+
+
+def test_identify_with_ids_only(mock_span):
+    """Test SpanHandle.identify sets IDs without names."""
+    from basalt.observability import semconv
+    
+    span_handle = SpanHandle(span=mock_span)
+    span_handle.identify(user_id="user-789", organization_id="org-101")
+    
+    assert mock_span.attributes[semconv.BasaltUser.ID] == "user-789"
+    assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-101"
+    assert semconv.BasaltUser.NAME not in mock_span.attributes
+    assert semconv.BasaltOrganization.NAME not in mock_span.attributes
+
+
+def test_identify_with_no_parameters(mock_span):
+    """Test SpanHandle.identify does nothing when no parameters are provided."""
+    from basalt.observability import semconv
+    
+    span_handle = SpanHandle(span=mock_span)
+    span_handle.identify()
+    
+    assert semconv.BasaltUser.ID not in mock_span.attributes
+    assert semconv.BasaltOrganization.ID not in mock_span.attributes
+

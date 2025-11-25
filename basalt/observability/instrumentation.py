@@ -186,8 +186,8 @@ class InstrumentationManager:
         if self._tracer_provider:
             self._install_basalt_processors(self._tracer_provider)
 
-        if effective_config.enable_llm_instrumentation:
-            self._initialize_llm_instrumentation(effective_config)
+        if effective_config.enable_instrumentation:
+            self._initialize_instrumentation(effective_config)
 
         self._initialized = True
 
@@ -196,7 +196,7 @@ class InstrumentationManager:
         if not self._initialized:
             return
 
-        self._uninstrument_llm()
+        self._uninstrument_providers()
 
         provider = self._tracer_provider or trace.get_tracer_provider()
         for processor in self._span_processors:
@@ -284,9 +284,9 @@ class InstrumentationManager:
                 self._api_key = env_api_key
         return self._api_key
 
-    def _instrument_llm_providers(self, config: TelemetryConfig) -> None:
+    def _instrument_providers(self, config: TelemetryConfig) -> None:
         """
-        Instrument specific LLM providers based on configuration.
+        Instrument specific providers based on configuration.
 
         This method directly imports and instruments individual provider instrumentors
         instead of using Traceloop.init() which instruments everything globally.
@@ -345,24 +345,24 @@ class InstrumentationManager:
                     if not instrumentor.is_instrumented_by_opentelemetry:
                         instrumentor.instrument()
                         self._provider_instrumentors[provider_key] = instrumentor
-                        logger.info(f"Instrumented LLM provider: {provider_key}")
+                        logger.info(f"Instrumented provider: {provider_key}")
                     else:
-                        logger.debug(f"LLM provider '{provider_key}' already instrumented")
+                        logger.debug(f"Provider '{provider_key}' already instrumented")
                         self._provider_instrumentors[provider_key] = instrumentor
                 else:
                     # Fallback for instrumentors that don't have the property
                     instrumentor.instrument()
                     self._provider_instrumentors[provider_key] = instrumentor
-                    logger.info(f"Instrumented LLM provider: {provider_key}")
+                    logger.info(f"Instrumented provider: {provider_key}")
             except Exception as exc:
                 logger.warning(f"Failed to instrument provider '{provider_key}': {exc}")
 
-    def _initialize_llm_instrumentation(self, config: TelemetryConfig) -> None:
+    def _initialize_instrumentation(self, config: TelemetryConfig) -> None:
         """
-        Initialize LLM provider instrumentation.
+        Initialize provider instrumentation.
 
         Instead of using Traceloop.init() which instruments everything globally,
-        this method directly instruments individual LLM providers based on the
+        this method directly instruments individual providers based on the
         configuration. This gives you fine-grained control over which providers
         are instrumented and reduces unnecessary overhead.
 
@@ -374,20 +374,20 @@ class InstrumentationManager:
         # and control whether they capture prompts/completions in traces.
         #
         # Why we do this:
-        # - Users configure llm_trace_content in TelemetryConfig (clean Python API)
+        # - Users configure trace_content in TelemetryConfig (clean Python API)
         # - We translate it to environment variables that instrumentors expect
         # - This way users don't need to manually set TRACELOOP_* environment variables
         #
         # Variables set:
         # - TRACELOOP_TRACE_CONTENT: Used by most OpenLLMetry instrumentors
         # - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: Used by Google GenAI instrumentor
-        os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.llm_trace_content else "false"
+        os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.trace_content else "false"
         os.environ[
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
-        ] = "true" if config.llm_trace_content else "false"
+        ] = "true" if config.trace_content else "false"
 
         # Instrument providers directly without using Traceloop.init()
-        self._instrument_llm_providers(config)
+        self._instrument_providers(config)
 
     def _install_basalt_processors(self, provider: TracerProvider) -> None:
         if getattr(provider, "_basalt_processors_installed", False):
@@ -404,20 +404,20 @@ class InstrumentationManager:
         self._span_processors = processors
 
 
-    def _uninstrument_llm(self) -> None:
+    def _uninstrument_providers(self) -> None:
         for provider_key, instrumentor in list(self._provider_instrumentors.items()):
             try:
                 # Check if it's actually instrumented before trying to uninstrument
                 if hasattr(instrumentor, 'is_instrumented_by_opentelemetry'):
                     if instrumentor.is_instrumented_by_opentelemetry:
                         instrumentor.uninstrument()
-                        logger.debug(f"Uninstrumented LLM provider: {provider_key}")
+                        logger.debug(f"Uninstrumented provider: {provider_key}")
                     else:
-                        logger.debug(f"LLM provider '{provider_key}' already uninstrumented")
+                        logger.debug(f"Provider '{provider_key}' already uninstrumented")
                 else:
                     # Try to uninstrument anyway if we can't check
                     instrumentor.uninstrument()
-                    logger.debug(f"Uninstrumented LLM provider: {provider_key}")
+                    logger.debug(f"Uninstrumented provider: {provider_key}")
             except Exception as exc:
-                logger.debug(f"Error uninstrumenting LLM provider '{provider_key}': {exc}")
+                logger.debug(f"Error uninstrumenting provider '{provider_key}': {exc}")
         self._provider_instrumentors.clear()

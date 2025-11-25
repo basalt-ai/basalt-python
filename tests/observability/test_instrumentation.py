@@ -28,8 +28,8 @@ class TestInstrumentationManager(unittest.TestCase):
 
         mock_setup.assert_called_once()
 
-    @mock.patch.object(InstrumentationManager, "_uninstrument_llm")
-    def test_shutdown_flushes_provider(self, mock_llm):
+    @mock.patch.object(InstrumentationManager, "_uninstrument_providers")
+    def test_shutdown_flushes_provider(self, mock_uninstrument):
         manager = InstrumentationManager()
         manager._initialized = True
         provider = mock.Mock()
@@ -37,21 +37,21 @@ class TestInstrumentationManager(unittest.TestCase):
 
         manager.shutdown()
 
-        mock_llm.assert_called_once()
+        mock_uninstrument.assert_called_once()
         provider.force_flush.assert_called_once()
         provider.shutdown.assert_called_once()
         self.assertFalse(manager._initialized)
 
-    @mock.patch.object(InstrumentationManager, "_instrument_llm_providers")
-    def test_initialize_llm_instrumentation_sets_env_and_instruments_providers(self, mock_providers):
+    @mock.patch.object(InstrumentationManager, "_instrument_providers")
+    def test_initialize_instrumentation_sets_env_and_instruments_providers(self, mock_providers):
         config = TelemetryConfig(
-            llm_trace_content=False,
-            llm_enabled_providers=["openai", "anthropic"],
+            trace_content=False,
+            enabled_providers=["openai", "anthropic"],
         )
         manager = InstrumentationManager()
 
         with mock.patch.dict(os.environ, {}, clear=False):
-            manager._initialize_llm_instrumentation(config)
+            manager._initialize_instrumentation(config)
             self.assertEqual(os.environ["TRACELOOP_TRACE_CONTENT"], "false")
 
         mock_providers.assert_called_once_with(config)
@@ -109,7 +109,7 @@ class TestInstrumentationManager(unittest.TestCase):
 
     def test_should_instrument_provider_with_enabled_list(self):
         """Test that only enabled providers are instrumented when specified."""
-        config = TelemetryConfig(llm_enabled_providers=["openai", "anthropic"])
+        config = TelemetryConfig(enabled_providers=["openai", "anthropic"])
         self.assertTrue(config.should_instrument_provider("openai"))
         self.assertTrue(config.should_instrument_provider("anthropic"))
         self.assertFalse(config.should_instrument_provider("langchain"))
@@ -117,7 +117,7 @@ class TestInstrumentationManager(unittest.TestCase):
 
     def test_should_instrument_provider_with_disabled_list(self):
         """Test that disabled providers are not instrumented."""
-        config = TelemetryConfig(llm_disabled_providers=["langchain", "llamaindex"])
+        config = TelemetryConfig(disabled_providers=["langchain", "llamaindex"])
         self.assertTrue(config.should_instrument_provider("openai"))
         self.assertTrue(config.should_instrument_provider("anthropic"))
         self.assertFalse(config.should_instrument_provider("langchain"))
@@ -126,15 +126,15 @@ class TestInstrumentationManager(unittest.TestCase):
     def test_should_instrument_provider_disabled_takes_precedence(self):
         """Test that disabled list takes precedence over enabled list."""
         config = TelemetryConfig(
-            llm_enabled_providers=["openai", "anthropic"],
-            llm_disabled_providers=["anthropic"],
+            enabled_providers=["openai", "anthropic"],
+            disabled_providers=["anthropic"],
         )
         self.assertTrue(config.should_instrument_provider("openai"))
         self.assertFalse(config.should_instrument_provider("anthropic"))
 
     @mock.patch("basalt.observability.instrumentation._safe_import")
-    def test_instrument_llm_providers_respects_config(self, mock_import):
-        """Test that _instrument_llm_providers respects the configuration."""
+    def test_instrument_providers_respects_config(self, mock_import):
+        """Test that _instrument_providers respects the configuration."""
         # Mock instrumentor with is_instrumented_by_opentelemetry property
         mock_instrumentor = mock.Mock()
         mock_instrumentor.is_instrumented_by_opentelemetry = False  # Not yet instrumented
@@ -150,9 +150,9 @@ class TestInstrumentationManager(unittest.TestCase):
 
         mock_import.side_effect = safe_import_side_effect
 
-        config = TelemetryConfig(llm_enabled_providers=["openai", "anthropic"])
+        config = TelemetryConfig(enabled_providers=["openai", "anthropic"])
         manager = InstrumentationManager()
-        manager._instrument_llm_providers(config)
+        manager._instrument_providers(config)
 
         # Should have called instrument() for both providers
         self.assertEqual(mock_instrumentor.instrument.call_count, 2)

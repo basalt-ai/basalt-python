@@ -67,18 +67,24 @@ pip install basalt-sdk[all]
 
 ## Basic Usage
 
-To enable auto-instrumentation, simply set `enable_llm_instrumentation=True` in your telemetry configuration:
+Auto-instrumentation is enabled by default. You can control it using the `enable_instrumentation` setting:
 
 ```python
 from basalt import Basalt, TelemetryConfig
 
-# Enable auto-instrumentation for all installed providers
+# Enable auto-instrumentation for all installed providers (default behavior)
 telemetry = TelemetryConfig(
     service_name="my-app",
-    enable_llm_instrumentation=True,
+    enable_instrumentation=True,
 )
 
 basalt = Basalt(api_key="your-api-key", telemetry_config=telemetry)
+
+# Or use client-level parameters for simplicity
+basalt = Basalt(
+    api_key="your-api-key",
+    enabled_instruments=["openai", "anthropic"]
+)
 
 # Now your LLM calls will be automatically traced
 import openai
@@ -133,31 +139,43 @@ The SDK automatically instruments popular AI frameworks (3 total):
 
 ## Selective Instrumentation
 
-You can control which providers are instrumented using the `llm_enabled_providers` and `llm_disabled_providers` options:
+You can control which instruments are enabled using client-level parameters or TelemetryConfig options:
 
-### Instrument Specific Providers
+### Using Client-Level Parameters (Recommended)
+
+```python
+from basalt import Basalt
+
+# Only instrument OpenAI and Anthropic
+basalt = Basalt(
+    api_key="your-api-key",
+    enabled_instruments=["openai", "anthropic"]
+)
+
+# Or disable specific providers
+basalt = Basalt(
+    api_key="your-api-key",
+    disabled_instruments=["langchain", "llamaindex"]
+)
+```
+
+### Using TelemetryConfig
 
 ```python
 from basalt import Basalt, TelemetryConfig
 
 # Only instrument OpenAI and Anthropic
 telemetry = TelemetryConfig(
-    enable_llm_instrumentation=True,
-    llm_enabled_providers=["openai", "anthropic"],
+    enable_instrumentation=True,
+    enabled_providers=["openai", "anthropic"],
 )
 
 basalt = Basalt(api_key="your-api-key", telemetry_config=telemetry)
-```
-
-### Disable Specific Providers
-
-```python
-from basalt import Basalt, TelemetryConfig
 
 # Instrument all available providers except LangChain
 telemetry = TelemetryConfig(
-    enable_llm_instrumentation=True,
-    llm_disabled_providers=["langchain"],
+    enable_instrumentation=True,
+    disabled_providers=["langchain"],
 )
 
 basalt = Basalt(api_key="your-api-key", telemetry_config=telemetry)
@@ -189,9 +207,9 @@ import anthropic
 telemetry = TelemetryConfig(
     service_name="multi-llm-app",
     environment="production",
-    enable_llm_instrumentation=True,
-    llm_trace_content=True,
-    llm_enabled_providers=["openai", "anthropic"],  # Only these two
+    enable_instrumentation=True,
+    trace_content=True,
+    enabled_providers=["openai", "anthropic"],  # Only these two
 )
 
 # Initialize Basalt

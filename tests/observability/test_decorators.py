@@ -1,5 +1,3 @@
-# File: tests/test_decorators.py
-
 import asyncio
 from unittest.mock import patch
 
@@ -11,7 +9,7 @@ from basalt.observability.decorators import evaluate
 
 def test_evaluate_decorator_single_slug():
     """Test the evaluate decorator with a single evaluator slug."""
-    @evaluate("test-slug", sample_rate=1.0)
+    @evaluate("test-slug")
     def test_function():
         return "executed"
 
@@ -21,7 +19,7 @@ def test_evaluate_decorator_single_slug():
 
 def test_evaluate_decorator_multiple_slugs():
     """Test the evaluate decorator with multiple evaluator slugs."""
-    @evaluate(["slug1", "slug2"], sample_rate=1.0)
+    @evaluate(["slug1", "slug2"])
     def another_function():
         return "success"
 
@@ -29,20 +27,11 @@ def test_evaluate_decorator_multiple_slugs():
     assert result == "success", "Function should execute and return 'success'."
 
 
-def test_evaluate_decorator_invalid_sample_rate():
-    """Test the evaluate decorator raises an error for invalid sample_rate."""
-    with pytest.raises(ValueError, match="sample_rate must be within \\[0\\.0, 1\\.0\\]\\."):
-
-        @evaluate("test-slug", sample_rate=1.5)
-        def faulty_function():
-            pass
-
-
 def test_evaluate_decorator_no_slugs():
     """Test the evaluate decorator raises an error when no slugs are provided."""
     with pytest.raises(ValueError, match="At least one evaluator slug must be provided."):
 
-        @evaluate([], sample_rate=1.0)
+        @evaluate([])
         def empty_slugs_function():
             pass
 
@@ -52,7 +41,7 @@ def test_evaluate_with_metadata_callable():
     def metadata_resolver(param):
         return {"key": param}
 
-    @evaluate("slug", metadata=metadata_resolver)
+    @evaluate("slug")
     def function_with_metadata(param):
         return f"Metadata resolved for {param}"
 
@@ -65,7 +54,7 @@ def test_evaluate_with_metadata_callable():
 
 def test_evaluate_asynchronous_function():
     """Test that the evaluate decorator works for async functions."""
-    @evaluate("async-slug", sample_rate=1.0)
+    @evaluate("async-slug")
     async def async_function():
         return "async executed"
 

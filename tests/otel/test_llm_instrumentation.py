@@ -323,9 +323,9 @@ def _init_instrumentation_for_provider(provider_name: str, otel_exporter: InMemo
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
     config = TelemetryConfig(
-        enable_llm_instrumentation=True,
-        llm_trace_content=True,
-        llm_enabled_providers=[provider_name],
+        enable_instrumentation=True,
+        trace_content=True,
+        enabled_providers=[provider_name],
     )
     manager = InstrumentationManager()
     manager.initialize(config=config)

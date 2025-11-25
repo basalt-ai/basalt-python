@@ -90,9 +90,8 @@ def evaluate(
                 return func(*args, **kwargs)
 
             # Resolve metadata before entering context
-            resolved_metadata = _resolve_metadata(args, kwargs)
 
-            with with_evaluators(slug_list, config=None, metadata=resolved_metadata):
+            with with_evaluators(slug_list):
                 return func(*args, **kwargs)
 
         return sync_wrapper  # type: ignore[return-value]

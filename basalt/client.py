@@ -30,13 +30,20 @@ class Basalt:
         ```python
         from basalt import Basalt, TelemetryConfig
 
+        # Using TelemetryConfig for advanced configuration
         telemetry = TelemetryConfig(
             service_name="my-app",
             environment="production",
-            enable_llm_instrumentation=True,
-            llm_trace_content=False,
+            enable_instrumentation=True,
+            trace_content=False,
         )
         basalt = Basalt(api_key="your-api-key", telemetry_config=telemetry)
+
+        # Or use client-level parameters for simple cases
+        basalt = Basalt(
+            api_key="your-api-key",
+            enabled_instruments=["openai", "anthropic"]
+        )
         ```
     """
 
@@ -50,6 +57,8 @@ class Basalt:
         observability_metadata: dict[str, Any] | None = None,
         cache : CacheProtocol | None = None,
         log_level: str | None = None,
+        enabled_instruments: list[str] | None = None,
+        disabled_instruments: list[str] | None = None,
     ):
         """
         Initialize the Basalt client.
@@ -61,6 +70,10 @@ class Basalt:
             base_url: Optional base URL for the API (defaults to config value).
             observability_metadata: Arbitrary metadata dictionary applied to new traces.
             log_level: Optional log level for API client loggers (e.g., 'DEBUG', 'INFO', 'WARNING').
+            enabled_instruments: List of specific instruments to enable (e.g., ["openai", "anthropic"]).
+                Takes precedence over telemetry_config if provided.
+            disabled_instruments: List of instruments to explicitly disable (e.g., ["langchain"]).
+                Takes precedence over telemetry_config if provided.
         """
         self._api_key = api_key
         self._base_url = base_url
@@ -69,6 +82,14 @@ class Basalt:
             telemetry_config = TelemetryConfig(enabled=False)
         elif telemetry_config is None:
             telemetry_config = TelemetryConfig()
+
+        # Apply client-level instrument settings if provided (takes precedence)
+        if enabled_instruments is not None or disabled_instruments is not None:
+            telemetry_config = telemetry_config.clone()
+            if enabled_instruments is not None:
+                telemetry_config.enabled_providers = enabled_instruments
+            if disabled_instruments is not None:
+                telemetry_config.disabled_providers = disabled_instruments
 
         self._telemetry_config = telemetry_config
         self._instrumentation = InstrumentationManager()

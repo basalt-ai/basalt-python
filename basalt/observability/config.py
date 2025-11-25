@@ -32,14 +32,14 @@ class TelemetryConfig:
     """
     Centralized configuration for SDK telemetry.
 
-    LLM Provider Instrumentation
-    -----------------------------
-    When `enable_llm_instrumentation` is True, the SDK automatically instruments LLM provider
-    SDKs to capture traces. By default, all available LLM providers are instrumented.
-    You can control which providers are instrumented using `llm_enabled_providers` and
-    `llm_disabled_providers`.
+    Instrument Instrumentation
+    --------------------------
+    When `enable_instrumentation` is True, the SDK automatically instruments provider
+    SDKs to capture traces. By default, all available instruments are instrumented.
+    You can control which instruments are instrumented using `enabled_providers` and
+    `disabled_providers`.
 
-    Supported providers (11 total):
+    Supported instruments include LLM providers, vector databases, and AI frameworks:
         LLM Providers:
         - openai: OpenAI API (via opentelemetry-instrumentation-openai)
         - anthropic: Anthropic API (via opentelemetry-instrumentation-anthropic)
@@ -96,21 +96,21 @@ class TelemetryConfig:
     service_name: str = "basalt-sdk"
     service_version: str | None = basalt_sdk_config.get("sdk_version", "unknown")
     environment: str | None = None
-    enable_llm_instrumentation: bool = True
-    """Enable automatic instrumentation of LLM provider SDKs."""
+    enable_instrumentation: bool = True
+    """Enable automatic instrumentation of provider SDKs."""
 
-    llm_trace_content: bool = True
-    """Whether to include prompt and completion content in LLM traces."""
+    trace_content: bool = True
+    """Whether to include prompt and completion content in traces."""
 
-    llm_enabled_providers: list[str] | None = None
+    enabled_providers: list[str] | None = None
     """
-    List of specific LLM providers to instrument. If None (default), all available
+    List of specific providers to instrument. If None (default), all available
     providers will be instrumented. Example: ["openai", "anthropic"]
     """
 
-    llm_disabled_providers: list[str] | None = None
+    disabled_providers: list[str] | None = None
     """
-    List of LLM providers to explicitly disable. Takes precedence over llm_enabled_providers.
+    List of providers to explicitly disable. Takes precedence over enabled_providers.
     Example: ["langchain", "llamaindex"]
     """
 
@@ -121,8 +121,8 @@ class TelemetryConfig:
         """Return a defensive copy of the telemetry configuration."""
         cloned = replace(self)
         cloned.extra_resource_attributes = dict(self.extra_resource_attributes)
-        cloned.llm_enabled_providers = list(self.llm_enabled_providers) if self.llm_enabled_providers else None
-        cloned.llm_disabled_providers = list(self.llm_disabled_providers) if self.llm_disabled_providers else None
+        cloned.enabled_providers = list(self.enabled_providers) if self.enabled_providers else None
+        cloned.disabled_providers = list(self.disabled_providers) if self.disabled_providers else None
         return cloned
 
     def with_env_overrides(self) -> TelemetryConfig:
@@ -133,6 +133,8 @@ class TelemetryConfig:
             BASALT_TELEMETRY_ENABLED
             BASALT_SERVICE_NAME
             BASALT_ENVIRONMENT
+            BASALT_ENABLED_INSTRUMENTS (comma-separated list)
+            BASALT_DISABLED_INSTRUMENTS (comma-separated list)
         """
         cfg = self.clone()
 
@@ -148,6 +150,14 @@ class TelemetryConfig:
         if environment:
             cfg.environment = environment
 
+        enabled_instruments = os.getenv("BASALT_ENABLED_INSTRUMENTS")
+        if enabled_instruments:
+            cfg.enabled_providers = [p.strip() for p in enabled_instruments.split(",") if p.strip()]
+
+        disabled_instruments = os.getenv("BASALT_DISABLED_INSTRUMENTS")
+        if disabled_instruments:
+            cfg.disabled_providers = [p.strip() for p in disabled_instruments.split(",") if p.strip()]
+
         if not cfg.service_version:
             # basalt_sdk_config is a mapping defined in `basalt.config` module
             cfg.service_version = basalt_sdk_config.get("sdk_version", "unknown")
@@ -156,21 +166,21 @@ class TelemetryConfig:
 
     def should_instrument_provider(self, provider: str) -> bool:
         """
-        Determine if a specific LLM provider should be instrumented.
+        Determine if a specific provider should be instrumented.
 
         Args:
-            provider: The provider name (e.g., "openai", "anthropic")
+            provider: The provider name (e.g., "openai", "anthropic", "chromadb")
 
         Returns:
             True if the provider should be instrumented, False otherwise.
         """
         # Disabled list takes precedence
-        if self.llm_disabled_providers and provider in self.llm_disabled_providers:
+        if self.disabled_providers and provider in self.disabled_providers:
             return False
 
         # If enabled_providers is specified, only instrument those
-        if self.llm_enabled_providers is not None:
-            return provider in self.llm_enabled_providers
+        if self.enabled_providers is not None:
+            return provider in self.enabled_providers
 
         # Otherwise instrument all by default
         return True

@@ -56,7 +56,7 @@ basalt = Basalt(
     api_key="your-api-key",
     telemetry_config=TelemetryConfig(
         service_name="customer-support",
-        enable_llm_instrumentation=True
+        enable_instrumentation=True
     )
 )
 
@@ -134,7 +134,7 @@ basalt = Basalt(
     telemetry_config=TelemetryConfig(
         service_name="my-ai-app",
         environment="production",
-        enable_llm_instrumentation=True  # Auto-trace LLM calls
+        enable_instrumentation=True  # Auto-trace LLM calls
     )
 )
 
@@ -165,7 +165,7 @@ basalt = Basalt(
     telemetry_config=TelemetryConfig(
         service_name="email-assistant",
         environment="production",
-        enable_llm_instrumentation=True
+        enable_instrumentation=True
     )
 )
 

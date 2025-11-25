@@ -35,7 +35,7 @@ async def trace_async_request(
     with observe(name=span_data.span_name(), metadata=span_data.start_attributes()) as span:
         observe.input(input_payload)
         if span_data.variables:
-            span.set_variables(span_data.variables)
+            span.set_io(variables=span_data.variables)
 
         try:
             result = await request_callable()
@@ -85,7 +85,7 @@ def trace_sync_request(
     with observe(name=span_data.span_name(), metadata=span_data.start_attributes()) as span:
         observe.input(input_payload)
         if span_data.variables:
-            span.set_variables(span_data.variables)
+            span.set_io(variables=span_data.variables)
 
         try:
             result = request_callable()

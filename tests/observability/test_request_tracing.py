@@ -17,9 +17,12 @@ class DummySpan:
         self.attributes = {}
         self.exceptions = []
         self.status = None
+        self._io_payload = {"input": None, "output": None, "variables": None}
 
-    def set_variables(self, variables):
-        self.variables = variables
+    def set_io(self, *, input_payload=None, output_payload=None, variables=None):
+        if variables is not None:
+            self.variables = variables
+            self._io_payload["variables"] = variables
 
     def set_attribute(self, key, value):
         self.attributes[key] = value
