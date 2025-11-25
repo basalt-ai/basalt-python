@@ -187,7 +187,7 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
                 import json
 
                 span.set_attribute(
-                    semconv.BasaltSpan.EVALUATORS_CONFIG,
+                    semconv.BasaltSpan.EVALUATION_CONFIG,
                     json.dumps(context_config.to_dict()),
                 )
             except Exception as exc:  # pragma: no cover - defensive

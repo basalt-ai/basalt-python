@@ -312,7 +312,7 @@ class BasaltSpan:
     Examples: ["answer-correctness", "safety"]
     """
 
-    EVALUATORS_CONFIG: Final[str] = "basalt.span.evaluators.config"
+    EVALUATION_CONFIG: Final[str] = "basalt.span.evaluation.config"
     """
     Optional, span-scoped configuration applied to evaluators as a whole.
     Type: JSON object (string-serialized) or key/value attributes under this prefix

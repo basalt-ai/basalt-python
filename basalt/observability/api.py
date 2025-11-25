@@ -79,6 +79,7 @@ class StartObserve(ContextDecorator):
         *,
         identity: Identity | Callable[..., Identity | None] | None = None,
         evaluate_config: EvaluationConfig | None = None,
+        evaluators: Sequence[Any] | None = None,
         experiment: str | Experiment | None = None,
         metadata: dict[str, Any] | None = None,
     ):
@@ -86,6 +87,7 @@ class StartObserve(ContextDecorator):
         self.feature_slug = feature_slug
         self.identity_resolver = identity
         self.evaluate_config = evaluate_config
+        self.evaluators = evaluators
         self.experiment = experiment
         self._metadata = metadata
         self._span_handle: SpanHandle | None = None
@@ -106,6 +108,7 @@ class StartObserve(ContextDecorator):
             span_type="basalt_trace",
             user=user_identity,
             organization=org_identity,
+            evaluators=self.evaluators,
             evaluator_config=self.evaluate_config,
             feature_slug=self.feature_slug,
         )
@@ -131,6 +134,7 @@ class StartObserve(ContextDecorator):
             # Resolve identity from args/kwargs if needed
             bound = resolve_bound_arguments(func, args, kwargs)
             user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
+            pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
 
             span_name = self.name or "basalt_trace"
             with _with_span_handle(
@@ -141,6 +145,7 @@ class StartObserve(ContextDecorator):
                 span_type="basalt_trace",
                 user=user_identity,
                 organization=org_identity,
+                evaluators=pre_evaluators,
                 evaluator_config=self.evaluate_config,
                 feature_slug=self.feature_slug,
             ) as span:
@@ -161,6 +166,7 @@ class StartObserve(ContextDecorator):
             async def async_wrapper(*args, **kwargs):
                 bound = resolve_bound_arguments(func, args, kwargs)
                 user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
+                pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
 
                 span_name = self.name or "basalt_trace"
                 with _with_span_handle(
@@ -171,6 +177,7 @@ class StartObserve(ContextDecorator):
                     span_type="basalt_trace",
                     user=user_identity,
                     organization=org_identity,
+                    evaluators=pre_evaluators,
                     evaluator_config=self.evaluate_config,
                     feature_slug=self.feature_slug,
                 ) as span:

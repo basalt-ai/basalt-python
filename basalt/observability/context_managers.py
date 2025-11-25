@@ -351,11 +351,11 @@ class SpanHandle:
         """
         if isinstance(config, EvaluationConfig):
             self._evaluator_config = config
-            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATORS_CONFIG, config.to_dict())
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict())
         elif isinstance(config, Mapping):
             config_dict = dict(config)
             self._evaluator_config = EvaluationConfig(**config_dict)
-            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATORS_CONFIG, config_dict)
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config_dict)
         else:
             raise TypeError("Evaluator config must be an EvaluationConfig or a mapping.")
 
