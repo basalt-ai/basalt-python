@@ -324,11 +324,11 @@ The `with_evaluators()` context manager is a low-level API for explicit propagat
 
 ```python
 from basalt.observability.context_managers import with_evaluators
-from basalt.observability import EvaluatorConfig, trace_span
+from basalt.observability import EvaluationConfig, trace_span
 
 with with_evaluators(
     evaluators=["eval-1", "eval-2"],
-    config=EvaluatorConfig(sample_rate=0.5),
+    config=EvaluationConfig(sample_rate=0.5),
     metadata={"source": "api"}
 ):
     # Any span created in this scope gets these evaluators

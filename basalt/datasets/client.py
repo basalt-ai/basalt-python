@@ -132,11 +132,11 @@ class DatasetsClient(BaseServiceClient):
 
         dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
-        
+
         # Log warning if present
         if warning := payload.get("warning"):
             self._logger.warning("Dataset API warning: %s", warning)
-        
+
         return dataset
 
     def get_sync(self, slug: str) -> Dataset:
@@ -170,11 +170,11 @@ class DatasetsClient(BaseServiceClient):
 
         dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
-        
+
         # Log warning if present
         if warning := payload.get("warning"):
             self._logger.warning("Dataset API warning: %s", warning)
-        
+
         return dataset
 
     async def add_row(
@@ -232,11 +232,11 @@ class DatasetsClient(BaseServiceClient):
         payload = response.json() or {}
 
         row_data = payload.get("datasetRow", {})
-        
+
         # Log warning if present
         if warning := payload.get("warning"):
             self._logger.warning("Dataset API warning: %s", warning)
-        
+
         return DatasetRow.from_dict(row_data)
 
     def add_row_sync(
@@ -294,11 +294,11 @@ class DatasetsClient(BaseServiceClient):
         payload = response.json() or {}
 
         row_data = payload.get("datasetRow", {})
-        
+
         # Log warning if present
         if warning := payload.get("warning"):
             self._logger.warning("Dataset API warning: %s", warning)
-        
+
         return DatasetRow.from_dict(row_data)
 
     def _get_headers(self) -> dict[str, str]:

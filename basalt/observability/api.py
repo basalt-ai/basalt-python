@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 from .context_managers import (
     ROOT_SPAN_CONTEXT_KEY,
-    EvaluatorConfig,
+    EvaluationConfig,
     EventSpanHandle,
     FunctionSpanHandle,
     LLMSpanHandle,
@@ -52,7 +52,7 @@ class _IdentityEntity(TypedDict):
     name: NotRequired[str]
 
 
-class IdentityDict(TypedDict, total=False):
+class Identity(TypedDict, total=False):
     """
     Identity structure for user and organization tracking.
 
@@ -66,13 +66,6 @@ class IdentityDict(TypedDict, total=False):
     user: NotRequired[_IdentityEntity]
 
 
-class ExperimentDict(TypedDict):
-    """Experiment metadata with required id and optional name/featureSlug."""
-    id: str
-    name: NotRequired[str]
-    featureSlug: NotRequired[str]
-
-
 class StartObserve(ContextDecorator):
     """
     Entry point for Basalt observability.
@@ -84,9 +77,9 @@ class StartObserve(ContextDecorator):
         name: str | None = None,
         feature_slug: str | None = None,
         *,
-        identity: IdentityDict | Callable[..., IdentityDict | None] | None = None,
-        evaluate_config: EvaluatorConfig | None = None,
-        experiment: ExperimentDict | Experiment | None = None,
+        identity: Identity | Callable[..., Identity | None] | None = None,
+        evaluate_config: EvaluationConfig | None = None,
+        experiment: str | Experiment | None = None,
         metadata: dict[str, Any] | None = None,
     ):
         self.name = name
@@ -200,7 +193,7 @@ class StartObserve(ContextDecorator):
     def _apply_experiment(self, span: SpanHandle | None) -> None:
         """Apply experiment metadata to the provided span.
 
-        Supports either a raw experiment dict (ExperimentDict) or an
+        Supports either a string experiment ID or an
         `Experiment` dataclass instance from `basalt.experiments.models`.
         """
         if span is None or not self.experiment:
@@ -210,22 +203,16 @@ class StartObserve(ContextDecorator):
         exp_name: str | None = None
         exp_feature_slug: str | None = None
 
+        # Handle string ID case
+        if isinstance(self.experiment, str):
+            exp_id = self.experiment
         # Check if it's an Experiment dataclass by looking for the 'id' attribute
         # (avoid isinstance to prevent circular import at runtime)
-        if hasattr(self.experiment, "id") and not isinstance(self.experiment, dict):
+        elif hasattr(self.experiment, "id"):
             exp_id = self.experiment.id  # type: ignore[attr-defined]
             exp_name = getattr(self.experiment, "name", None)
             # Dataclass uses `feature_slug`
             exp_feature_slug = getattr(self.experiment, "feature_slug", None)
-        elif isinstance(self.experiment, dict):  # ExperimentDict
-            exp_id = self.experiment.get("id")
-            exp_name = self.experiment.get("name")
-            # Accept multiple key styles: variant, feature_slug, featureSlug
-            exp_feature_slug = (
-                self.experiment.get("variant")
-                or self.experiment.get("feature_slug")
-                or self.experiment.get("featureSlug")
-            )
 
         if not exp_id:
             return  # Must have an id to attach

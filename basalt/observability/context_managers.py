@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
-class EvaluatorConfig:
+class EvaluationConfig:
     """
     Type-safe configuration for evaluators attached to a span.
 
@@ -219,13 +219,13 @@ class SpanHandle:
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
         self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
         self._evaluators: dict[str, EvaluatorAttachment] = {}
-        self._evaluator_config: EvaluatorConfig | None = None
+        self._evaluator_config: EvaluationConfig | None = None
         self._evaluator_metadata: dict[str, Any] = {}
         self._hydrate_existing_evaluators()
 
         # Apply config from context if available
         context_config = otel_context.get_value(EVALUATOR_CONFIG_CONTEXT_KEY)
-        if context_config and isinstance(context_config, EvaluatorConfig):
+        if context_config and isinstance(context_config, EvaluationConfig):
             self.set_evaluator_config(context_config)
 
         # Apply metadata from context if available
@@ -340,24 +340,24 @@ class SpanHandle:
     # ------------------------------------------------------------------
     # Evaluators
     # ------------------------------------------------------------------
-    def set_evaluator_config(self, config: EvaluatorConfig | Mapping[str, Any]) -> None:
+    def set_evaluator_config(self, config: EvaluationConfig | Mapping[str, Any]) -> None:
         """Attach span-scoped evaluator configuration.
 
         The configuration applies to all evaluators attached to this span.
         It is stored under the semantic key BasaltSpan.EVALUATORS_CONFIG as JSON.
 
         Args:
-            config: Either an EvaluatorConfig instance or a mapping with config values.
+            config: Either an EvaluationConfig instance or a mapping with config values.
         """
-        if isinstance(config, EvaluatorConfig):
+        if isinstance(config, EvaluationConfig):
             self._evaluator_config = config
             _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATORS_CONFIG, config.to_dict())
         elif isinstance(config, Mapping):
             config_dict = dict(config)
-            self._evaluator_config = EvaluatorConfig(**config_dict)
+            self._evaluator_config = EvaluationConfig(**config_dict)
             _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATORS_CONFIG, config_dict)
         else:
-            raise TypeError("Evaluator config must be an EvaluatorConfig or a mapping.")
+            raise TypeError("Evaluator config must be an EvaluationConfig or a mapping.")
 
     def set_evaluator_metadata(self, metadata: Mapping[str, Any]) -> None:
         """Set span-scoped evaluator metadata.
@@ -688,7 +688,7 @@ def _with_span_handle(
     evaluators: Sequence[Any] | None = None,
     user: TraceIdentity | Mapping[str, Any] | None = None,
     organization: TraceIdentity | Mapping[str, Any] | None = None,
-    evaluator_config: EvaluatorConfig | None = None,
+    evaluator_config: EvaluationConfig | None = None,
     feature_slug: str | None = None,
     ensure_output: bool = True,
 ) -> Generator[SpanHandle, None, None]:

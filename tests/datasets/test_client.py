@@ -192,7 +192,7 @@ def test_add_row_sync_with_warning(common_client):
         })
 
         with patch.object(client._logger, 'warning') as mock_logger:
-            row = client.add_row_sync(
+            client.add_row_sync(
                 slug="test-dataset",
                 values={"col1": "value1"},
             )

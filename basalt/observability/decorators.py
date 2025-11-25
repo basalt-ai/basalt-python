@@ -5,7 +5,7 @@ from __future__ import annotations
 import enum
 import functools
 import inspect
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, TypeAlias, TypeVar
 
 from .context_managers import (

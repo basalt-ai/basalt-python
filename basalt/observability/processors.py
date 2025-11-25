@@ -14,7 +14,7 @@ from .context_managers import (
     EVALUATOR_CONFIG_CONTEXT_KEY,
     EVALUATOR_CONTEXT_KEY,
     EVALUATOR_METADATA_CONTEXT_KEY,
-    EvaluatorConfig,
+    EvaluationConfig,
     normalize_evaluator_specs,
 )
 from .trace_context import (
@@ -182,7 +182,7 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
         context_config = otel_context.get_value(
             EVALUATOR_CONFIG_CONTEXT_KEY, parent_context
         )
-        if context_config and isinstance(context_config, EvaluatorConfig):
+        if context_config and isinstance(context_config, EvaluationConfig):
             try:
                 import json
 

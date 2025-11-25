@@ -29,14 +29,14 @@ Evaluator slugs are string identifiers that represent specific evaluation types:
 "response-quality"        # General response quality
 ```
 
-### EvaluatorConfig
+### EvaluationConfig
 
 Type-safe configuration applied at the span level:
 
 ```python
-from basalt.observability import EvaluatorConfig
+from basalt.observability import EvaluationConfig
 
-config = EvaluatorConfig(
+config = EvaluationConfig(
     sample_rate=0.5  # Evaluate 50% of calls (0.0 to 1.0)
 )
 ```
@@ -315,10 +315,10 @@ attach_evaluators_to_current_span("hallucination-check", "quality-eval")
 Control what percentage of spans get evaluated:
 
 ```python
-from basalt.observability import trace_span, EvaluatorConfig
+from basalt.observability import trace_span, EvaluationConfig
 
 with trace_span("test.span") as span:
-    config = EvaluatorConfig(sample_rate=0.5)  # 50% sampling
+    config = EvaluationConfig(sample_rate=0.5)  # 50% sampling
     span.set_evaluator_config(config)
     span.add_evaluator("test-eval")
 ```
@@ -420,12 +420,12 @@ For advanced use cases, the `with_evaluators()` context manager provides low-lev
 
 ```python
 from basalt.observability.context_managers import with_evaluators
-from basalt.observability import EvaluatorConfig, trace_span
+from basalt.observability import EvaluationConfig, trace_span
 
 # Explicit propagation using with_evaluators
 with with_evaluators(
     evaluators=["custom-eval"],
-    config=EvaluatorConfig(sample_rate=0.5),
+    config=EvaluationConfig(sample_rate=0.5),
     metadata={"source": "api"}
 ):
     # All spans created here get "custom-eval"
@@ -477,7 +477,7 @@ def child_operation():
 Evaluators are stored on spans using these attributes:
 
 - `basalt.span.evaluators` - Array of evaluator slugs
-- `basalt.span.evaluators.config` - JSON-serialized EvaluatorConfig
+- `basalt.span.evaluators.config` - JSON-serialized EvaluationConfig
 - `basalt.span.evaluator.metadata.*` - Individual metadata key-value pairs
 
 

@@ -42,7 +42,7 @@ class _TraceContextConfig:
     Not exposed publicly.
     """
 
-    experiment: TraceExperiment | Mapping[str, Any] | None = None
+    experiment: TraceExperiment | str | None = None
     observe_metadata: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
@@ -71,21 +71,22 @@ def _coerce_identity(payload: TraceIdentity | Mapping[str, Any] | None) -> Trace
     return TraceIdentity(id=identifier, name=name)
 
 
-def _coerce_experiment(payload: TraceExperiment | Mapping[str, Any] | None) -> TraceExperiment | None:
+def _coerce_experiment(payload: TraceExperiment | str | None) -> TraceExperiment | None:
     if payload is None or isinstance(payload, TraceExperiment):
         return payload
-    if not isinstance(payload, Mapping):
-        raise TypeError("Trace experiment must be a mapping or TraceExperiment.")
-    identifier = payload.get("id")
-    if not isinstance(identifier, str) or not identifier:
-        raise ValueError("Trace experiment mapping requires a non-empty 'id'.")
-    name = payload.get("name")
-    if name is not None and not isinstance(name, str):
-        raise ValueError("Trace experiment 'name' must be a string.")
-    feature_slug = payload.get("feature_slug")
-    if feature_slug is not None and not isinstance(feature_slug, str):
-        raise ValueError("Trace experiment 'feature_slug' must be a string.")
-    return TraceExperiment(id=identifier, name=name, feature_slug=feature_slug)
+    if isinstance(payload, str):
+        if not payload:
+            raise ValueError("Trace experiment ID must be a non-empty string.")
+        return TraceExperiment(id=payload, name=None, feature_slug=None)
+    # Check for Experiment dataclass (avoid isinstance to prevent circular import)
+    if hasattr(payload, "id"):
+        exp_id = payload.id
+        if not isinstance(exp_id, str) or not exp_id:
+            raise ValueError("Experiment ID must be a non-empty string.")
+        exp_name = getattr(payload, "name", None)
+        exp_feature_slug = getattr(payload, "feature_slug", None)
+        return TraceExperiment(id=exp_id, name=exp_name, feature_slug=exp_feature_slug)
+    raise TypeError("Trace experiment must be a string, Experiment object, or TraceExperiment.")
 
 
 _DEFAULT_CONTEXT: _TraceContextConfig = _TraceContextConfig()

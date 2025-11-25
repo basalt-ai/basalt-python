@@ -12,7 +12,7 @@ from basalt.observability.context_managers import (
     EVALUATOR_METADATA_CONTEXT_KEY,
     ROOT_SPAN_CONTEXT_KEY,
     EvaluatorAttachment,
-    EvaluatorConfig,
+    EvaluationConfig,
     SpanHandle,
     _normalize_evaluator_entry,
     get_root_span_handle,

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from .api import ExperimentDict, IdentityDict, Observe, observe, start_observe
+from .api import Identity, Observe, observe, start_observe
 from .config import TelemetryConfig
 from .context_managers import (
-    EvaluatorConfig,
+    EvaluationConfig,
     EventSpanHandle,
     FunctionSpanHandle,
     LLMSpanHandle,
@@ -37,11 +37,10 @@ __all__ = [
     # Config & Types
     "TelemetryConfig",
     "InstrumentationManager",
-    "EvaluatorConfig",
+    "EvaluationConfig",
     "TraceIdentity",
     "TraceExperiment",
-    "IdentityDict",
-    "ExperimentDict",
+    "Identity",
     # Processors
     "BasaltContextProcessor",
     "BasaltCallEvaluatorProcessor",
