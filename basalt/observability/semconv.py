@@ -194,9 +194,9 @@ class GenAI:
     Examples: "get_weather", "calculate"
     """
 
-    TOOL_TYPE: Final[str] = "gen_ai.tool.type"
+    TOOL_KIND: Final[str] = "gen_ai.tool.kind"
     """
-    The type of tool.
+    The kind of tool.
     Type: string
     Required: Recommended
     Examples: "function", "retrieval"
@@ -277,9 +277,9 @@ class HTTP:
 class BasaltSpan:
     """Basalt span metadata attributes."""
 
-    TYPE: Final[str] = "basalt.span.type"
+    KIND: Final[str] = "basalt.span.kind"
     """
-    The type of Basalt span.
+    The kind of Basalt span.
     Type: string
     Examples: "generation", "retrieval", "tool", "event"
     """
