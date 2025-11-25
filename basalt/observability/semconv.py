@@ -330,7 +330,11 @@ class BasaltSpan:
 
     FEATURE_SLUG: Final[str] = "basalt.span.feature_slug"
 
-
+    METADATA: Final[str] = "basalt.metadata"
+    """
+    Metadata dictionary for the span.
+    Type: string (JSON-serialized)
+    """
 
 
 class BasaltAPI:
@@ -568,9 +572,6 @@ Examples: basalt.meta.session_id, basalt.meta.request_id
 # ============================================================================
 # Standard OpenTelemetry Resource Attributes
 # ============================================================================
-
-
-
 
 
 class Deployment:

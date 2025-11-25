@@ -49,6 +49,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 class _IdentityEntity(TypedDict):
     """Identity entity with required id and optional name."""
+
     id: str
     name: NotRequired[str]
 
@@ -63,6 +64,7 @@ class Identity(TypedDict, total=False):
             "user": {"id": "456", "name": "John Doe"}
         }
     """
+
     organization: NotRequired[_IdentityEntity]
     user: NotRequired[_IdentityEntity]
 
@@ -563,29 +565,6 @@ class Observe(ContextDecorator):
             elif isinstance(organization, dict):
                 set_trace_organization(organization_id=organization.get("id", "unknown"), name=organization.get("name"))
 
-    @staticmethod
-    def set_metadata(data: dict[str, Any] | None = None, **kwargs) -> None:
-        """Add or merge metadata into the current span.
-        
-        Metadata is merged - calling this multiple times will update existing keys
-        and add new ones without removing previously set keys.
-        
-        Example:
-            observe.set_metadata({"a": 1, "c": 0})
-            observe.set_metadata({"a": 2, "b": 999})
-            # Result: {"a": 2, "c": 0, "b": 999}
-        """
-        handle = get_current_span_handle()
-        if not handle:
-            return
-
-        payload = {}
-        if data:
-            payload.update(data)
-        payload.update(kwargs)
-
-        for k, v in payload.items():
-            handle.set_attribute(k, v)
 
     @staticmethod
     def root_span() -> SpanHandle | None:
@@ -651,6 +630,96 @@ class Observe(ContextDecorator):
         handle = get_current_span_handle()
         if handle:
             handle.set_experiment(experiment_id=id, feature_slug=variant)
+
+    @staticmethod
+    def set_prompt(prompt: Prompt) -> None:
+        """Set prompt metadata on the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_prompt(prompt)
+
+
+
+    @staticmethod
+    def set_metadata(data: dict[str, Any]) -> None:
+        """Set the basalt.metadata attribute on the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            import json
+
+            from . import semconv
+
+            handle.set_attribute(semconv.BasaltSpan.METADATA, json.dumps(data))
+
+    @staticmethod
+    def set_attributes(attributes: dict[str, Any]) -> None:
+        """Set multiple attributes on the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_attributes(attributes)
+
+    @staticmethod
+    def set_io(
+        *,
+        input_payload: Any | None = None,
+        output_payload: Any | None = None,
+        variables: dict[str, Any] | None = None,
+    ) -> None:
+        """Set input, output, and variables for the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_io(input_payload=input_payload, output_payload=output_payload, variables=variables)
+
+    @staticmethod
+    def set_evaluation_config(config: EvaluationConfig | dict[str, Any]) -> None:
+        """Set evaluation configuration for the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_evaluation_config(config)
+
+    @staticmethod
+    def add_evaluator(slug: str) -> None:
+        """Add an evaluator to the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.add_evaluator(slug)
+
+    @staticmethod
+    def add_evaluators(*slugs: str) -> None:
+        """Add multiple evaluators to the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.add_evaluators(*slugs)
+
+    @staticmethod
+    def set_identity(
+        *,
+        user_id: str | None = None,
+        user_name: str | None = None,
+        organization_id: str | None = None,
+        organization_name: str | None = None,
+    ) -> None:
+        """Set identity on the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_identity(
+                user_id=user_id,
+                user_name=user_name,
+                organization_id=organization_id,
+                organization_name=organization_name,
+            )
+
+    @staticmethod
+    def set_experiment(
+        experiment_id: str,
+        *,
+        name: str | None = None,
+        feature_slug: str | None = None,
+    ) -> None:
+        """Set experiment on the current span."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_experiment(experiment_id=experiment_id, name=name, feature_slug=feature_slug)
 
 
 # Singleton instance

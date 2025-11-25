@@ -387,7 +387,7 @@ def test_io_snapshot(mock_span):
         "output": {"output_key": "output_value"},
         "variables": {"var1": "value1"},
     }
-    snapshot = span_handle.io_snapshot()
+    snapshot = span_handle._io_snapshot()
     assert snapshot == {
         "input": {"input_key": "input_value"},
         "output": {"output_key": "output_value"},

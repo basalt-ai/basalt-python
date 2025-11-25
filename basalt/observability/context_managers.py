@@ -8,7 +8,10 @@ import os
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
+
+if TYPE_CHECKING:
+    from basalt.prompts.models import Prompt
 
 from opentelemetry import context as otel_context
 from opentelemetry import trace
@@ -110,7 +113,6 @@ def normalize_evaluator_specs(evaluators: Sequence[Any] | None) -> list[Evaluato
 @contextmanager
 def with_evaluators(
     evaluators: Sequence[Any],
-
 ) -> Generator[None, None, None]:
     """Propagate evaluator slugs, config, and metadata through the OpenTelemetry context.
 
@@ -121,7 +123,6 @@ def with_evaluators(
 
     attachments = normalize_evaluator_specs(evaluators)
     # Only short-circuit when nothing at all provided. Empty metadata should still attach.
-
 
     # Propagate evaluator slugs
     tokens = []
@@ -240,6 +241,35 @@ class SpanHandle:
         """
         self._span.set_attribute(key, value)
 
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
+        """
+        Set multiple attributes on the current span.
+
+        Args:
+            attributes: Dictionary of attributes to set.
+        """
+        _attach_attributes(self._span, attributes)
+
+    def set_prompt(self, prompt: Prompt) -> None:
+        """
+        Set prompt metadata on the current span.
+
+        Args:
+            prompt: The Prompt object to attach.
+        """
+        # Prepare prompt metadata for span attributes
+        prompt_metadata = {
+            "basalt.prompt.slug": prompt.slug,
+            "basalt.prompt.version": prompt.version,
+            "basalt.prompt.model.provider": prompt.model.provider,
+            "basalt.prompt.model.model": prompt.model.model,
+        }
+
+        # Store prompt.variables separately if available
+        if prompt.variables:
+            prompt_metadata["basalt.prompt.variables"] = json.dumps(prompt.variables)
+
+        self.set_attributes(prompt_metadata)
 
     # ------------------------------------------------------------------
     # IO helpers
@@ -294,6 +324,12 @@ class SpanHandle:
                 if self._parent_span:
                     _set_serialized_attribute(self._parent_span, semconv.BasaltSpan.VARIABLES, variables)
 
+    def _io_snapshot(self) -> dict[str, Any]:
+        """Return a shallow copy of the tracked IO payload."""
+        snapshot = dict(self._io_payload)
+        if snapshot["variables"] is not None:
+            snapshot["variables"] = dict(snapshot["variables"])
+        return snapshot
 
     # ------------------------------------------------------------------
     # Evaluators
@@ -444,16 +480,23 @@ class LLMSpanHandle(SpanHandle):
         """
         self.set_attribute(semconv.GenAI.RESPONSE_MODEL, model)
 
-    def set_prompt(self, prompt: str) -> None:
+    def set_prompt(self, prompt: str | Prompt) -> None:
         """
         Set the prompt/input text.
         Note: This uses gen_ai.input.messages for structured messages.
         For simple string prompts, wraps in a message structure.
         """
-        super().set_input(prompt)
+        if not isinstance(prompt, str):
+            # Assume it's a Prompt object
+            super().set_prompt(prompt)
+            prompt_text = prompt.text
+        else:
+            prompt_text = prompt
+
+        super().set_input(prompt_text)
         if trace_content_enabled():
             # Store as structured message format per OpenTelemetry spec
-            messages = [{"role": "user", "parts": [{"type": "text", "content": prompt}]}]
+            messages = [{"role": "user", "parts": [{"type": "text", "content": prompt_text}]}]
             self.set_attribute(semconv.GenAI.INPUT_MESSAGES, json.dumps(messages))
 
     def set_completion(self, completion: str) -> None:
@@ -685,7 +728,7 @@ def _with_span_handle(
             if output_payload is not None:
                 handle.set_output(output_payload)
             elif ensure_output and trace_content_enabled():
-                io = handle.io_snapshot()
+                io = handle._io_snapshot()
                 if io.get("output") is None:
                     logger.debug("Span '%s' completed without an output payload.", name)
     finally:
