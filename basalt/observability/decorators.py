@@ -16,6 +16,7 @@ from .context_managers import (
 class ObserveKind(str, enum.Enum):
     """Enumeration of span kinds for the observe decorator."""
 
+    ROOT = "basalt_trace"
     SPAN = "span"
     GENERATION = "generation"
     RETRIEVAL = "retrieval"
@@ -53,7 +54,6 @@ def evaluate(
         ...     return call_llm(joke)
     """
 
-
     if isinstance(slugs, str):
         slug_list = [slugs.strip()]
     elif isinstance(slugs, Sequence):
@@ -77,7 +77,6 @@ def evaluate(
             async def async_wrapper(*args, **kwargs):
                 if not _should_attach():
                     return await func(*args, **kwargs)
-
 
                 with with_evaluators(slug_list):
                     return await func(*args, **kwargs)

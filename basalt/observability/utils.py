@@ -7,6 +7,7 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
+from . import semconv
 from .context_managers import (
     LLMSpanHandle,
     trace_content_enabled,
@@ -14,11 +15,64 @@ from .context_managers import (
 from .trace_context import TraceIdentity
 
 
+def apply_span_metadata(span: Any, metadata: Mapping[str, Any] | None) -> None:
+    """Apply metadata to a span using flattened basalt.span.metadata.<key> attributes.
+
+    Behavior:
+    - Shallow merge with any existing flattened metadata attributes.
+    - Each key is stored as ``basalt.span.metadata.<original_key>`` unless already prefixed.
+    - Maintains a backward-compatible aggregated JSON copy at ``semconv.BasaltSpan.METADATA``.
+    - Values that are not primitive are JSON serialized; serialization failures fallback to ``str(value)``.
+    """
+    if not metadata:
+        return
+    prefix = "basalt.span.metadata."
+
+    # Collect existing flattened metadata (unprefixed keys for merge)
+    existing: dict[str, Any] = {}
+    attributes = getattr(span, "attributes", None)
+    if isinstance(attributes, dict):
+        for key, value in attributes.items():
+            if isinstance(key, str) and key.startswith(prefix):
+                raw_key = key[len(prefix):]
+                existing[raw_key] = value
+        # Merge in any previously aggregated JSON metadata if present
+        prior_blob = attributes.get(semconv.BasaltSpan.METADATA)
+        if isinstance(prior_blob, str):
+            try:
+                parsed = json.loads(prior_blob)
+                if isinstance(parsed, dict):
+                    for k, v in parsed.items():
+                        existing.setdefault(k, v)
+            except Exception:
+                pass
+
+    # Perform shallow merge (incoming overrides existing)
+    merged = {**existing, **metadata}
+
+    # Apply flattened attributes for only incoming keys (avoid rewriting all keys)
+    for k, v in metadata.items():
+        full_key = k if k.startswith(prefix) else f"{prefix}{k}"
+        if isinstance(v, (str, bool, int, float)):
+            span.set_attribute(full_key, v)
+        else:
+            try:
+                span.set_attribute(full_key, json.dumps(v))
+            except Exception:
+                span.set_attribute(full_key, str(v))
+
+    # Update aggregated JSON attribute for backward compatibility
+    try:
+        span.set_attribute(semconv.BasaltSpan.METADATA, json.dumps(merged))
+    except Exception:
+        pass
+
+
 def resolve_attributes(
     attributes: Any,
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
-) -> dict[str, Any] | None:
+) -> Callable | None | Any:
     """Resolve attributes into a dictionary."""
     if attributes is None:
         return None

@@ -6,8 +6,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from opentelemetry.trace import StatusCode
-
 from . import semconv
 from .context_managers import SpanHandle
 
@@ -70,8 +68,3 @@ class BasaltRequestSpan:
 
         succeeded = error is None and (status_code is None or status_code < 400)
         span.set_attribute(semconv.BasaltRequest.SUCCESS, succeeded)
-
-        if error:
-            span.record_exception(error)
-
-        span.set_status(StatusCode.OK if succeeded else StatusCode.ERROR)

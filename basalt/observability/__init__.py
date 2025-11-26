@@ -11,6 +11,7 @@ from .context_managers import (
     LLMSpanHandle,
     RetrievalSpanHandle,
     SpanHandle,
+    StartSpanHandle,
     ToolSpanHandle,
     with_evaluators,
 )
@@ -48,6 +49,7 @@ __all__ = [
     "with_evaluators",
     # Span Handles (Advanced usage)
     "SpanHandle",
+    "StartSpanHandle",
     "LLMSpanHandle",
     "RetrievalSpanHandle",
     "ToolSpanHandle",

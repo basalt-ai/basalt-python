@@ -20,13 +20,14 @@ from .context_managers import (
     LLMSpanHandle,
     RetrievalSpanHandle,
     SpanHandle,
+    StartSpanHandle,
     ToolSpanHandle,
+    _set_trace_organization,
+    _set_trace_user,
     _with_span_handle,
     get_current_otel_span,
     get_current_span_handle,
     get_root_span_handle,
-    set_trace_organization,
-    set_trace_user,
 )
 from .decorators import ObserveKind
 from .utils import (
@@ -93,10 +94,10 @@ class StartObserve(ContextDecorator):
         self.evaluators = evaluators
         self.experiment = experiment
         self._metadata = metadata
-        self._span_handle: SpanHandle | None = None
+        self._span_handle: StartSpanHandle | None = None
         self._ctx_manager = None
 
-    def __enter__(self) -> SpanHandle:
+    def __enter__(self) -> StartSpanHandle:
         span_name = self.name or "basalt_trace"
 
         # Resolve identity
@@ -107,7 +108,7 @@ class StartObserve(ContextDecorator):
             name=span_name,
             attributes=self._metadata,
             tracer_name="basalt.observability",
-            handle_cls=SpanHandle,
+            handle_cls=StartSpanHandle,
             span_type="basalt_trace",
             user=user_identity,
             organization=org_identity,
@@ -144,7 +145,7 @@ class StartObserve(ContextDecorator):
                 name=span_name,
                 attributes=self._metadata,
                 tracer_name="basalt.observability",
-                handle_cls=SpanHandle,
+                handle_cls=StartSpanHandle,
                 span_type="basalt_trace",
                 user=user_identity,
                 organization=org_identity,
@@ -174,7 +175,7 @@ class StartObserve(ContextDecorator):
                     name=span_name,
                     attributes=self._metadata,
                     tracer_name="basalt.observability",
-                    handle_cls=SpanHandle,
+                    handle_cls=StartSpanHandle,
                     span_type="basalt_trace",
                     user=user_identity,
                     organization=org_identity,
@@ -196,7 +197,7 @@ class StartObserve(ContextDecorator):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-    def _apply_experiment(self, span: SpanHandle | None) -> None:
+    def _apply_experiment(self, span: StartSpanHandle | None) -> None:
         """Apply experiment metadata to the provided span.
 
         Supports either a string experiment ID or an
@@ -220,7 +221,6 @@ class StartObserve(ContextDecorator):
 
         span.set_experiment(
             experiment=exp_id,
-
         )
 
 
@@ -311,6 +311,13 @@ class Observe(ContextDecorator):
             if kind_str not in valid_kinds:
                 raise ValueError(f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}")
 
+        # Reject ROOT kind
+        if kind_str == ObserveKind.ROOT.value:
+            raise ValueError(
+                f"Cannot use kind='{ObserveKind.ROOT.value}' with Observe. "
+                f"Use StartObserve (start_observe) for root spans."
+            )
+
         handle_cls, tracer_name, _, _ = self._get_config_for_kind(kind_str)
 
         # Process prompt parameter if provided
@@ -372,6 +379,13 @@ class Observe(ContextDecorator):
             kind_str = self.kind.value
         else:
             kind_str = str(self.kind).lower()
+
+        # Reject ROOT kind
+        if kind_str == ObserveKind.ROOT.value:
+            raise ValueError(
+                f"Cannot use kind='{ObserveKind.ROOT.value}' with Observe. "
+                f"Use StartObserve (start_observe) for root spans."
+            )
 
         handle_cls, tracer_name, default_input, default_vars = self._get_config_for_kind(kind_str)
 
@@ -539,23 +553,25 @@ class Observe(ContextDecorator):
         """Set the user and/or organization identity for the current context."""
         if user:
             if isinstance(user, str):
-                set_trace_user(user_id=user)
+                _set_trace_user(user_id=user)
             elif isinstance(user, dict):
-                set_trace_user(user_id=user.get("id", "unknown"), name=user.get("name"))
+                _set_trace_user(user_id=user.get("id", "unknown"), name=user.get("name"))
 
         if organization:
             if isinstance(organization, str):
-                set_trace_organization(organization_id=organization)
+                _set_trace_organization(organization_id=organization)
             elif isinstance(organization, dict):
-                set_trace_organization(organization_id=organization.get("id", "unknown"), name=organization.get("name"))
-
+                _set_trace_organization(organization_id=organization.get("id", "unknown"), name=organization.get("name"))
 
     @staticmethod
-    def _root_span() -> SpanHandle | None:
+    def _root_span() -> StartSpanHandle | None:
         """Get the root span handle of the current trace.
 
         Returns the handle for the root span, enabling late-binding of
         identify() or metadata from deeply nested contexts.
+
+        Returns:
+            StartSpanHandle if a root span exists, None otherwise.
         """
         return get_root_span_handle()
 
@@ -609,31 +625,21 @@ class Observe(ContextDecorator):
             span.set_status(StatusCode.ERROR, str(exception))
 
     @staticmethod
-    def experiment(id: str, variant: str | None = None) -> None:
-        """Attach experiment context."""
-        handle = get_current_span_handle()
-        if handle:
-            handle.set_experiment(experiment=id)
-
-    @staticmethod
     def set_prompt(prompt: Prompt) -> None:
         """Set prompt metadata on the current span."""
         handle = get_current_span_handle()
         if handle:
             handle.set_prompt(prompt)
 
-
-
     @staticmethod
     def set_metadata(data: dict[str, Any]) -> None:
-        """Set the basalt.metadata attribute on the current span."""
+        """Merge metadata into the current span as flattened basalt.span.metadata.* attributes.
+
+        Existing metadata keys are preserved unless overridden by ``data``.
+        """
         handle = get_current_span_handle()
         if handle:
-            import json
-
-            from . import semconv
-
-            handle.set_attribute(semconv.BasaltSpan.METADATA, json.dumps(data))
+            handle.set_metadata(data)
 
     @staticmethod
     def set_attributes(attributes: dict[str, Any]) -> None:
@@ -752,9 +758,22 @@ class Observe(ContextDecorator):
 
     @staticmethod
     def _set_evaluation_config(config: EvaluationConfig | dict[str, Any]) -> None:
-        """Set evaluation configuration for the current span."""
+        """Set evaluation configuration for the root span.
+
+        Note: This can only be called on root spans (StartSpanHandle).
+        Calling from a child span will log a warning and have no effect.
+        """
         handle = get_current_span_handle()
         if handle:
+            if not isinstance(handle, StartSpanHandle):
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    "_set_evaluation_config() can only be called on root spans (StartSpanHandle). "
+                    "This call will be ignored."
+                )
+                return
             handle.set_evaluation_config(config)
 
     @staticmethod

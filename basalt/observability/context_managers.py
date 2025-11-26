@@ -30,6 +30,7 @@ from .trace_context import (
     apply_organization_from_context,
     apply_user_from_context,
 )
+from .utils import apply_span_metadata
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.KIND
 EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
@@ -197,15 +198,18 @@ def get_current_span_handle() -> SpanHandle | None:
     return SpanHandle(span)
 
 
-def get_root_span_handle() -> SpanHandle | None:
+def get_root_span_handle() -> StartSpanHandle | None:
     """Return a handle for the root span of the current trace.
 
     This allows accessing the root span from deeply nested contexts,
     enabling late-binding of identify() or metadata operations.
+
+    Returns:
+        StartSpanHandle if a root span exists, None otherwise.
     """
     root_span = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY)
     if root_span and isinstance(root_span, Span):
-        return SpanHandle(root_span)
+        return StartSpanHandle(root_span)
     return None
 
 
@@ -251,6 +255,19 @@ class SpanHandle:
             attributes: Dictionary of attributes to set.
         """
         _attach_attributes(self._span, attributes)
+
+    def set_metadata(self, metadata: Mapping[str, Any] | None) -> None:
+        """Merge and flatten metadata onto span.
+
+        Each metadata key becomes an attribute ``basalt.span.metadata.<key>``.
+        Existing metadata attributes are preserved unless overridden by the incoming mapping.
+        A backward-compatible aggregated JSON copy is stored at ``semconv.BasaltSpan.METADATA``.
+        """
+        if metadata is None:
+            return
+        if not isinstance(metadata, Mapping):
+            raise TypeError("metadata must be a mapping")
+        apply_span_metadata(self._span, metadata)
 
     def set_prompt(self, prompt: Prompt) -> None:
         """
@@ -333,27 +350,6 @@ class SpanHandle:
             snapshot["variables"] = dict(snapshot["variables"])
         return snapshot
 
-    # ------------------------------------------------------------------
-    # Evaluators
-    # ------------------------------------------------------------------
-    def set_evaluation_config(self, config: EvaluationConfig | Mapping[str, Any]) -> None:
-        """Attach span-scoped evaluator configuration.
-
-        The configuration applies to all evaluators attached to this span.
-        It is stored under the semantic key BasaltSpan.EVALUATORS_CONFIG as JSON.
-
-        Args:
-            config: Either an EvaluationConfig instance or a mapping with config values.
-        """
-        if isinstance(config, EvaluationConfig):
-            self._evaluator_config = config
-            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict())
-        elif isinstance(config, Mapping):
-            config_dict = dict(config)
-            self._evaluator_config = EvaluationConfig(**config_dict)
-            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config_dict)
-        else:
-            raise TypeError("Evaluator config must be an EvaluationConfig or a mapping.")
 
     def add_evaluator(
         self,
@@ -399,31 +395,6 @@ class SpanHandle:
             if organization_name is not None:
                 self._span.set_attribute(semconv.BasaltOrganization.NAME, organization_name)
 
-    def set_experiment(
-        self,
-        experiment: str | Experiment,
-    ) -> None:
-        """
-        Set the experiment identity for the span.
-
-        Experiments can only be attached to root spans (spans without a parent).
-        If called on a child span, a warning is logged and the experiment is not attached.
-        """
-        # Only attach experiments to root spans
-        if isinstance(experiment, Experiment):
-            experiment = experiment.id
-        parent_ctx = getattr(self._span, "parent", None)
-        if parent_ctx is not None and hasattr(parent_ctx, "is_valid") and parent_ctx.is_valid:
-            import logging
-
-            _logger = logging.getLogger(__name__)
-            _logger.warning(
-                "Experiments can only be attached to root spans. Skipping experiment attachment for child span."
-            )
-            return
-
-        self._span.set_attribute(semconv.BasaltExperiment.ID, experiment)
-
     def _append_evaluator(self, attachment: EvaluatorAttachment) -> None:
         """Attach an evaluator to the span, avoiding duplicates.
 
@@ -453,6 +424,48 @@ class SpanHandle:
     @property
     def span(self) -> Span:
         return self._span
+
+
+class StartSpanHandle(SpanHandle):
+    """
+    Span handle for root spans created by StartObserve.
+
+    This handle type supports experiment and evaluation configuration,
+    which are only applicable to root spans in a trace.
+    """
+
+    def set_evaluation_config(self, config: EvaluationConfig | Mapping[str, Any]) -> None:
+        """Attach span-scoped evaluator configuration.
+
+        The configuration applies to all evaluators attached to this span.
+        It is stored under the semantic key BasaltSpan.EVALUATION_CONFIG as JSON.
+
+        Args:
+            config: Either an EvaluationConfig instance or a mapping with config values.
+        """
+        if isinstance(config, EvaluationConfig):
+            self._evaluator_config = config
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict())
+        elif isinstance(config, Mapping):
+            config_dict = dict(config)
+            self._evaluator_config = EvaluationConfig(**config_dict)
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config_dict)
+        else:
+            raise TypeError("Evaluator config must be an EvaluationConfig or a mapping.")
+
+    def set_experiment(
+        self,
+        experiment: str | Experiment,
+    ) -> None:
+        """
+        Set the experiment identity for the root span.
+
+        This method is only available on root spans (StartSpanHandle).
+        """
+        if isinstance(experiment, Experiment):
+            experiment = experiment.id
+
+        self._span.set_attribute(semconv.BasaltExperiment.ID, experiment)
 
 
 class LLMSpanHandle(SpanHandle):
@@ -664,9 +677,7 @@ def _with_span_handle(
     evaluators: Sequence[Any] | None = None,
     user: TraceIdentity | Mapping[str, Any] | None = None,
     organization: TraceIdentity | Mapping[str, Any] | None = None,
-    evaluator_config: EvaluationConfig | None = None,
     feature_slug: str | None = None,
-    ensure_output: bool = True,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
     defaults = _current_trace_defaults()
@@ -700,11 +711,19 @@ def _with_span_handle(
     is_root = parent_span is None
     root_span_token = None
 
+    # Check if we're inside a basalt trace
+    in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
+
     try:
         with tracer.start_as_current_span(name) as span:
             # Store root span in context for retrieval from nested spans
             if is_root:
                 root_span_token = attach(set_value(ROOT_SPAN_CONTEXT_KEY, span))
+                # Set basalt.root attribute
+                span.set_attribute("basalt.root", True)
+            elif in_basalt_trace:
+                # Child span inside a basalt trace
+                span.set_attribute("basalt.trace", True)
 
             _attach_attributes(span, attributes)
             if span_type:
@@ -714,7 +733,12 @@ def _with_span_handle(
             apply_user_from_context(span, user)
             apply_organization_from_context(span, organization)
 
-            handle = handle_cls(span, parent_span, defaults)
+            if is_root and handle_cls == SpanHandle:
+                actual_handle_cls = StartSpanHandle
+            else:
+                actual_handle_cls = handle_cls
+
+            handle = actual_handle_cls(span, parent_span, defaults)
             if input_payload is not None:
                 handle.set_input(input_payload)
             if variables:
@@ -724,10 +748,7 @@ def _with_span_handle(
             yield handle  # type: ignore[misc]
             if output_payload is not None:
                 handle.set_output(output_payload)
-            elif ensure_output and trace_content_enabled():
-                io = handle._io_snapshot()
-                if io.get("output") is None:
-                    logger.debug("Span '%s' completed without an output payload.", name)
+
     finally:
         # Detach root span token if it was set
         if root_span_token is not None:
@@ -738,13 +759,13 @@ def _with_span_handle(
             detach(token)
 
 
-def set_trace_user(user_id: str, name: str | None = None) -> None:
+def _set_trace_user(user_id: str, name: str | None = None) -> None:
     """Set the user identity for the current trace context."""
     identity = TraceIdentity(id=user_id, name=name)
     attach(set_value(USER_CONTEXT_KEY, identity))
 
 
-def set_trace_organization(organization_id: str, name: str | None = None) -> None:
+def _set_trace_organization(organization_id: str, name: str | None = None) -> None:
     """Set the organization identity for the current trace context."""
     identity = TraceIdentity(id=organization_id, name=name)
     attach(set_value(ORGANIZATION_CONTEXT_KEY, identity))

@@ -33,7 +33,6 @@ class DatasetsClient(BaseServiceClient):
 
         Args:
             api_key: The Basalt API key for authentication.
-            logger: Logger instance for logging operations.
             base_url: Optional base URL for the API (defaults to config value).
             log_level: Optional log level for the client logger.
         """

@@ -305,9 +305,14 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
             span.set_attribute(semconv.BasaltSpan.VARIABLES, json.dumps(variables))
 
         # Read and apply metadata
-        metadata = otel_context.get_value(PENDING_INJECT_METADATA_KEY, ctx)
-        if metadata:
-            span.set_attribute(semconv.BasaltSpan.METADATA, json.dumps(metadata))
+            metadata = otel_context.get_value(PENDING_INJECT_METADATA_KEY, ctx)
+            if metadata:
+                from .utils import apply_span_metadata
+                if isinstance(metadata, dict):
+                    apply_span_metadata(span, metadata)
+                else:
+                    # Non-dict metadata: store under a generic key
+                    span.set_attribute("basalt.span.metadata.value", json.dumps(metadata) if not isinstance(metadata, str) else metadata)
 
         # Read and apply prompt metadata
         prompt_data = otel_context.get_value(PENDING_INJECT_PROMPT_KEY, ctx)
