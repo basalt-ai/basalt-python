@@ -18,6 +18,7 @@ from .context_managers import (
     EvaluationConfig,
     normalize_evaluator_specs,
 )
+from .decorators import ObserveKind
 from .trace_context import (
     ORGANIZATION_CONTEXT_KEY,
     USER_CONTEXT_KEY,
@@ -229,6 +230,29 @@ KNOWN_AUTO_INSTRUMENTATION_SCOPES: Final[frozenset[str]] = frozenset({
 })
 
 
+# Mapping of instrumentation scope names to Basalt span kinds
+# This determines which basalt.span.kind attribute is set for auto-instrumented spans
+INSTRUMENTATION_SCOPE_KINDS: Final[dict[str, str]] = {
+    # LLM Providers - all map to ObserveKind.GENERATION
+    "opentelemetry.instrumentation.openai": ObserveKind.GENERATION.value,
+    "opentelemetry.instrumentation.anthropic": ObserveKind.GENERATION.value,
+    "opentelemetry.instrumentation.google_genai": ObserveKind.GENERATION.value,
+    "opentelemetry.instrumentation.google_generativeai": ObserveKind.GENERATION.value,
+    "opentelemetry.instrumentation.bedrock": ObserveKind.GENERATION.value,
+    "opentelemetry.instrumentation.vertexai": ObserveKind.GENERATION.value,
+    "opentelemetry.instrumentation.ollama": ObserveKind.GENERATION.value,
+    "opentelemetry.instrumentation.mistralai": ObserveKind.GENERATION.value,
+    # Vector Databases - all map to ObserveKind.RETRIEVAL
+    "opentelemetry.instrumentation.chromadb": ObserveKind.RETRIEVAL.value,
+    "opentelemetry.instrumentation.pinecone": ObserveKind.RETRIEVAL.value,
+    "opentelemetry.instrumentation.qdrant": ObserveKind.RETRIEVAL.value,
+    # Frameworks - these may create spans of various kinds, so we don't auto-assign
+    # Users can manually set kind via observe decorators if needed
+    # "opentelemetry.instrumentation.langchain": None,
+    # "opentelemetry.instrumentation.llamaindex": None,
+}
+
+
 class BasaltAutoInstrumentationProcessor(SpanProcessor):
     """
     Span processor that injects pending data into auto-instrumented spans.
@@ -244,6 +268,7 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         Called when a span starts.
 
         Detects auto-instrumented spans and applies pending injection data.
+        Also automatically sets basalt.span.kind based on the instrumentation scope.
         """
         # Check if this is a recording span
         if not span.is_recording():
@@ -253,6 +278,11 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         scope = span.instrumentation_scope
         if not scope or scope.name not in KNOWN_AUTO_INSTRUMENTATION_SCOPES:
             return
+
+        # Automatically set span kind based on instrumentation scope
+        span_kind = INSTRUMENTATION_SCOPE_KINDS.get(scope.name)
+        if span_kind:
+            span.set_attribute(semconv.BasaltSpan.KIND, span_kind)
 
         # Get context
         ctx = parent_context or otel_context.get_current()
