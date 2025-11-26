@@ -131,40 +131,10 @@ observe.update_metadata({"request_id": "abc123"})
 Explicitly capture the input arguments and return values of your operations. When using the `@observe` decorator, this is often handled automatically, but you can override or augment it.
 
 ```python
-observe.input({"query": "hello"})
-observe.output("world")
+observe.set_input({"query": "hello"})
+observe.set_output("world")
 ```
 
-#### Status (`observe.status`, `observe.fail`)
-
-Mark spans as successful or failed to track operation outcomes.
-
-**When to use:**
-- **`observe.status("ok")`** - Mark an operation as successful (optional, spans default to OK)
-- **`observe.status("error", "message")`** - Mark an operation as failed with a description
-- **`observe.fail(exception)`** - Record an exception and automatically mark the span as failed
-
-**Business value:** Status tracking helps you identify failure patterns, calculate success rates, and prioritize reliability improvements.
-
-```python
-# Mark success (usually implicit)
-observe.status("ok")
-
-# Mark explicit failure with context
-observe.status("error", "Payment gateway timeout")
-
-# Record exception with full details
-try:
-    process_payment(amount)
-except PaymentError as e:
-    observe.fail(e)  # Captures exception details and sets error status
-    raise
-```
-
-**Best practices:**
-- Let exceptions bubble up naturally - they'll be captured automatically
-- Use `observe.fail()` when you want to record the error but continue execution
-- Add descriptive error messages to help with debugging later
 
 ### Evaluators
 
@@ -208,38 +178,22 @@ Sometimes you need to set metadata or identity on the root span from deeply nest
 ```python
 from basalt.observability import observe, start_observe
 
+
 @start_observe(name="API Handler")
 def handle_request(user_id):
     # Root span starts here with identity tracking
-    observe.input({"user_id": user_id})
+    observe.set_input({"user_id": user_id})
     authenticate(user_id)
     process_data()
+
 
 @observe(name="Authenticate")
 def authenticate(user_id):
     # Verify credentials...
     pass
 
-@observe(name="Process Data")
-def process_data():
-    # Deep in the call stack, we want to tag the root span
-    root = observe.root_span()
-    if root:
-        root.set_attribute("processing_stage", "data_validation")
-
-    # Or use identify() which works on the current context
-    observe.identify(user={"id": "user_123", "name": "Alice"})
 ```
 
-**When to use `root_span()`:**
-- Setting metadata on the top-level operation from nested functions
-- Accessing the parent trace context for late-binding operations
-- Coordinating behavior across the entire trace hierarchy
-
-**When to use `observe.identify()`:**
-- Setting identity dynamically based on runtime data
-- Works from any nested context and propagates to the trace root
-- Simpler API when you don't need direct span handle access
 
 ## Global Configuration
 

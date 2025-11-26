@@ -27,7 +27,11 @@ from basalt.config import config as basalt_sdk_config
 
 from . import semconv
 from .config import TelemetryConfig
-from .processors import BasaltCallEvaluatorProcessor, BasaltContextProcessor
+from .processors import (
+    BasaltAutoInstrumentationProcessor,
+    BasaltCallEvaluatorProcessor,
+    BasaltContextProcessor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -396,6 +400,7 @@ class InstrumentationManager:
         processors: list[OTelSpanProcessor] = [
             BasaltContextProcessor(),
             BasaltCallEvaluatorProcessor(),
+            BasaltAutoInstrumentationProcessor(),
         ]
         for processor in processors:
             provider.add_span_processor(processor)

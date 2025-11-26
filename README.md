@@ -126,6 +126,7 @@ The SDK includes comprehensive OpenTelemetry integration for observability:
 ```python
 from basalt.observability import observe, start_observe
 
+
 # Root span with identity tracking
 @start_observe(
     name="process_workflow",
@@ -137,10 +138,11 @@ from basalt.observability import observe, start_observe
 )
 def process_dataset(slug: str, user_id: str) -> str:
     # Identity automatically propagates to child spans
-    observe.input({"slug": slug})
+    observe.set_input({"slug": slug})
     result = f"processed:{slug}"
-    observe.output({"result": result})
+    observe.set_output({"result": result})
     return result
+
 
 # Nested LLM span
 @observe(kind="generation", name="llm.generate")

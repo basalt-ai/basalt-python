@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import Any, Final
 
 from opentelemetry import context as otel_context
+from opentelemetry.context import attach
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 from . import semconv
@@ -26,6 +28,13 @@ from .trace_context import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Context keys for pending auto-instrumentation injection data
+PENDING_INJECT_INPUT_KEY: Final[str] = "basalt.pending_inject.input"
+PENDING_INJECT_OUTPUT_KEY: Final[str] = "basalt.pending_inject.output"
+PENDING_INJECT_VARIABLES_KEY: Final[str] = "basalt.pending_inject.variables"
+PENDING_INJECT_METADATA_KEY: Final[str] = "basalt.pending_inject.metadata"
+PENDING_INJECT_PROMPT_KEY: Final[str] = "basalt.pending_inject.prompt"
 
 
 def _merge_evaluators(span: Span, slugs: Sequence[str]) -> None:
@@ -191,6 +200,101 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
                 )
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Failed to set evaluator config: %s", exc)
+
+    def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
+        return
+
+    def shutdown(self) -> None:  # type: ignore[override]
+        return
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[override]
+        return True
+
+
+# Known auto-instrumentation scope names
+KNOWN_AUTO_INSTRUMENTATION_SCOPES: Final[frozenset[str]] = frozenset({
+    "opentelemetry.instrumentation.openai",
+    "opentelemetry.instrumentation.anthropic",
+    "opentelemetry.instrumentation.google_genai",
+    "opentelemetry.instrumentation.google_generativeai",
+    "opentelemetry.instrumentation.bedrock",
+    "opentelemetry.instrumentation.vertexai",
+    "opentelemetry.instrumentation.ollama",
+    "opentelemetry.instrumentation.mistralai",
+    "opentelemetry.instrumentation.langchain",
+    "opentelemetry.instrumentation.llamaindex",
+    "opentelemetry.instrumentation.chromadb",
+    "opentelemetry.instrumentation.pinecone",
+    "opentelemetry.instrumentation.qdrant",
+})
+
+
+class BasaltAutoInstrumentationProcessor(SpanProcessor):
+    """
+    Span processor that injects pending data into auto-instrumented spans.
+
+    This processor detects spans created by auto-instrumentation libraries
+    (OpenAI, Anthropic, LangChain, etc.) and applies data that was previously
+    stored via Observe.inject_for_auto_instrumentation(). The data is cleared
+    after being applied to ensure single-use semantics.
+    """
+
+    def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
+        """
+        Called when a span starts.
+
+        Detects auto-instrumented spans and applies pending injection data.
+        """
+        # Check if this is a recording span
+        if not span.is_recording():
+            return
+
+        # Get instrumentation scope
+        scope = span.instrumentation_scope
+        if not scope or scope.name not in KNOWN_AUTO_INSTRUMENTATION_SCOPES:
+            return
+
+        # Get context
+        ctx = parent_context or otel_context.get_current()
+
+        # Read and apply input
+        input_payload = otel_context.get_value(PENDING_INJECT_INPUT_KEY, ctx)
+        if input_payload is not None:
+            serialized = json.dumps(input_payload) if not isinstance(input_payload, str) else input_payload
+            span.set_attribute(semconv.BasaltSpan.INPUT, serialized)
+
+        # Read and apply output
+        output_payload = otel_context.get_value(PENDING_INJECT_OUTPUT_KEY, ctx)
+        if output_payload is not None:
+            serialized = json.dumps(output_payload) if not isinstance(output_payload, str) else output_payload
+            span.set_attribute(semconv.BasaltSpan.OUTPUT, serialized)
+
+        # Read and apply variables
+        variables = otel_context.get_value(PENDING_INJECT_VARIABLES_KEY, ctx)
+        if variables:
+            span.set_attribute(semconv.BasaltSpan.VARIABLES, json.dumps(variables))
+
+        # Read and apply metadata
+        metadata = otel_context.get_value(PENDING_INJECT_METADATA_KEY, ctx)
+        if metadata:
+            span.set_attribute(semconv.BasaltSpan.METADATA, json.dumps(metadata))
+
+        # Read and apply prompt metadata
+        prompt_data = otel_context.get_value(PENDING_INJECT_PROMPT_KEY, ctx)
+        if prompt_data:
+            # Apply prompt attributes (slug, version, provider, model)
+            for key, value in prompt_data.items():
+                span.set_attribute(f"basalt.prompt.{key}", value)
+
+        # Clear all pending injection data (single-use semantics)
+        # We create a new context with all injection keys set to None
+        new_ctx = ctx
+        new_ctx = otel_context.set_value(PENDING_INJECT_INPUT_KEY, None, new_ctx)
+        new_ctx = otel_context.set_value(PENDING_INJECT_OUTPUT_KEY, None, new_ctx)
+        new_ctx = otel_context.set_value(PENDING_INJECT_VARIABLES_KEY, None, new_ctx)
+        new_ctx = otel_context.set_value(PENDING_INJECT_METADATA_KEY, None, new_ctx)
+        new_ctx = otel_context.set_value(PENDING_INJECT_PROMPT_KEY, None, new_ctx)
+        attach(new_ctx)
 
     def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
         return

@@ -33,7 +33,7 @@ async def trace_async_request(
     }
 
     with observe(name=span_data.span_name(), metadata=span_data.start_attributes()) as span:
-        observe.input(input_payload)
+        observe.set_input(input_payload)
         if span_data.variables:
             span.set_io(variables=span_data.variables)
 
@@ -42,7 +42,7 @@ async def trace_async_request(
         except Exception as exc:  # pragma: no cover - passthrough
             # If the exception carries an HTTP status_code (BasaltAPIError), include it
             status_code = getattr(exc, "status_code", None)
-            observe.output({"error": str(exc), "status_code": status_code})
+            observe.set_output({"error": str(exc), "status_code": status_code})
             span_data.finalize(
                 span,
                 duration_s=time.perf_counter() - start,
@@ -52,7 +52,7 @@ async def trace_async_request(
             raise
 
         status_code = getattr(result, "status_code", None)
-        observe.output({"status_code": status_code})
+        observe.set_output({"status_code": status_code})
         span_data.finalize(
             span,
             duration_s=time.perf_counter() - start,
@@ -83,7 +83,7 @@ def trace_sync_request(
     }
 
     with observe(name=span_data.span_name(), metadata=span_data.start_attributes()) as span:
-        observe.input(input_payload)
+        observe.set_input(input_payload)
         if span_data.variables:
             span.set_io(variables=span_data.variables)
 
@@ -92,7 +92,7 @@ def trace_sync_request(
         except Exception as exc:  # pragma: no cover - passthrough
             # If the exception carries an HTTP status_code (BasaltAPIError), include it
             status_code = getattr(exc, "status_code", None)
-            observe.output({"error": str(exc), "status_code": status_code})
+            observe.set_output({"error": str(exc), "status_code": status_code})
             span_data.finalize(
                 span,
                 duration_s=time.perf_counter() - start,
@@ -102,7 +102,7 @@ def trace_sync_request(
             raise
 
         status_code = getattr(result, "status_code", None)
-        observe.output({"status_code": status_code})
+        observe.set_output({"status_code": status_code})
         span_data.finalize(
             span,
             duration_s=time.perf_counter() - start,

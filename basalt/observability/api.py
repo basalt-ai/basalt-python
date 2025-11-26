@@ -158,9 +158,7 @@ class StartObserve(ContextDecorator):
 
                 try:
                     return func(*args, **kwargs)
-                except Exception as exc:
-                    span.record_exception(exc)
-                    span.set_status(StatusCode.ERROR, str(exc))
+                except Exception:
                     raise
 
         if inspect.iscoroutinefunction(func):
@@ -188,9 +186,7 @@ class StartObserve(ContextDecorator):
                         self._apply_experiment(span)
                     try:
                         return await func(*args, **kwargs)
-                    except Exception as exc:
-                        span.record_exception(exc)
-                        span.set_status(StatusCode.ERROR, str(exc))
+                    except Exception:
                         raise
 
             return async_wrapper  # type: ignore
@@ -210,8 +206,6 @@ class StartObserve(ContextDecorator):
             return
 
         exp_id: str | None = None
-        exp_name: str | None = None
-        exp_feature_slug: str | None = None
 
         # Handle string ID case
         if isinstance(self.experiment, str):
@@ -220,17 +214,13 @@ class StartObserve(ContextDecorator):
         # (avoid isinstance to prevent circular import at runtime)
         elif hasattr(self.experiment, "id"):
             exp_id = self.experiment.id  # type: ignore[attr-defined]
-            exp_name = getattr(self.experiment, "name", None)
-            # Dataclass uses `feature_slug`
-            exp_feature_slug = getattr(self.experiment, "feature_slug", None)
 
         if not exp_id:
             return  # Must have an id to attach
 
         span.set_experiment(
-            experiment_id=exp_id,
-            name=exp_name,
-            feature_slug=exp_feature_slug,
+            experiment=exp_id,
+
         )
 
 
@@ -468,12 +458,9 @@ class Observe(ContextDecorator):
                     if apply_post:
                         apply_post(span, result)
 
-                    span.set_status(StatusCode.OK)
                     return result
-                except Exception as exc:
-                    span.record_exception(exc)
-                    span.set_output({"error": str(exc)})
-                    span.set_status(StatusCode.ERROR, str(exc))
+                except Exception:
+                    span.set_output({"error": "Exception occurred"})
                     raise
 
         if inspect.iscoroutinefunction(func):
@@ -536,12 +523,9 @@ class Observe(ContextDecorator):
                         if apply_post:
                             apply_post(span, result)
 
-                        span.set_status(StatusCode.OK)
                         return result
-                    except Exception as exc:
-                        span.record_exception(exc)
-                        span.set_output({"error": str(exc)})
-                        span.set_status(StatusCode.ERROR, str(exc))
+                    except Exception:
+                        span.set_output({"error": "Exception occurred"})
                         raise
 
             return async_wrapper  # type: ignore
@@ -551,7 +535,7 @@ class Observe(ContextDecorator):
     # Static Domain Methods
 
     @staticmethod
-    def identify(user: str | dict[str, Any] | None = None, organization: str | dict[str, Any] | None = None) -> None:
+    def _identify(user: str | dict[str, Any] | None = None, organization: str | dict[str, Any] | None = None) -> None:
         """Set the user and/or organization identity for the current context."""
         if user:
             if isinstance(user, str):
@@ -567,7 +551,7 @@ class Observe(ContextDecorator):
 
 
     @staticmethod
-    def root_span() -> SpanHandle | None:
+    def _root_span() -> SpanHandle | None:
         """Get the root span handle of the current trace.
 
         Returns the handle for the root span, enabling late-binding of
@@ -576,28 +560,28 @@ class Observe(ContextDecorator):
         return get_root_span_handle()
 
     @staticmethod
-    def input(data: Any) -> None:
+    def set_input(data: str | dict[str, Any]) -> None:
         """Set input data for the current span."""
         handle = get_current_span_handle()
         if handle:
             handle.set_input(data)
 
     @staticmethod
-    def output(data: Any) -> None:
+    def set_output(data: str | dict[str, Any]) -> None:
         """Set output data for the current span."""
         handle = get_current_span_handle()
         if handle:
             handle.set_output(data)
 
     @staticmethod
-    def evaluate(evaluator: Any) -> None:
+    def evaluate(evaluator: Sequence[str]) -> None:
         """Attach an evaluator to the current span."""
         handle = get_current_span_handle()
         if handle:
             handle.add_evaluators(evaluator)
 
     @staticmethod
-    def status(status: StatusCode | str, message: str | None = None) -> None:
+    def _status(status: StatusCode | str, message: str | None = None) -> None:
         """Set the status of the current span."""
         span = get_current_otel_span()
         if not span:
@@ -612,7 +596,7 @@ class Observe(ContextDecorator):
         span.set_status(code, description=message)
 
     @staticmethod
-    def fail(exception: BaseException | str) -> None:
+    def _fail(exception: BaseException | str) -> None:
         """Record an error/exception and set status to ERROR."""
         span = get_current_otel_span()
         if not span:
@@ -629,7 +613,7 @@ class Observe(ContextDecorator):
         """Attach experiment context."""
         handle = get_current_span_handle()
         if handle:
-            handle.set_experiment(experiment_id=id, feature_slug=variant)
+            handle.set_experiment(experiment=id)
 
     @staticmethod
     def set_prompt(prompt: Prompt) -> None:
@@ -671,7 +655,103 @@ class Observe(ContextDecorator):
             handle.set_io(input_payload=input_payload, output_payload=output_payload, variables=variables)
 
     @staticmethod
-    def set_evaluation_config(config: EvaluationConfig | dict[str, Any]) -> None:
+    def inject_for_auto_instrumentation(
+        *,
+        input_payload: Any | None = None,
+        output_payload: Any | None = None,
+        prompt: Prompt | None = None,
+        metadata: dict[str, Any] | None = None,
+        variables: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Inject data into the next auto-instrumented span.
+
+        This method stores data in OpenTelemetry context that will be applied
+        to the next span created by auto-instrumentation libraries (OpenAI,
+        Anthropic, LangChain, ChromaDB, etc.). The data is automatically cleared
+        after being applied to ensure single-use semantics.
+
+        Note: This only affects auto-instrumented spans. Manual Observe spans
+        are not affected.
+
+        Args:
+            input_payload: Input data to attach to the span. Will be JSON-serialized
+                if not already a string.
+            output_payload: Output data to attach to the span. Will be JSON-serialized
+                if not already a string.
+            prompt: Prompt object to extract metadata from (slug, version, provider, model).
+                If provided along with variables, prompt variables will be merged with
+                the explicit variables parameter.
+            metadata: Custom metadata dictionary. Will be JSON-serialized and stored
+                as basalt.span.metadata attribute.
+            variables: Variables dictionary. Will be JSON-serialized and stored as
+                basalt.span.variables attribute. If prompt is also provided, variables
+                will be merged (explicit variables override prompt variables).
+
+        Example:
+            ```python
+            # Inject data before an auto-instrumented LLM call
+            Observe.inject_for_auto_instrumentation(
+                input_payload={"query": "What is AI?"},
+                prompt=my_prompt,
+                metadata={"session_id": "abc123"}
+            )
+
+            # Next auto-instrumented call will have this data attached
+            response = client.chat.completions.create(...)
+            ```
+        """
+        from opentelemetry import context as otel_context
+        from opentelemetry.context import attach
+
+        from .processors import (
+            PENDING_INJECT_INPUT_KEY,
+            PENDING_INJECT_METADATA_KEY,
+            PENDING_INJECT_OUTPUT_KEY,
+            PENDING_INJECT_PROMPT_KEY,
+            PENDING_INJECT_VARIABLES_KEY,
+        )
+
+        # Get current context
+        ctx = otel_context.get_current()
+
+        # Set input payload
+        if input_payload is not None:
+            ctx = otel_context.set_value(PENDING_INJECT_INPUT_KEY, input_payload, ctx)
+
+        # Set output payload
+        if output_payload is not None:
+            ctx = otel_context.set_value(PENDING_INJECT_OUTPUT_KEY, output_payload, ctx)
+
+        # Set variables
+        if variables is not None:
+            ctx = otel_context.set_value(PENDING_INJECT_VARIABLES_KEY, variables, ctx)
+
+        # Set metadata
+        if metadata is not None:
+            ctx = otel_context.set_value(PENDING_INJECT_METADATA_KEY, metadata, ctx)
+
+        # Extract and set prompt metadata
+        if prompt is not None:
+            prompt_data = {
+                "slug": prompt.slug,
+                "version": prompt.version,
+                "provider": prompt.model.provider,
+                "model": prompt.model.model,
+            }
+            # Merge prompt variables with explicit variables
+            # Explicit variables take precedence over prompt variables
+            merged_variables = {**(prompt.variables or {}), **(variables or {})}
+            if merged_variables:
+                ctx = otel_context.set_value(PENDING_INJECT_VARIABLES_KEY, merged_variables, ctx)
+
+            ctx = otel_context.set_value(PENDING_INJECT_PROMPT_KEY, prompt_data, ctx)
+
+        # Attach the new context
+        attach(ctx)
+
+    @staticmethod
+    def _set_evaluation_config(config: EvaluationConfig | dict[str, Any]) -> None:
         """Set evaluation configuration for the current span."""
         handle = get_current_span_handle()
         if handle:
@@ -710,7 +790,7 @@ class Observe(ContextDecorator):
             )
 
     @staticmethod
-    def set_experiment(
+    def _set_experiment(
         experiment_id: str,
         *,
         name: str | None = None,
@@ -719,7 +799,7 @@ class Observe(ContextDecorator):
         """Set experiment on the current span."""
         handle = get_current_span_handle()
         if handle:
-            handle.set_experiment(experiment_id=experiment_id, name=name, feature_slug=feature_slug)
+            handle.set_experiment(experiment=experiment_id)
 
 
 # Singleton instance

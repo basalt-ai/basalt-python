@@ -123,7 +123,7 @@ class TraceSyncRequestTests(unittest.TestCase):
         dummy_span = finalize_call["span"]
         self.assertEqual(dummy_span.variables, {"foo": "bar"})
         self.assertTrue(dummy_span.attributes[semconv.BasaltRequest.SUCCESS])
-        self.assertEqual(dummy_span.status, StatusCode.OK)
+        self.assertEqual(dummy_span._status, StatusCode.OK)
 
 
 class TraceAsyncRequestTests(unittest.IsolatedAsyncioTestCase):
@@ -166,4 +166,4 @@ class TraceAsyncRequestTests(unittest.IsolatedAsyncioTestCase):
 
         dummy_span = finalize_call["span"]
         self.assertFalse(dummy_span.attributes[semconv.BasaltRequest.SUCCESS])
-        self.assertEqual(dummy_span.status, StatusCode.ERROR)
+        self.assertEqual(dummy_span._status, StatusCode.ERROR)

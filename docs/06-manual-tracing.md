@@ -57,17 +57,18 @@ def process_data(data):
 ```python
 from basalt.observability import start_observe
 
+
 def process_request():
     with start_observe(
-        name="Request Processing",
-        identity={
-            "organization": {"id": "123", "name": "ACME"},
-            "user": {"id": "456", "name": "John Doe"}
-        }
+            name="Request Processing",
+            identity={
+                "organization": {"id": "123", "name": "ACME"},
+                "user": {"id": "456", "name": "John Doe"}
+            }
     ):
-        observe.input({"data": "..."})
+        observe.set_input({"data": "..."})
         result = do_work()
-        observe.output(result)
+        observe.set_output(result)
         return result
 ```
 
@@ -259,18 +260,6 @@ with observe(name="Database Query") as span:
 
 The `observe` class provides static methods for working with the current span:
 
-### Identity Management
-
-```python
-from basalt.observability import observe
-
-def handle_request(user_id, org_id):
-    # Set user and organization for the current trace
-    observe.identify(
-        user={"id": "456", "name": "John Doe"},
-        organization={"id": "123", "name": "ACME"}
-    )
-```
 
 ### Metadata Management
 
@@ -288,40 +277,7 @@ def process_data():
     observe.update_metadata({"status": "processing"})
 ```
 
-### Status Management
 
-```python
-from basalt.observability import observe
-
-def risky_operation():
-    try:
-        result = do_work()
-        observe.status("ok", "Operation completed successfully")
-        return result
-    except ValueError as e:
-        observe.fail(e)  # Records exception and sets error status
-        raise
-```
-
-### Accessing the Root Span
-
-Sometimes you need to set metadata on the root span from a nested context:
-
-```python
-from basalt.observability import observe
-
-@observe(name="Main Workflow")
-def main_workflow():
-    # This is the root span
-    process_step_1()
-    
-@observe(name="Step 1")
-def process_step_1():
-    # From here, we can access the root span
-    root = observe.root_span()
-    if root:
-        root.set_attribute("workflow_status", "processing")
-```
 
 ## Best Practices
 
@@ -341,20 +297,3 @@ def calculate_discount(user_tier, amount):
         return discount
 ```
 
-### Handle Errors Gracefully
-
-Record exceptions for debugging:
-
-```python
-@observe(name="API Call")
-def call_external_api():
-    with observe(name="External Request") as span:
-        try:
-            response = make_request()
-            span.set_status("ok")
-            return response
-        except Exception as e:
-            span.record_exception(e)
-            span.set_status("error", f"API call failed: {str(e)}")
-            raise
-```

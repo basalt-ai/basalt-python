@@ -52,6 +52,7 @@ Every trace must begin with a **root span** using `start_observe`. This is the e
 ```python
 from basalt.observability import start_observe, observe
 
+
 @start_observe(
     name="my_workflow",
     identity={
@@ -62,15 +63,17 @@ from basalt.observability import start_observe, observe
 )
 def my_workflow(arg):
     # Identity and metadata automatically propagate to child spans
-    observe.input({"arg": arg})
+    observe.set_input({"arg": arg})
     result = process_data(arg)
-    observe.output({"result": result})
+    observe.set_output({"result": result})
     return result
+
 
 @observe(name="process_data")
 def process_data(data):
     # This is a child span - inherits identity from root
     return f"Processed {data}"
+
 
 result = my_workflow("data")
 ```
@@ -82,14 +85,15 @@ For more granular control, use context managers:
 ```python
 from basalt.observability import start_observe, observe
 
+
 def process_request(user_id, data):
     # Create root span with identity
     with start_observe(
-        name="process_request",
-        identity={"user": user_id},
-        metadata={"source": "api"}
+            name="process_request",
+            identity={"user": user_id},
+            metadata={"source": "api"}
     ):
-        observe.input({"data": data})
+        observe.set_input({"data": data})
 
         # Nested span for specific operation
         with observe(name="validate_data", kind="function") as span:
@@ -97,7 +101,7 @@ def process_request(user_id, data):
             span.set_output({"valid": validated})
 
         result = process(validated)
-        observe.output({"result": result})
+        observe.set_output({"result": result})
         return result
 ```
 
@@ -112,6 +116,7 @@ Track users and organizations at the root span level or dynamically:
 ```python
 from basalt.observability import start_observe, observe
 
+
 # Method 1: Set on root span (recommended)
 @start_observe(
     name="chat_handler",
@@ -124,11 +129,12 @@ def handle_chat(message):
     # Identity automatically propagates to all child spans
     pass
 
+
 # Method 2: Set dynamically
 @start_observe(name="api_handler")
 def handle_request(auth_token):
     user_data = verify_token(auth_token)
-    observe.identify(user=user_data["user_id"], organization=user_data["org_id"])
+    observe.set_identity(user=user_data)
     # Identity now set for entire trace
 ```
 
@@ -153,23 +159,8 @@ Explicitly capture input and output data if it's not automatically captured (e.g
 ```python
 with observe(name="calculation"):
     data = get_input()
-    observe.input(data)
-    
+    observe.set_input(data)
+
     result = perform_calc(data)
-    observe.output(result)
-```
-
-### Status & Errors
-
-Record success or failure status:
-
-```python
-try:
-    risky_operation()
-    observe.status("ok")
-except Exception as e:
-    observe.fail(e)
-    # or
-    observe.status("error", message=str(e))
-    raise
+    observe.set_output(result)
 ```

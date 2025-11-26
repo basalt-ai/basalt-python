@@ -10,6 +10,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final
 
+from ..experiments import Experiment
+
 if TYPE_CHECKING:
     from basalt.prompts.models import Prompt
 
@@ -274,7 +276,7 @@ class SpanHandle:
     # ------------------------------------------------------------------
     # IO helpers
     # ------------------------------------------------------------------
-    def set_input(self, payload: str) -> None:
+    def set_input(self, payload: str | dict[str, Any]) -> None:
         """
         Sets the input payload for the current context manager.
         Stores the provided payload in the internal `_io_payload` dictionary under the "input" key.
@@ -288,7 +290,7 @@ class SpanHandle:
         if trace_content_enabled():
             _set_serialized_attribute(self._span, semconv.BasaltSpan.INPUT, payload)
 
-    def set_output(self, payload: Any) -> None:
+    def set_output(self, payload: str | dict[str, Any]) -> None:
         """
         Sets the output payload for the current context manager.
         Stores the provided payload in the internal I/O payload dictionary under the "output" key.
@@ -304,8 +306,8 @@ class SpanHandle:
     def set_io(
         self,
         *,
-        input_payload: Any | None = None,
-        output_payload: Any | None = None,
+        input_payload: str | dict[str, Any] | None = None,
+        output_payload: str | dict[str, Any] | None = None,
         variables: Mapping[str, Any] | None = None,
     ) -> None:
         """
@@ -399,10 +401,7 @@ class SpanHandle:
 
     def set_experiment(
         self,
-        experiment_id: str,
-        *,
-        name: str | None = None,
-        feature_slug: str | None = None,
+        experiment: str | Experiment,
     ) -> None:
         """
         Set the experiment identity for the span.
@@ -411,21 +410,19 @@ class SpanHandle:
         If called on a child span, a warning is logged and the experiment is not attached.
         """
         # Only attach experiments to root spans
+        if isinstance(experiment, Experiment):
+            experiment = experiment.id
         parent_ctx = getattr(self._span, "parent", None)
         if parent_ctx is not None and hasattr(parent_ctx, "is_valid") and parent_ctx.is_valid:
             import logging
 
-            logger = logging.getLogger(__name__)
-            logger.warning(
+            _logger = logging.getLogger(__name__)
+            _logger.warning(
                 "Experiments can only be attached to root spans. Skipping experiment attachment for child span."
             )
             return
 
-        self._span.set_attribute(semconv.BasaltExperiment.ID, experiment_id)
-        if name:
-            self._span.set_attribute(semconv.BasaltExperiment.NAME, name)
-        if feature_slug:
-            self._span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, feature_slug)
+        self._span.set_attribute(semconv.BasaltExperiment.ID, experiment)
 
     def _append_evaluator(self, attachment: EvaluatorAttachment) -> None:
         """Attach an evaluator to the span, avoiding duplicates.

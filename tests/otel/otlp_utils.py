@@ -141,8 +141,8 @@ def spans_to_otel_json(
             "endTimeUnixNano": str(span.end_time),
             "attributes": attributes_list,
             "status": {
-                "code": span.status.status_code.value,
-                "message": span.status.description or None,
+                "code": span._status.status_code.value,
+                "message": span._status.description or None,
             },
             # For simplicity, keeping these empty; extend if needed
             "events": [],

@@ -222,7 +222,7 @@ def test_get_root_span():
     @Observe(name="Root Function")
     def root_function():
         nonlocal root_span
-        root_span = Observe.root_span()
+        root_span = Observe._root_span()
         return True
 
     result = root_function()
