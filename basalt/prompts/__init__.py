@@ -8,8 +8,10 @@ circular imports during initialization.
 from typing import TYPE_CHECKING, Any
 
 from .models import (
+    AsyncPromptContextManager,
     DescribePromptResponse,
     Prompt,
+    PromptContextManager,
     PromptListResponse,
     PromptModel,
     PromptModelParameters,
@@ -24,6 +26,8 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = [
     "PromptsClient",
     "Prompt",
+    "PromptContextManager",
+    "AsyncPromptContextManager",
     "PromptModel",
     "PromptModelParameters",
     "PromptParams",

@@ -172,6 +172,275 @@ class Prompt:
         return self
 
 
+class PromptContextManager:
+    """
+    Context manager wrapper for Prompt that enables observability.
+
+    This class wraps a Prompt dataclass and:
+    1. Always creates a span for prompt fetches (even in imperative usage)
+    2. Optionally extends span lifetime when used as context manager to scope GenAI calls
+    3. Forwards all attribute access to the wrapped Prompt transparently
+
+    Usage:
+        # Imperative (span created and immediately ended):
+        prompt = prompts.get_sync("slug")
+
+        # Context manager (span stays open to scope GenAI calls):
+        with prompts.get_sync("slug") as prompt:
+            response = llm.generate(prompt.text)
+    """
+
+    def __init__(
+        self,
+        prompt: Prompt,
+        slug: str,
+        version: str | None,
+        tag: str | None,
+        variables: dict[str, Any] | None,
+        from_cache: bool = False,
+    ):
+        """
+        Initialize the wrapper and create an immediate span for tracking.
+
+        Args:
+            prompt: The Prompt dataclass to wrap
+            slug: Prompt slug for span naming and attributes
+            version: Prompt version for span attributes
+            tag: Prompt tag for span attributes
+            variables: Variables used in prompt compilation
+            from_cache: Whether the prompt was retrieved from cache
+        """
+        self._prompt = prompt
+        self._slug = slug
+        self._version = version
+        self._tag = tag
+        self._variables = variables
+        self._from_cache = from_cache
+
+        # Context manager state
+        self._span = None
+        self._span_context = None
+        self._tracer = None
+
+        # Create and immediately end a span for imperative usage tracking
+        self._create_immediate_span()
+
+    def _create_immediate_span(self):
+        """Create a span that immediately ends to track prompt fetches."""
+        try:
+            from ..observability.context_managers import get_tracer
+
+            tracer = get_tracer("basalt.prompts")
+
+            # Create span context
+            with tracer.start_as_current_span(f"prompt.{self._slug}") as span:
+                # Set span attributes
+                self._set_span_attributes(span)
+        except Exception:
+            # Silently fail if observability is not available
+            # Prompt functionality should not break due to observability issues
+            pass
+
+    def _set_span_attributes(self, span):
+        """Set all prompt-related attributes on a span."""
+        import json
+
+        span.set_attribute("basalt.span.kind", "function")
+        span.set_attribute("basalt.prompt.slug", self._slug)
+
+        if self._version:
+            span.set_attribute("basalt.prompt.version", self._version)
+
+        if self._tag:
+            span.set_attribute("basalt.prompt.tag", self._tag)
+
+        span.set_attribute("basalt.prompt.model.provider", self._prompt.model.provider)
+        span.set_attribute("basalt.prompt.model.model", self._prompt.model.model)
+
+        if self._variables:
+            span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
+
+        span.set_attribute("basalt.prompt.from_cache", self._from_cache)
+
+    def __getattr__(self, name):
+        """Forward all attribute access to the wrapped Prompt."""
+        return getattr(self._prompt, name)
+
+    def __enter__(self):
+        """
+        Enter context manager mode - create a new span that stays open.
+
+        This allows auto-instrumented GenAI calls to nest under the prompt span.
+        """
+        try:
+            from opentelemetry import trace
+
+            from ..observability.context_managers import get_tracer
+
+            self._tracer = get_tracer("basalt.prompts")
+
+            # Start a new span that will stay open
+            self._span = self._tracer.start_span(f"prompt.{self._slug}")
+            self._set_span_attributes(self._span)
+
+            # Use span context that will auto-end on exit
+            self._span_context = trace.use_span(self._span, end_on_exit=True)
+            self._span_context.__enter__()
+        except Exception:
+            # Silently fail - observability should not break functionality
+            pass
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager mode - end the span."""
+        if self._span_context:
+            try:
+                self._span_context.__exit__(exc_type, exc_val, exc_tb)
+            except Exception:
+                pass
+
+        # Don't suppress exceptions
+        return False
+
+    def __repr__(self):
+        """Return representation forwarded from wrapped Prompt."""
+        return repr(self._prompt)
+
+    def __str__(self):
+        """Return string representation forwarded from wrapped Prompt."""
+        return str(self._prompt)
+
+
+class AsyncPromptContextManager:
+    """
+    Async context manager wrapper for Prompt that enables observability.
+
+    This is the async version of PromptContextManager for use with
+    `async with prompts.get(...) as prompt:` syntax.
+    """
+
+    def __init__(
+        self,
+        prompt: Prompt,
+        slug: str,
+        version: str | None,
+        tag: str | None,
+        variables: dict[str, Any] | None,
+        from_cache: bool = False,
+    ):
+        """
+        Initialize the wrapper and create an immediate span for tracking.
+
+        Args:
+            prompt: The Prompt dataclass to wrap
+            slug: Prompt slug for span naming and attributes
+            version: Prompt version for span attributes
+            tag: Prompt tag for span attributes
+            variables: Variables used in prompt compilation
+            from_cache: Whether the prompt was retrieved from cache
+        """
+        self._prompt = prompt
+        self._slug = slug
+        self._version = version
+        self._tag = tag
+        self._variables = variables
+        self._from_cache = from_cache
+
+        # Context manager state
+        self._span = None
+        self._span_context = None
+        self._tracer = None
+
+        # Create and immediately end a span for imperative usage tracking
+        self._create_immediate_span()
+
+    def _create_immediate_span(self):
+        """Create a span that immediately ends to track prompt fetches."""
+        try:
+            from ..observability.context_managers import get_tracer
+
+            tracer = get_tracer("basalt.prompts")
+
+            # Create span context
+            with tracer.start_as_current_span(f"prompt.{self._slug}") as span:
+                # Set span attributes
+                self._set_span_attributes(span)
+        except Exception:
+            # Silently fail if observability is not available
+            pass
+
+    def _set_span_attributes(self, span):
+        """Set all prompt-related attributes on a span."""
+        import json
+
+        span.set_attribute("basalt.span.kind", "function")
+        span.set_attribute("basalt.prompt.slug", self._slug)
+
+        if self._version:
+            span.set_attribute("basalt.prompt.version", self._version)
+
+        if self._tag:
+            span.set_attribute("basalt.prompt.tag", self._tag)
+
+        span.set_attribute("basalt.prompt.model.provider", self._prompt.model.provider)
+        span.set_attribute("basalt.prompt.model.model", self._prompt.model.model)
+
+        if self._variables:
+            span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
+
+        span.set_attribute("basalt.prompt.from_cache", self._from_cache)
+
+    def __getattr__(self, name):
+        """Forward all attribute access to the wrapped Prompt."""
+        return getattr(self._prompt, name)
+
+    async def __aenter__(self):
+        """
+        Enter async context manager mode - create a new span that stays open.
+
+        This allows auto-instrumented GenAI calls to nest under the prompt span.
+        """
+        try:
+            from opentelemetry import trace
+
+            from ..observability.context_managers import get_tracer
+
+            self._tracer = get_tracer("basalt.prompts")
+
+            # Start a new span that will stay open
+            self._span = self._tracer.start_span(f"prompt.{self._slug}")
+            self._set_span_attributes(self._span)
+
+            # Use span context that will auto-end on exit
+            self._span_context = trace.use_span(self._span, end_on_exit=True)
+            self._span_context.__enter__()
+        except Exception:
+            # Silently fail - observability should not break functionality
+            pass
+
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Exit async context manager mode - end the span."""
+        if self._span_context:
+            try:
+                self._span_context.__exit__(exc_type, exc_val, exc_tb)
+            except Exception:
+                pass
+
+        # Don't suppress exceptions
+        return False
+
+    def __repr__(self):
+        """Return representation forwarded from wrapped Prompt."""
+        return repr(self._prompt)
+
+    def __str__(self):
+        """Return string representation forwarded from wrapped Prompt."""
+        return str(self._prompt)
+
+
 @dataclass(slots=True, frozen=True)
 class PromptResponse:
     """Response from the Get Prompt API endpoint.

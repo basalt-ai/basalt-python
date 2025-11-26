@@ -13,8 +13,10 @@ from ..config import config
 from ..types.cache import CacheProtocol
 from ..types.exceptions import BasaltAPIError
 from .models import (
+    AsyncPromptContextManager,
     DescribePromptResponse,
     Prompt,
+    PromptContextManager,
     PromptListResponse,
     PromptResponse,
     PublishPromptResponse,
@@ -64,7 +66,7 @@ class PromptsClient(BaseServiceClient):
         tag: str | None = None,
         variables: dict[str, str] | None = None,
         cache_enabled: bool = True,
-    ) -> Prompt:
+    ) -> AsyncPromptContextManager:
         """
         Retrieve a prompt by slug, optionally specifying version and tag.
 
@@ -76,7 +78,7 @@ class PromptsClient(BaseServiceClient):
             cache_enabled: Enable or disable cache for this request (default: True).
 
         Returns:
-            A tuple containing the Prompt and Generation object.
+            An AsyncPromptContextManager wrapping the Prompt. Can be used directly or as an async context manager.
 
         Raises:
             BasaltAPIError: If the API request fails and no fallback cache is available.
@@ -90,7 +92,14 @@ class PromptsClient(BaseServiceClient):
             if cached:
                 prompt_response = cast(PromptResponse, cached)
                 prompt = self._create_prompt_instance(prompt_response, variables)
-                return prompt
+                return AsyncPromptContextManager(
+                    prompt=prompt,
+                    slug=slug,
+                    version=version,
+                    tag=tag,
+                    variables=variables,
+                    from_cache=True,
+                )
 
         # Make API request
         try:
@@ -128,7 +137,14 @@ class PromptsClient(BaseServiceClient):
                 self._fallback_cache.put(cache_key, prompt_response, self._cache_duration)
 
             prompt = self._create_prompt_instance(prompt_response, variables)
-            return prompt
+            return AsyncPromptContextManager(
+                prompt=prompt,
+                slug=slug,
+                version=version,
+                tag=tag,
+                variables=variables,
+                from_cache=False,
+            )
 
         except BasaltAPIError:
             # Try fallback cache
@@ -137,7 +153,14 @@ class PromptsClient(BaseServiceClient):
                 if fallback:
                     prompt_response = cast(PromptResponse, fallback)
                     prompt = self._create_prompt_instance(prompt_response, variables)
-                    return prompt
+                    return AsyncPromptContextManager(
+                        prompt=prompt,
+                        slug=slug,
+                        version=version,
+                        tag=tag,
+                        variables=variables,
+                        from_cache=True,
+                    )
             raise  # Re-raise the original API error
 
     def get_sync(
@@ -147,7 +170,7 @@ class PromptsClient(BaseServiceClient):
         tag: str | None = None,
         variables: dict[str, str] | None = None,
         cache_enabled: bool = True,
-    ) -> Prompt:
+    ) -> PromptContextManager:
         """
         Synchronously retrieve a prompt by slug, optionally specifying version and tag.
 
@@ -159,7 +182,7 @@ class PromptsClient(BaseServiceClient):
             cache_enabled: Enable or disable cache for this request (default: True).
 
         Returns:
-            A tuple containing the Prompt and Generation object.
+            A PromptContextManager wrapping the Prompt. Can be used directly or as a context manager.
 
         Raises:
             BasaltAPIError: If the API request fails and no fallback cache is available.
@@ -173,7 +196,14 @@ class PromptsClient(BaseServiceClient):
             if cached:
                 prompt_response = cast(PromptResponse, cached)
                 prompt = self._create_prompt_instance(prompt_response, variables)
-                return prompt
+                return PromptContextManager(
+                    prompt=prompt,
+                    slug=slug,
+                    version=version,
+                    tag=tag,
+                    variables=variables,
+                    from_cache=True,
+                )
 
         # Make API request
         try:
@@ -210,7 +240,14 @@ class PromptsClient(BaseServiceClient):
                 self._fallback_cache.put(cache_key, prompt_response, self._cache_duration)
 
             prompt = self._create_prompt_instance(prompt_response, variables)
-            return prompt
+            return PromptContextManager(
+                prompt=prompt,
+                slug=slug,
+                version=version,
+                tag=tag,
+                variables=variables,
+                from_cache=False,
+            )
 
         except BasaltAPIError:
             # Try fallback cache
@@ -219,7 +256,14 @@ class PromptsClient(BaseServiceClient):
                 if fallback:
                     prompt_response = cast(PromptResponse, fallback)
                     prompt = self._create_prompt_instance(prompt_response, variables)
-                    return prompt
+                    return PromptContextManager(
+                        prompt=prompt,
+                        slug=slug,
+                        version=version,
+                        tag=tag,
+                        variables=variables,
+                        from_cache=True,
+                    )
 
             raise  # Re-raise the original API error
 

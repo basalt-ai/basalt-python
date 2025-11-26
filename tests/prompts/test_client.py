@@ -11,7 +11,6 @@ from basalt._internal.http import HTTPResponse
 from basalt.prompts.client import PromptsClient
 from basalt.prompts.models import (
     DescribePromptResponse,
-    Prompt,
     PromptListResponse,
     PromptModel,
     PromptModelParameters,
@@ -108,8 +107,10 @@ def test_get_sync_success(common_client):
         assert call_kwargs["params"]["version"] == "1.0.0"
         assert call_kwargs["params"]["tag"] == "prod"
 
-        # Verify prompt object
-        assert isinstance(prompt, Prompt)
+        # Verify prompt object (wrapped in PromptContextManager)
+        from basalt.prompts.models import PromptContextManager
+        assert isinstance(prompt, PromptContextManager)
+        # Verify attributes are forwarded correctly
         assert prompt.slug == "test-slug"
         assert prompt.version == "1.0.0"
         assert prompt.tag == "prod"
@@ -392,7 +393,10 @@ async def test_get_async_success(common_client):
         prompt = await client.get("test-slug", version="1.0.0")
 
         mock_fetch.assert_called_once()
-        assert isinstance(prompt, Prompt)
+        # Verify prompt object (wrapped in AsyncPromptContextManager)
+        from basalt.prompts.models import AsyncPromptContextManager
+        assert isinstance(prompt, AsyncPromptContextManager)
+        # Verify attributes are forwarded correctly
         assert prompt.slug == "test-slug"
 
 
