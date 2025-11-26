@@ -227,11 +227,6 @@ class SpanHandle:
         self._evaluator_config: EvaluationConfig | None = None
         self._hydrate_existing_evaluators()
 
-        # Apply config from context if available
-        context_config = otel_context.get_value(EVALUATOR_CONFIG_CONTEXT_KEY)
-        if context_config and isinstance(context_config, EvaluationConfig):
-            self.set_evaluation_config(context_config)
-
     def set_attribute(self, key: str, value: Any) -> None:
         """
         Sets metadata on the current span.

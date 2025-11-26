@@ -198,18 +198,6 @@ class MockSpan(Span):
     def add_event(self, name, attributes=None, timestamp=None):
         return None
 
-    def set_status(self, status, description=None):
-        self.status = status
-        self.status_description = description
-
-    def record_exception(
-        self,
-        exception,
-        attributes=None,
-        timestamp=None,
-        escaped=False,
-    ):
-        return None
 
     def update_name(self, name):
         self.name = name

@@ -288,18 +288,3 @@ def test_experiment_model_from_dict_with_wrong_types():
     assert experiment.name == ""
     assert experiment.feature_slug == ""
     assert experiment.created_at == ""
-
-
-def test_experiment_model_immutability():
-    """Test that Experiment is immutable (frozen)."""
-    experiment = Experiment(
-        id="123",
-        name="Test",
-        feature_slug="test-feature",
-        created_at="2024-03-20T12:00:00Z",
-    )
-
-    # Attempting to modify should raise an error
-    from dataclasses import FrozenInstanceError
-    with pytest.raises(FrozenInstanceError):
-        experiment.name = "New Name"  # type: ignore

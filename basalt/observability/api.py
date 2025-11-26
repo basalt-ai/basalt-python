@@ -828,19 +828,6 @@ class Observe(ContextDecorator):
                 organization_name=organization_name,
             )
 
-    @staticmethod
-    def _set_experiment(
-        experiment_id: str,
-        *,
-        name: str | None = None,
-        feature_slug: str | None = None,
-    ) -> None:
-        """Set experiment on the current span."""
-        handle = get_current_span_handle()
-        if handle:
-            handle.set_experiment(experiment=experiment_id)
-
-
 # Singleton instance
 observe = Observe
 start_observe = StartObserve
