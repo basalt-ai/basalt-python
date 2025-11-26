@@ -113,10 +113,16 @@ class StartObserve(ContextDecorator):
             user=user_identity,
             organization=org_identity,
             evaluators=self.evaluators,
-            evaluator_config=self.evaluate_config,
             feature_slug=self.feature_slug,
         )
-        self._span_handle = self._ctx_manager.__enter__()
+        span = self._ctx_manager.__enter__()
+        # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
+        assert isinstance(span, StartSpanHandle)
+        self._span_handle = span
+
+        # Set evaluation config if provided
+        if self.evaluate_config is not None:
+            self._span_handle.set_evaluation_config(self.evaluate_config)
 
         # Attach experiment if provided (only on root span, which this is)
         if self.experiment:
@@ -150,9 +156,16 @@ class StartObserve(ContextDecorator):
                 user=user_identity,
                 organization=org_identity,
                 evaluators=pre_evaluators,
-                evaluator_config=self.evaluate_config,
                 feature_slug=self.feature_slug,
-            ) as span:
+            ) as handle:
+                # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
+                assert isinstance(handle, StartSpanHandle)
+                span = handle
+
+                # Set evaluation config if provided
+                if self.evaluate_config is not None:
+                    span.set_evaluation_config(self.evaluate_config)
+
                 # Attach experiment if provided
                 if self.experiment:
                     self._apply_experiment(span)
@@ -180,9 +193,16 @@ class StartObserve(ContextDecorator):
                     user=user_identity,
                     organization=org_identity,
                     evaluators=pre_evaluators,
-                    evaluator_config=self.evaluate_config,
                     feature_slug=self.feature_slug,
-                ) as span:
+                ) as handle:
+                    # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
+                    assert isinstance(handle, StartSpanHandle)
+                    span = handle
+
+                    # Set evaluation config if provided
+                    if self.evaluate_config is not None:
+                        span.set_evaluation_config(self.evaluate_config)
+
                     if self.experiment:
                         self._apply_experiment(span)
                     try:

@@ -10,9 +10,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final
 
-from ..experiments import Experiment
-
 if TYPE_CHECKING:
+    from basalt.experiments import Experiment
     from basalt.prompts.models import Prompt
 
 from opentelemetry import context as otel_context
@@ -30,7 +29,6 @@ from .trace_context import (
     apply_organization_from_context,
     apply_user_from_context,
 )
-from .utils import apply_span_metadata
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.KIND
 EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
@@ -267,6 +265,9 @@ class SpanHandle:
             return
         if not isinstance(metadata, Mapping):
             raise TypeError("metadata must be a mapping")
+        # Lazy import to avoid circular dependency
+        from .utils import apply_span_metadata
+
         apply_span_metadata(self._span, metadata)
 
     def set_prompt(self, prompt: Prompt) -> None:
@@ -462,8 +463,9 @@ class StartSpanHandle(SpanHandle):
 
         This method is only available on root spans (StartSpanHandle).
         """
-        if isinstance(experiment, Experiment):
-            experiment = experiment.id
+        # Use duck typing instead of isinstance to avoid circular import
+        if hasattr(experiment, "id"):
+            experiment = experiment.id  # type: ignore[attr-defined]
 
         self._span.set_attribute(semconv.BasaltExperiment.ID, experiment)
 

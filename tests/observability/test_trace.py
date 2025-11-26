@@ -7,7 +7,6 @@ from basalt.observability.trace import trace_api as trace
 
 from .utils import get_exporter
 
-
 # ============================================================================
 # Basic Identity Setting Tests
 # ============================================================================

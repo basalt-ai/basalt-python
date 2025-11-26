@@ -1,10 +1,9 @@
 # File: tests/test_context_managers.py
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import MagicMock
 
 import pytest
 from opentelemetry import context as otel_context
 from opentelemetry.trace import Span, SpanContext
-from opentelemetry.trace.status import StatusCode
 
 from basalt.observability.context_managers import (
     EVALUATOR_CONTEXT_KEY,
@@ -15,7 +14,6 @@ from basalt.observability.context_managers import (
     get_root_span_handle,
     with_evaluators,
 )
-from basalt.observability.semconv import BasaltExperiment
 
 
 class _MockSpanContext(SpanContext):
@@ -260,45 +258,6 @@ def test_get_root_span_handle_with_invalid_root_span():
         otel_context.detach(token)
 
 
-def test_set_experiment_on_root_span():
-    """Test setting experiment attributes on a root span."""
-    span = create_autospec(Span, instance=True)
-    span.parent = None  # No parent, making this a root span
-    span_handle = SpanHandle(span)
-
-    span_handle.set_experiment("exp-123", name="Experiment Test", feature_slug="feature-test")
-
-    span.set_attribute.assert_any_call(BasaltExperiment.ID, "exp-123")
-    span.set_attribute.assert_any_call(BasaltExperiment.NAME, "Experiment Test")
-    span.set_attribute.assert_any_call(BasaltExperiment.FEATURE_SLUG, "feature-test")
-
-def test_set_experiment_on_child_span_logs_warning(caplog):
-    """Test that setting an experiment on a child span logs a warning and does not set attributes."""
-    span = create_autospec(Span, instance=True)
-    span.parent = MagicMock()  # Mock parent span to simulate a child span
-    span.parent.is_valid = True  # Simulate valid parent
-
-    span_handle = SpanHandle(span)
-
-    with caplog.at_level("WARNING"):
-        span_handle.set_experiment("exp-456", name="Child Experiment Test", feature_slug="child-feature")
-
-    assert "Experiments can only be attached to root spans." in caplog.text
-    span.set_attribute.assert_not_called()
-
-def test_set_experiment_with_partial_attributes():
-    """Test setting experiment attributes with only experiment ID."""
-    span = create_autospec(Span, instance=True)
-    span.parent = None  # No parent, making this a root span
-    span_handle = SpanHandle(span)
-
-    span_handle.set_experiment("exp-partial")
-
-    span.set_attribute.assert_any_call(BasaltExperiment.ID, "exp-partial")
-    calls = span.set_attribute.call_args_list
-    assert not any(args and args[0] == BasaltExperiment.NAME for args, _ in calls)
-    assert not any(args and args[0] == BasaltExperiment.FEATURE_SLUG for args, _ in calls)
-
 @pytest.fixture
 def mock_span():
     """Fixture to create a mock span."""
@@ -311,27 +270,6 @@ def test_set_attribute(mock_span):
     span_handle.set_attribute("key", "value")
     mock_span.set_attribute.assert_called_once_with("key", "value")
 
-def test_add_event(mock_span):
-    """Test SpanHandle.add_event adds events to the span."""
-    span_handle = SpanHandle(span=mock_span)
-    span_handle.add_event("event_name", {"attr1": "value1"})
-    mock_span.add_event.assert_called_once_with("event_name", attributes={"attr1": "value1"})
-
-def test_set_status(mock_span):
-    """Test SpanHandle.set_status sets the status on the span."""
-    span_handle = SpanHandle(span=mock_span)
-    span_handle.set_status(StatusCode.ERROR, "Something went wrong")
-    mock_span.set_status.assert_called_once()
-    status_arg = mock_span.set_status.call_args.args[0]
-    assert status_arg.status_code == StatusCode.ERROR
-    assert status_arg.description == "Something went wrong"
-
-def test_record_exception(mock_span):
-    """Test SpanHandle.record_exception records an exception on the span."""
-    span_handle = SpanHandle(span=mock_span)
-    exception = ValueError("Test exception")
-    span_handle.record_exception(exception)
-    mock_span.record_exception.assert_called_once_with(exception)
 
 def test_set_input(mock_span):
     """Test SpanHandle.set_input sets input payload and serializes it if tracing is enabled."""

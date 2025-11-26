@@ -8,12 +8,6 @@ import os
 from collections.abc import Mapping
 from typing import Any
 
-from basalt.observability.request_tracing import (
-    trace_async_request,
-    trace_sync_request,
-)
-from basalt.observability.spans import BasaltRequestSpan
-
 from .http import HTTPClient
 
 
@@ -60,6 +54,10 @@ class BaseServiceClient:
         cache_hit: bool | None = None,
         **request_kwargs: Any,
     ):
+        # Lazy import to avoid circular dependency
+        from basalt.observability.request_tracing import trace_async_request
+        from basalt.observability.spans import BasaltRequestSpan
+
         span = BasaltRequestSpan(
             client=self._client_name,
             operation=operation,
@@ -88,6 +86,10 @@ class BaseServiceClient:
         cache_hit: bool | None = None,
         **request_kwargs: Any,
     ):
+        # Lazy import to avoid circular dependency
+        from basalt.observability.request_tracing import trace_sync_request
+        from basalt.observability.spans import BasaltRequestSpan
+
         span = BasaltRequestSpan(
             client=self._client_name,
             operation=operation,

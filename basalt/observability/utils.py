@@ -5,13 +5,13 @@ from __future__ import annotations
 import inspect
 import json
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .context_managers import LLMSpanHandle
 
 from . import semconv
-from .context_managers import (
-    LLMSpanHandle,
-    trace_content_enabled,
-)
+from .context_managers import trace_content_enabled
 from .trace_context import TraceIdentity
 
 
