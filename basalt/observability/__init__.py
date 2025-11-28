@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from .api import Identity, Observe, observe, start_observe
+from .api import (
+    AsyncObserve,
+    AsyncStartObserve,
+    Identity,
+    Observe,
+    async_observe,
+    async_start_observe,
+    observe,
+    start_observe,
+)
 from .config import TelemetryConfig
 from .context_managers import (
     EvaluationConfig,
@@ -30,6 +39,10 @@ __all__ = [
     "observe",
     "Observe",
     "start_observe",
+    "async_observe",
+    "AsyncObserve",
+    "async_start_observe",
+    "AsyncStartObserve",
     "ObserveKind",
     "evaluate",
     # Low-level API

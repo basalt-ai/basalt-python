@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import os
-from collections.abc import Generator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import AsyncGenerator, Generator, Mapping, Sequence
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final
 
@@ -459,10 +459,13 @@ class StartSpanHandle(SpanHandle):
         This method is only available on root spans (StartSpanHandle).
         """
         # Use duck typing instead of isinstance to avoid circular import
+        experiment_id: str
         if hasattr(experiment, "id"):
-            experiment = experiment.id  # type: ignore[attr-defined]
+            experiment_id = experiment.id  # type: ignore[attr-defined]
+        else:
+            experiment_id = str(experiment)
 
-        self._span.set_attribute(semconv.BasaltExperiment.ID, experiment)
+        self._span.set_attribute(semconv.BasaltExperiment.ID, experiment_id)
 
 
 class LLMSpanHandle(SpanHandle):
@@ -676,6 +679,108 @@ def _with_span_handle(
     organization: TraceIdentity | Mapping[str, Any] | None = None,
     feature_slug: str | None = None,
 ) -> Generator[SpanHandle, None, None]:
+    tracer = get_tracer(tracer_name)
+    defaults = _current_trace_defaults()
+
+    parent_span = trace.get_current_span()
+    if parent_span and (not parent_span.get_span_context().is_valid or not parent_span.is_recording()):
+        parent_span = None
+
+    # Prepare context tokens for user/org propagation
+    tokens = []
+    if user is not None:
+        from .trace_context import _coerce_identity
+
+        user_identity = _coerce_identity(user)
+        if user_identity:
+            tokens.append(attach(set_value(USER_CONTEXT_KEY, user_identity)))
+
+    if organization is not None:
+        from .trace_context import _coerce_identity
+
+        org_identity = _coerce_identity(organization)
+        if org_identity:
+            tokens.append(attach(set_value(ORGANIZATION_CONTEXT_KEY, org_identity)))
+
+    if feature_slug is not None:
+        from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+
+        tokens.append(attach(set_value(FEATURE_SLUG_CONTEXT_KEY, feature_slug)))
+
+    # If this is a root span (no parent), store it in context
+    is_root = parent_span is None
+    root_span_token = None
+
+    # Check if we're inside a basalt trace
+    in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
+
+    try:
+        with tracer.start_as_current_span(name) as span:
+            # Store root span in context for retrieval from nested spans
+            if is_root:
+                root_span_token = attach(set_value(ROOT_SPAN_CONTEXT_KEY, span))
+                # Set basalt.root attribute
+                span.set_attribute("basalt.root", True)
+            elif in_basalt_trace:
+                # Child span inside a basalt trace
+                span.set_attribute("basalt.trace", True)
+
+            _attach_attributes(span, attributes)
+            if span_type:
+                span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
+
+            # Apply user/org from context (either explicit or inherited from parent)
+            apply_user_from_context(span, user)
+            apply_organization_from_context(span, organization)
+
+            if is_root and handle_cls == SpanHandle:
+                actual_handle_cls = StartSpanHandle
+            else:
+                actual_handle_cls = handle_cls
+
+            handle = actual_handle_cls(span, parent_span, defaults)
+            if input_payload is not None:
+                handle.set_input(input_payload)
+            if variables:
+                handle.set_io(variables=variables)
+            if evaluators:
+                handle.add_evaluators(*evaluators)
+            yield handle  # type: ignore[misc]
+            if output_payload is not None:
+                handle.set_output(output_payload)
+
+    finally:
+        # Detach root span token if it was set
+        if root_span_token is not None:
+            detach(root_span_token)
+
+        # Detach context tokens in reverse order
+        for token in reversed(tokens):
+            detach(token)
+
+
+@asynccontextmanager
+async def _async_with_span_handle(
+    name: str,
+    attributes: dict[str, Any] | None,
+    tracer_name: str,
+    handle_cls: type[SpanHandle],
+    span_type: str | None = None,
+    *,
+    input_payload: Any | None = None,
+    output_payload: Any | None = None,
+    variables: Mapping[str, Any] | None = None,
+    evaluators: Sequence[Any] | None = None,
+    user: TraceIdentity | Mapping[str, Any] | None = None,
+    organization: TraceIdentity | Mapping[str, Any] | None = None,
+    feature_slug: str | None = None,
+) -> AsyncGenerator[SpanHandle, None]:
+    """Async version of _with_span_handle.
+
+    Note: OpenTelemetry's tracer.start_as_current_span() is synchronous,
+    so this async context manager still calls sync OTel APIs internally.
+    The async support is primarily for use with async with statements.
+    """
     tracer = get_tracer(tracer_name)
     defaults = _current_trace_defaults()
 

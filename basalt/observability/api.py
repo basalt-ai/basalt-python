@@ -22,6 +22,7 @@ from .context_managers import (
     SpanHandle,
     StartSpanHandle,
     ToolSpanHandle,
+    _async_with_span_handle,
     _set_trace_organization,
     _set_trace_user,
     _with_span_handle,
@@ -828,6 +829,240 @@ class Observe(ContextDecorator):
                 organization_name=organization_name,
             )
 
+
+class AsyncStartObserve:
+    """
+    Async version of StartObserve for use with async with statements.
+    Must be used as the root span of a trace in async contexts.
+    """
+
+    def __init__(
+        self,
+        name: str | None = None,
+        feature_slug: str | None = None,
+        *,
+        identity: Identity | Callable[..., Identity | None] | None = None,
+        evaluate_config: EvaluationConfig | None = None,
+        evaluators: Sequence[Any] | None = None,
+        experiment: str | Experiment | None = None,
+        metadata: dict[str, Any] | None = None,
+    ):
+        self.name = name
+        self.feature_slug = feature_slug
+        self.identity_resolver = identity
+        self.evaluate_config = evaluate_config
+        self.evaluators = evaluators
+        self.experiment = experiment
+        self._metadata = metadata
+        self._span_handle: StartSpanHandle | None = None
+        self._ctx_manager = None
+
+    async def __aenter__(self) -> StartSpanHandle:
+        span_name = self.name or "basalt_trace"
+
+        # Resolve identity
+        user_identity, org_identity = resolve_identity_payload(self.identity_resolver, None)
+
+        # Initialize async context manager
+        self._ctx_manager = _async_with_span_handle(
+            name=span_name,
+            attributes=self._metadata,
+            tracer_name="basalt.observability",
+            handle_cls=StartSpanHandle,
+            span_type="basalt_trace",
+            user=user_identity,
+            organization=org_identity,
+            evaluators=self.evaluators,
+            feature_slug=self.feature_slug,
+        )
+        span = await self._ctx_manager.__aenter__()
+        # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
+        assert isinstance(span, StartSpanHandle)
+        self._span_handle = span
+
+        # Set evaluation config if provided
+        if self.evaluate_config is not None:
+            self._span_handle.set_evaluation_config(self.evaluate_config)
+
+        # Attach experiment if provided (only on root span, which this is)
+        if self.experiment:
+            self._apply_experiment(self._span_handle)
+
+        return self._span_handle
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        if self._ctx_manager:
+            return await self._ctx_manager.__aexit__(exc_type, exc_value, traceback)
+        return None
+
+    def _apply_experiment(self, span: StartSpanHandle | None) -> None:
+        """Apply experiment metadata to the provided span."""
+        if span is None or not self.experiment:
+            return
+
+        exp_id: str | None = None
+
+        # Handle string ID case
+        if isinstance(self.experiment, str):
+            exp_id = self.experiment
+        # Check if it's an Experiment dataclass by looking for the 'id' attribute
+        elif hasattr(self.experiment, "id"):
+            exp_id = self.experiment.id  # type: ignore[attr-defined]
+
+        if not exp_id:
+            return  # Must have an id to attach
+
+        span.set_experiment(
+            experiment=exp_id,
+        )
+
+
+class AsyncObserve:
+    """
+    Async version of Observe for use with async with statements.
+    Acts as an async context manager for creating spans in async code.
+    """
+
+    def __init__(
+        self,
+        name: str | None = None,
+        kind: ObserveKind | str = ObserveKind.SPAN,
+        *,
+        metadata: dict[str, Any] | None = None,
+        evaluators: Sequence[Any] | None = None,
+        input: Any = None,
+        output: Any = None,
+        variables: dict[str, Any] | None = None,
+        prompt: Prompt | None = None,
+    ):
+        self.name = name
+        self.kind = kind
+        self._metadata = metadata
+        self.evaluators = evaluators
+        self.input_resolver = input
+        self.output_resolver = output
+        self.variables_resolver = variables
+        self.prompt = prompt
+        self._span_handle: SpanHandle | None = None
+        self._ctx_manager = None
+
+    @staticmethod
+    def _get_config_for_kind(kind_str: str):
+        """Return handle class, tracer name, and default resolvers for the kind."""
+        if kind_str == "generation":
+            return (
+                LLMSpanHandle,
+                "basalt.observability.generation",
+                default_generation_input,
+                default_generation_variables,
+            )
+        elif kind_str == "retrieval":
+            return (
+                RetrievalSpanHandle,
+                "basalt.observability.retrieval",
+                default_retrieval_input,
+                default_retrieval_variables,
+            )
+        elif kind_str == "tool":
+            return (
+                ToolSpanHandle,
+                "basalt.observability.tool",
+                None,
+                None,
+            )
+        elif kind_str == "function":
+            return (
+                FunctionSpanHandle,
+                "basalt.observability.function",
+                None,
+                None,
+            )
+        elif kind_str == "event":
+            return (
+                EventSpanHandle,
+                "basalt.observability.event",
+                None,
+                None,
+            )
+        else:
+            return (
+                SpanHandle,
+                "basalt.observability",
+                None,
+                None,
+            )
+
+    async def __aenter__(self) -> SpanHandle:
+        span_name = self.name or "unknown_span"
+
+        if isinstance(self.kind, ObserveKind):
+            kind_str = self.kind.value
+        else:
+            kind_str = str(self.kind).lower()
+            # Validate that the string kind is valid
+            valid_kinds = {k.value for k in ObserveKind}
+            if kind_str not in valid_kinds:
+                raise ValueError(f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}")
+
+        # Reject ROOT kind
+        if kind_str == ObserveKind.ROOT.value:
+            raise ValueError(
+                f"Cannot use kind='{ObserveKind.ROOT.value}' with AsyncObserve. "
+                f"Use AsyncStartObserve (async_start_observe) for root spans."
+            )
+
+        handle_cls, tracer_name, _, _ = self._get_config_for_kind(kind_str)
+
+        # Process prompt parameter if provided
+        if self.prompt is not None:
+            # Prepare prompt metadata for span attributes
+            import json
+
+            prompt_metadata = {
+                "basalt.prompt.slug": self.prompt.slug,
+                "basalt.prompt.version": self.prompt.version,
+                "basalt.prompt.model.provider": self.prompt.model.provider,
+                "basalt.prompt.model.model": self.prompt.model.model,
+            }
+
+            # Store prompt.variables separately if available (must serialize to JSON for OpenTelemetry)
+            if self.prompt.variables:
+                prompt_metadata["basalt.prompt.variables"] = json.dumps(self.prompt.variables)
+
+            # Merge with existing metadata
+            if self._metadata is None:
+                self._metadata = prompt_metadata
+            else:
+                self._metadata = {**self._metadata, **prompt_metadata}
+
+        # Check for root span
+        from opentelemetry import context as otel_context
+
+        if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning("AsyncObserve used without a preceding async_start_observe. This may lead to missing trace context.")
+
+        self._ctx_manager = _async_with_span_handle(
+            name=span_name,
+            attributes=self._metadata,
+            tracer_name=tracer_name,
+            handle_cls=handle_cls,
+            span_type=kind_str,
+            evaluators=self.evaluators,
+        )
+        self._span_handle = await self._ctx_manager.__aenter__()
+        return self._span_handle
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        if self._ctx_manager:
+            return await self._ctx_manager.__aexit__(exc_type, exc_value, traceback)
+        return None
+
+
 # Singleton instance
 observe = Observe
 start_observe = StartObserve
+async_observe = AsyncObserve
+async_start_observe = AsyncStartObserve
