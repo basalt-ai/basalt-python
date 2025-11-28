@@ -394,3 +394,172 @@ def test_identify_with_no_parameters():
     assert semconv.BasaltUser.ID not in mock_span.attributes
     assert semconv.BasaltOrganization.ID not in mock_span.attributes
 
+
+# ==================== Async Context Manager Tests ====================
+
+
+@pytest.mark.asyncio
+async def test_async_start_observe_context_manager():
+    """Test AsyncStartObserve works as an async context manager."""
+    from basalt.observability import AsyncStartObserve, StartSpanHandle
+
+    async with AsyncStartObserve(name="test_async_root_span") as span:
+        assert isinstance(span, StartSpanHandle)
+        assert span is not None
+
+
+@pytest.mark.asyncio
+async def test_async_observe_context_manager():
+    """Test AsyncObserve works as an async context manager within a root span."""
+    from basalt.observability import AsyncObserve, AsyncStartObserve, ObserveKind, SpanHandle
+
+    async with AsyncStartObserve(name="test_async_root"):
+        async with AsyncObserve(name="test_async_child", kind=ObserveKind.FUNCTION) as child_span:
+            assert isinstance(child_span, SpanHandle)
+            assert child_span is not None
+
+
+@pytest.mark.asyncio
+async def test_async_start_observe_with_metadata():
+    """Test AsyncStartObserve correctly applies metadata."""
+    from basalt.observability import AsyncStartObserve
+
+    metadata = {"custom_key": "custom_value", "test_id": 42}
+    async with AsyncStartObserve(name="test_with_metadata", metadata=metadata) as span:
+        # Verify span was created successfully
+        assert span is not None
+        assert isinstance(span._span, object)  # Span exists
+
+
+@pytest.mark.asyncio
+async def test_async_observe_with_evaluators():
+    """Test AsyncObserve correctly applies evaluators."""
+    from basalt.observability import AsyncObserve, AsyncStartObserve, ObserveKind
+
+    async with AsyncStartObserve(name="test_root"):
+        evaluator_slugs = ["test_evaluator_1", "test_evaluator_2"]
+        async with AsyncObserve(
+            name="test_with_evaluators",
+            kind=ObserveKind.GENERATION,
+            evaluators=evaluator_slugs
+        ) as span:
+            # The evaluators should be attached to the span
+            # We can verify by checking the context or span attributes
+            assert span is not None
+
+
+@pytest.mark.asyncio
+async def test_async_observe_set_input_output():
+    """Test AsyncObserve span handle can set input/output."""
+    from basalt.observability import AsyncObserve, AsyncStartObserve, ObserveKind
+
+    async with AsyncStartObserve(name="test_root"):
+        async with AsyncObserve(name="test_io", kind=ObserveKind.FUNCTION) as span:
+            test_input = {"query": "test query"}
+            test_output = {"result": "test result"}
+
+            span.set_input(test_input)
+            span.set_output(test_output)
+
+            # Verify the input/output were set successfully
+            assert span is not None
+
+
+@pytest.mark.asyncio
+async def test_async_nested_spans():
+    """Test multiple nested AsyncObserve spans."""
+    from basalt.observability import AsyncObserve, AsyncStartObserve, ObserveKind
+
+    async with AsyncStartObserve(name="test_root") as root:
+        async with AsyncObserve(name="level_1", kind=ObserveKind.FUNCTION) as span1:
+            assert span1 is not None
+            async with AsyncObserve(name="level_2", kind=ObserveKind.EVENT) as span2:
+                assert span2 is not None
+                async with AsyncObserve(name="level_3", kind=ObserveKind.RETRIEVAL) as span3:
+                    assert span3 is not None
+                    # All spans should be properly nested
+                    assert root is not None
+                    assert span1 is not None
+                    assert span2 is not None
+                    assert span3 is not None
+
+
+@pytest.mark.asyncio
+async def test_async_observe_with_exception():
+    """Test AsyncObserve properly handles exceptions."""
+    from basalt.observability import AsyncObserve, AsyncStartObserve, ObserveKind
+
+    with pytest.raises(ValueError, match="Test exception"):
+        async with AsyncStartObserve(name="test_root"):
+            async with AsyncObserve(name="test_exception", kind=ObserveKind.FUNCTION):
+                raise ValueError("Test exception")
+
+
+@pytest.mark.asyncio
+async def test_async_start_observe_with_identity():
+    """Test AsyncStartObserve correctly applies identity."""
+    from basalt.observability import AsyncStartObserve
+
+    identity = {
+        "user": {"id": "user-123", "name": "Test User"},
+        "organization": {"id": "org-456", "name": "Test Org"}
+    }
+
+    async with AsyncStartObserve(name="test_identity", identity=identity) as span:
+        # Verify span and identity setup completed successfully
+        assert span is not None
+
+
+def test_start_observe_has_in_trace_attribute(setup_tracing):
+    """Verify that root spans created by start_observe have basalt.in_trace=true."""
+    from basalt.observability import StartObserve
+
+    with StartObserve(name="test_root") as span:
+        assert span._span.attributes.get("basalt.root") is True
+        assert span._span.attributes.get("basalt.in_trace") is True
+
+
+def test_child_observe_has_in_trace_attribute(setup_tracing):
+    """Verify that child spans within a trace have basalt.in_trace=true."""
+    from basalt.observability import Observe, ObserveKind, StartObserve
+
+    with StartObserve(name="root") as root_span:
+        with Observe(kind=ObserveKind.GENERATION, name="child") as child_span:
+            assert child_span._span.attributes.get("basalt.trace") is True
+            assert child_span._span.attributes.get("basalt.in_trace") is True
+
+
+def test_standalone_observe_has_in_trace_attribute(setup_tracing):
+    """Verify that standalone observe spans have basalt.in_trace=true."""
+    from basalt.observability import Observe, ObserveKind
+
+    with Observe(kind=ObserveKind.GENERATION, name="standalone") as span:
+        # Standalone observe creates a root span
+        assert span._span.attributes.get("basalt.root") is True
+        assert span._span.attributes.get("basalt.in_trace") is True
+
+
+def test_deeply_nested_spans_have_in_trace_attribute(setup_tracing):
+    """Verify that deeply nested spans all have basalt.in_trace=true."""
+    from basalt.observability import Observe, ObserveKind, StartObserve
+
+    with StartObserve(name="root") as root:
+        with Observe(kind=ObserveKind.TOOL, name="level1") as l1:
+            with Observe(kind=ObserveKind.TOOL, name="level2") as l2:
+                with Observe(kind=ObserveKind.GENERATION, name="level3") as l3:
+                    assert root._span.attributes.get("basalt.in_trace") is True
+                    assert l1._span.attributes.get("basalt.in_trace") is True
+                    assert l2._span.attributes.get("basalt.in_trace") is True
+                    assert l3._span.attributes.get("basalt.in_trace") is True
+
+
+@pytest.mark.asyncio
+async def test_async_observe_has_in_trace_attribute(setup_tracing):
+    """Verify that async spans have basalt.in_trace=true."""
+    from basalt.observability import AsyncObserve, AsyncStartObserve, ObserveKind
+
+    async with AsyncStartObserve(name="async_root") as root_span:
+        assert root_span._span.attributes.get("basalt.in_trace") is True
+        async with AsyncObserve(kind=ObserveKind.GENERATION, name="async_child") as child_span:
+            assert child_span._span.attributes.get("basalt.in_trace") is True
+

@@ -284,6 +284,12 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         if span_kind:
             span.set_attribute(semconv.BasaltSpan.KIND, span_kind)
 
+        # Mark auto-instrumented spans within a basalt trace
+        from .context_managers import ROOT_SPAN_CONTEXT_KEY
+
+        if otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None:
+            span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
+
         # Get context
         ctx = parent_context or otel_context.get_current()
 

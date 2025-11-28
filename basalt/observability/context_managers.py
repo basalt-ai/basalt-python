@@ -725,6 +725,9 @@ def _with_span_handle(
                 # Child span inside a basalt trace
                 span.set_attribute("basalt.trace", True)
 
+            # Mark all basalt spans with basalt.in_trace
+            span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
+
             _attach_attributes(span, attributes)
             if span_type:
                 span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
@@ -826,6 +829,9 @@ async def _async_with_span_handle(
             elif in_basalt_trace:
                 # Child span inside a basalt trace
                 span.set_attribute("basalt.trace", True)
+
+            # Mark all basalt spans with basalt.in_trace
+            span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
 
             _attach_attributes(span, attributes)
             if span_type:

@@ -336,6 +336,14 @@ class BasaltSpan:
     Type: string (JSON-serialized)
     """
 
+    IN_TRACE: Final[str] = "basalt.in_trace"
+    """
+    Indicates whether this span is part of a Basalt observability trace.
+    Type: boolean
+    Value: true for all spans created by Basalt (start_observe, observe) or
+           auto-instrumented spans within a Basalt trace.
+    """
+
 
 class BasaltAPI:
     """Basalt API client operation attributes."""
