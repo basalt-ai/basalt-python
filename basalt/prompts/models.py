@@ -245,6 +245,8 @@ class PromptContextManager:
         """Set all prompt-related attributes on a span."""
         import json
 
+        from ..observability import semconv
+
         span.set_attribute("basalt.span.kind", "function")
         span.set_attribute("basalt.prompt.slug", self._slug)
 
@@ -261,6 +263,9 @@ class PromptContextManager:
             span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
 
         span.set_attribute("basalt.prompt.from_cache", self._from_cache)
+
+        # Mark all prompt spans with basalt.in_trace
+        span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
 
     def __getattr__(self, name):
         """Forward all attribute access to the wrapped Prompt."""
@@ -374,6 +379,8 @@ class AsyncPromptContextManager:
         """Set all prompt-related attributes on a span."""
         import json
 
+        from ..observability import semconv
+
         span.set_attribute("basalt.span.kind", "function")
         span.set_attribute("basalt.prompt.slug", self._slug)
 
@@ -390,6 +397,9 @@ class AsyncPromptContextManager:
             span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
 
         span.set_attribute("basalt.prompt.from_cache", self._from_cache)
+
+        # Mark all prompt spans with basalt.in_trace
+        span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
 
     def __getattr__(self, name):
         """Forward all attribute access to the wrapped Prompt."""
