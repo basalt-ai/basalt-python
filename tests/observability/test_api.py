@@ -214,7 +214,7 @@ async def test_observe_decorator_async_function():
 @pytest.mark.asyncio
 async def test_start_observe_decorator_async_function(setup_tracing):
     """Test StartObserve decorator on an async function."""
-    @StartObserve(name="test_async_decorated_root")
+    @StartObserve(name="test_async_decorated_root", feature_slug="test_decorator")
     async def async_root_function(x: int, y: int) -> int:
         """An async function that adds two numbers."""
         return x + y

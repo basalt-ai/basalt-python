@@ -79,8 +79,8 @@ class StartObserve(ContextDecorator):
 
     def __init__(
         self,
+        feature_slug: str,
         name: str | None = None,
-        feature_slug: str | None = None,
         *,
         identity: Identity | Callable[..., Identity | None] | None = None,
         evaluate_config: EvaluationConfig | None = None,
@@ -88,8 +88,15 @@ class StartObserve(ContextDecorator):
         experiment: str | Experiment | None = None,
         metadata: dict[str, Any] | None = None,
     ):
+        # Validate feature_slug is provided and non-empty
+        if not feature_slug or not isinstance(feature_slug, str) or not feature_slug.strip():
+            raise ValueError(
+                "feature_slug is required and must be a non-empty string. "
+                "Please provide a valid feature identifier (e.g., 'user_authentication', 'payment_processing')."
+            )
+
         self.name = name
-        self.feature_slug = feature_slug
+        self.feature_slug = feature_slug.strip()
         self.identity_resolver = identity
         self.evaluate_config = evaluate_config
         self.evaluators = evaluators
@@ -838,8 +845,8 @@ class AsyncStartObserve:
 
     def __init__(
         self,
+        feature_slug: str,
         name: str | None = None,
-        feature_slug: str | None = None,
         *,
         identity: Identity | Callable[..., Identity | None] | None = None,
         evaluate_config: EvaluationConfig | None = None,
@@ -847,8 +854,15 @@ class AsyncStartObserve:
         experiment: str | Experiment | None = None,
         metadata: dict[str, Any] | None = None,
     ):
+        # Validate feature_slug is provided and non-empty
+        if not feature_slug or not isinstance(feature_slug, str) or not feature_slug.strip():
+            raise ValueError(
+                "feature_slug is required and must be a non-empty string. "
+                "Please provide a valid feature identifier (e.g., 'user_authentication', 'payment_processing')."
+            )
+
         self.name = name
-        self.feature_slug = feature_slug
+        self.feature_slug = feature_slug.strip()
         self.identity_resolver = identity
         self.evaluate_config = evaluate_config
         self.evaluators = evaluators

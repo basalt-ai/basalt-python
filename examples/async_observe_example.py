@@ -56,7 +56,7 @@ async def main():
     """Main async workflow demonstrating async_start_observe."""
     logging.basicConfig(level=logging.INFO)
 
-    async with async_start_observe(name="async_workflow_example") as root_span:
+    async with async_start_observe(name="async_workflow_example", feature_slug="async_demo") as root_span:
         logging.info("Starting async workflow...")
 
         # Set some metadata on the root span
