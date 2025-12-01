@@ -274,6 +274,10 @@ class InstrumentationManager:
         if scheme not in {"http", "https"}:
             return False
 
+        # Check if hostname contains 'grpc' - indicates gRPC endpoint
+        if parsed.hostname and 'grpc' in parsed.hostname.lower():
+            return False
+
         if parsed.port == 4317 and parsed.path in {"", "/"}:
             return False
 
