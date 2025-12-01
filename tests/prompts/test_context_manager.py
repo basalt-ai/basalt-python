@@ -212,7 +212,7 @@ def test_prompt_context_manager_sets_in_trace_attribute(mock_prompt):
     is called during wrapper initialization. The method now includes
     span.set_attribute(semconv.BasaltSpan.IN_TRACE, True).
     """
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
 
     # Mock the tracer to capture span attribute calls
     with patch('basalt.observability.context_managers.get_tracer') as mock_get_tracer:
@@ -221,7 +221,7 @@ def test_prompt_context_manager_sets_in_trace_attribute(mock_prompt):
         mock_get_tracer.return_value = mock_tracer
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = mock_span
 
-        wrapper = PromptContextManager(
+        PromptContextManager(
             prompt=mock_prompt,
             slug="test-prompt",
             version="1.0.0",

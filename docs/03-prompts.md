@@ -457,6 +457,74 @@ prompt_text = get_prompt_with_fallback(
 )
 ```
 
+## Observability Integration
+
+Basalt prompts integrate seamlessly with observability through context managers. When you fetch a prompt, you can use it as a context manager to automatically create a span that captures prompt metadata and scopes any nested LLM calls.
+
+### Context Manager Pattern
+
+```python
+from basalt import Basalt
+
+basalt = Basalt(api_key="your-api-key")
+
+# Sync context manager
+with basalt.prompts.get_sync("qa-prompt", variables={"context": "Paris is capital"}) as prompt:
+    # Creates a span that captures prompt metadata
+    # Any auto-instrumented LLM calls here nest under this span
+    response = openai.chat.completions.create(
+        model=prompt.model.model,
+        messages=[{"role": "user", "content": prompt.text}]
+    )
+
+# Async context manager
+async with await basalt.prompts.get("qa-prompt", variables={"context": "Berlin is capital"}) as prompt:
+    # Async LLM calls nest under this span
+    response = await async_llm_client.generate(prompt.text)
+```
+
+### Imperative Pattern
+```python
+# Imperative usage creates an immediate span that ends right away
+prompt = basalt.prompts.get_sync("qa-prompt", variables={"context": "London is capital"})
+
+# LLM calls here create separate spans
+response = openai.chat.completions.create(
+    model=prompt.model.model,
+    messages=[{"role": "user", "content": prompt.text}]
+)
+```
+
+### When to Use Each Pattern
+
+**Use context manager when:**
+- You want to group auto-instrumented LLM calls under a prompt span
+- You're using auto-instrumentation for OpenAI, Anthropic, etc.
+- You want a clear trace hierarchy showing prompt → LLM call
+
+**Use imperative when:**
+- You need the prompt but don't need observability grouping
+- You're manually instrumenting with `@observe` decorators
+
+### Using with Manual Observability
+
+Combine prompt context managers with manual spans:
+
+```python
+from basalt import Basalt
+from basalt.observability import start_observe, observe
+
+@start_observe(name="QA System", identity={"user": {"id": "user_123"}})
+def answer_question(question: str):
+    with basalt.prompts.get_sync("qa-prompt", variables={"question": question}) as prompt:
+        # Prompt span is a child of "QA System"
+        response = openai.chat.completions.create(
+            model=prompt.model.model,
+            messages=[{"role": "user", "content": prompt.text}]
+        )
+        return response.choices[0].message.content
+```
+
 ## Complete Examples
 
 ### Example 1: Dynamic Email Generator

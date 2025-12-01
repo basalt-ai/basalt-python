@@ -2,7 +2,7 @@
 import pytest
 
 from basalt.observability import ObserveKind, SpanHandle
-from basalt.observability.api import Observe
+from basalt.observability.api import Observe, StartObserve
 
 
 def test_get_config_for_kind_generation():
@@ -209,6 +209,22 @@ async def test_observe_decorator_async_function():
 
     result = await test_async_function(5, 7)
     assert result == 35
+
+
+@pytest.mark.asyncio
+async def test_start_observe_decorator_async_function(setup_tracing):
+    """Test StartObserve decorator on an async function."""
+    @StartObserve(name="test_async_decorated_root")
+    async def async_root_function(x: int, y: int) -> int:
+        """An async function that adds two numbers."""
+        return x + y
+
+    # Call the decorated async function
+    result = await async_root_function(3, 4)
+
+    # Verify the function returns correct results
+    assert result == 7
+
 
 def test_get_root_span():
     """Test retrieving the root span using Observe.root_span()."""

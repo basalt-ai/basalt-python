@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from opentelemetry import context as otel_context
-from opentelemetry.trace import Span, SpanContext
+from opentelemetry.trace import Span
 
 from basalt.observability.context_managers import (
     EVALUATOR_CONTEXT_KEY,
@@ -14,31 +14,6 @@ from basalt.observability.context_managers import (
     get_root_span_handle,
     with_evaluators,
 )
-
-
-class _MockSpanContext(SpanContext):
-    """Simple SpanContext stand-in that always reports as valid."""
-
-    def __init__(
-        self,
-        trace_id=0x1234567890ABCDEF1234567890ABCDEF,
-        span_id=0x1234567890ABCDEF,
-        is_remote=False,
-        trace_flags=0,
-        trace_state=None,
-    ):
-        # Provide dummy values for required SpanContext fields
-        super().__init__(
-            trace_id=trace_id,      # trace_id
-            span_id=span_id,        # span_id
-            is_remote=is_remote,    # is_remote
-            trace_flags=trace_flags,  # trace_flags
-            trace_state=trace_state   # trace_state
-        )
-
-    @property
-    def is_valid(self) -> bool:
-        return True
 
 
 def test_normalize_evaluator_entry_with_string():
@@ -179,43 +154,19 @@ def test_set_io_with_no_arguments():
     assert span_handle._io_payload["variables"] is None
 
 
-class MockSpan(Span):
-    """A mock implementation of Span for testing purposes."""
-
+class SimpleSpanMock:
+    """Minimal mock for testing span attribute setting."""
     def __init__(self):
         self.attributes = {}
-        self.name = "mock-span"
-        self.status = None
 
     def set_attribute(self, key, value):
         self.attributes[key] = value
-
-    def set_attributes(self, attributes):
-        if isinstance(attributes, dict):
-            for key, value in attributes.items():
-                self.set_attribute(key, value)
-
-    def add_event(self, name, attributes=None, timestamp=None):
-        return None
-
-
-    def update_name(self, name):
-        self.name = name
-
-    def end(self, end_time=None):
-        return None
-
-    def get_span_context(self):
-        return _MockSpanContext()
-
-    def is_recording(self):
-        return True
 
 
 @pytest.fixture
 def mock_root_span():
     """Fixture to set up a mock root span in the OTEL context."""
-    span = MockSpan()
+    span = MagicMock(spec=Span)
     token = otel_context.attach(otel_context.set_value(ROOT_SPAN_CONTEXT_KEY, span))
     try:
         yield span
@@ -227,7 +178,7 @@ def test_get_root_span_handle_with_valid_root_span(mock_root_span):
     """Test get_root_span_handle when a valid root span exists."""
     span_handle = get_root_span_handle()
     assert span_handle is not None
-    assert isinstance(span_handle.span, MockSpan)
+    assert isinstance(span_handle.span, Span)
 
 
 def test_get_root_span_handle_with_no_root_span():
@@ -328,7 +279,7 @@ def test_identify_with_user_only():
     """Test SpanHandle.identify sets user attributes only."""
     from basalt.observability import semconv
 
-    mock_span = MockSpan()
+    mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
     span_handle.set_identity(user_id="user-123", user_name="John Doe")
 
@@ -341,7 +292,7 @@ def test_identify_with_organization_only():
     """Test SpanHandle.identify sets organization attributes only."""
     from basalt.observability import semconv
 
-    mock_span = MockSpan()
+    mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
     span_handle.set_identity(organization_id="org-456", organization_name="Acme Corp")
 
@@ -354,7 +305,7 @@ def test_identify_with_both_user_and_organization():
     """Test SpanHandle.identify sets both user and organization attributes."""
     from basalt.observability import semconv
 
-    mock_span = MockSpan()
+    mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
     span_handle.set_identity(
         user_id="user-123",
@@ -373,7 +324,7 @@ def test_identify_with_ids_only():
     """Test SpanHandle.identify sets IDs without names."""
     from basalt.observability import semconv
 
-    mock_span = MockSpan()
+    mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
     span_handle.set_identity(user_id="user-789", organization_id="org-101")
 
@@ -387,7 +338,7 @@ def test_identify_with_no_parameters():
     """Test SpanHandle.identify does nothing when no parameters are provided."""
     from basalt.observability import semconv
 
-    mock_span = MockSpan()
+    mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
     span_handle.set_identity()
 
@@ -399,24 +350,64 @@ def test_identify_with_no_parameters():
 
 
 @pytest.mark.asyncio
-async def test_async_start_observe_context_manager():
+async def test_async_start_observe_context_manager(setup_tracing):
     """Test AsyncStartObserve works as an async context manager."""
     from basalt.observability import AsyncStartObserve, StartSpanHandle
 
     async with AsyncStartObserve(name="test_async_root_span") as span:
         assert isinstance(span, StartSpanHandle)
         assert span is not None
+        # Verify root span attributes
+        assert span._span.attributes.get("basalt.root") is True
+        assert span._span.attributes.get("basalt.in_trace") is True
 
 
 @pytest.mark.asyncio
-async def test_async_observe_context_manager():
+async def test_async_observe_context_manager(setup_tracing):
     """Test AsyncObserve works as an async context manager within a root span."""
     from basalt.observability import AsyncObserve, AsyncStartObserve, ObserveKind, SpanHandle
 
-    async with AsyncStartObserve(name="test_async_root"):
+    async with AsyncStartObserve(name="test_async_root") as root_span:
         async with AsyncObserve(name="test_async_child", kind=ObserveKind.FUNCTION) as child_span:
             assert isinstance(child_span, SpanHandle)
             assert child_span is not None
+            # Verify child span attributes
+            assert child_span._span.attributes.get("basalt.trace") is True
+            assert child_span._span.attributes.get("basalt.in_trace") is True
+            # Verify root span attributes
+            assert root_span._span.attributes.get("basalt.root") is True
+            assert root_span._span.attributes.get("basalt.in_trace") is True
+
+
+@pytest.mark.asyncio
+async def test_async_standalone_observe_context_manager(setup_tracing):
+    """Test AsyncObserve works as standalone context manager (creates root span)."""
+    from basalt.observability import AsyncObserve, ObserveKind
+
+    async with AsyncObserve(name="test_async_standalone", kind=ObserveKind.FUNCTION) as span:
+        assert span is not None
+        # Standalone observe creates a root span
+        assert span._span.attributes.get("basalt.root") is True
+        assert span._span.attributes.get("basalt.in_trace") is True
+
+
+@pytest.mark.asyncio
+async def test_async_deeply_nested_context_managers(setup_tracing):
+    """Test deeply nested async context managers all have correct attributes."""
+    from basalt.observability import AsyncObserve, AsyncStartObserve, ObserveKind
+
+    async with AsyncStartObserve(name="async_root") as root:
+        async with AsyncObserve(kind=ObserveKind.TOOL, name="async_level1") as l1:
+            async with AsyncObserve(kind=ObserveKind.TOOL, name="async_level2") as l2:
+                async with AsyncObserve(kind=ObserveKind.GENERATION, name="async_level3") as l3:
+                    assert root._span.attributes.get("basalt.in_trace") is True
+                    assert root._span.attributes.get("basalt.root") is True
+                    assert l1._span.attributes.get("basalt.in_trace") is True
+                    assert l1._span.attributes.get("basalt.trace") is True
+                    assert l2._span.attributes.get("basalt.in_trace") is True
+                    assert l2._span.attributes.get("basalt.trace") is True
+                    assert l3._span.attributes.get("basalt.in_trace") is True
+                    assert l3._span.attributes.get("basalt.trace") is True
 
 
 @pytest.mark.asyncio
@@ -523,7 +514,7 @@ def test_child_observe_has_in_trace_attribute(setup_tracing):
     """Verify that child spans within a trace have basalt.in_trace=true."""
     from basalt.observability import Observe, ObserveKind, StartObserve
 
-    with StartObserve(name="root") as root_span:
+    with StartObserve(name="root"):
         with Observe(kind=ObserveKind.GENERATION, name="child") as child_span:
             assert child_span._span.attributes.get("basalt.trace") is True
             assert child_span._span.attributes.get("basalt.in_trace") is True
