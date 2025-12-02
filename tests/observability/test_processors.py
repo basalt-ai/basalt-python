@@ -76,8 +76,9 @@ def test_openai_v1_scope_has_generation_kind():
 def test_auto_instrumentation_processor_sets_in_trace_for_openai_v1():
     """Test that BasaltAutoInstrumentationProcessor sets in_trace for OpenAI v1 spans."""
     from opentelemetry import context as otel_context
-    from basalt.observability.context_managers import ROOT_SPAN_CONTEXT_KEY
+
     from basalt.observability import semconv
+    from basalt.observability.context_managers import ROOT_SPAN_CONTEXT_KEY
 
     # Create a mock span with OpenAI v1 instrumentation scope
     mock_span = MagicMock()

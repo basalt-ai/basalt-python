@@ -446,3 +446,76 @@ def test_observe_prompt_without_variables():
     assert span.attributes.get("basalt.prompt.slug") == "no-vars-prompt"
     assert span.attributes.get("basalt.prompt.version") == "1.0.0"
     assert "basalt.prompt.variables" not in span.attributes
+
+
+# Validation tests for mandatory name parameter
+def test_observe_name_required():
+    """Test that Observe raises ValueError when name is not provided."""
+    with pytest.raises(TypeError, match="missing 1 required positional argument: 'name'"):
+        Observe(kind=ObserveKind.SPAN)
+
+
+def test_observe_name_empty_string():
+    """Test that Observe raises ValueError when name is an empty string."""
+    with pytest.raises(ValueError, match="name is required and must be a non-empty string"):
+        Observe(name="", kind=ObserveKind.SPAN)
+
+
+def test_observe_name_whitespace_only():
+    """Test that Observe raises ValueError when name contains only whitespace."""
+    with pytest.raises(ValueError, match="name is required and must be a non-empty string"):
+        Observe(name="   ", kind=ObserveKind.SPAN)
+
+
+def test_observe_name_none():
+    """Test that Observe raises ValueError when name is None."""
+    with pytest.raises(ValueError, match="name is required and must be a non-empty string"):
+        Observe(name=None, kind=ObserveKind.SPAN)
+
+
+def test_observe_name_not_string():
+    """Test that Observe raises ValueError when name is not a string."""
+    with pytest.raises(ValueError, match="name is required and must be a non-empty string"):
+        Observe(name=123, kind=ObserveKind.SPAN)
+
+
+def test_observe_name_strips_whitespace():
+    """Test that Observe strips leading/trailing whitespace from name."""
+    obs = Observe(name="  test_name  ", kind=ObserveKind.SPAN)
+    assert obs.name == "test_name"
+
+
+def test_start_observe_name_required():
+    """Test that StartObserve raises TypeError when name is not provided."""
+    with pytest.raises(TypeError, match="missing 1 required positional argument: 'name'"):
+        StartObserve(feature_slug="test_feature")
+
+
+def test_start_observe_name_empty_string():
+    """Test that StartObserve raises ValueError when name is an empty string."""
+    with pytest.raises(ValueError, match="name is required and must be a non-empty string"):
+        StartObserve(feature_slug="test_feature", name="")
+
+
+def test_start_observe_name_whitespace_only():
+    """Test that StartObserve raises ValueError when name contains only whitespace."""
+    with pytest.raises(ValueError, match="name is required and must be a non-empty string"):
+        StartObserve(feature_slug="test_feature", name="   ")
+
+
+def test_start_observe_name_none():
+    """Test that StartObserve raises ValueError when name is None."""
+    with pytest.raises(ValueError, match="name is required and must be a non-empty string"):
+        StartObserve(feature_slug="test_feature", name=None)
+
+
+def test_start_observe_name_not_string():
+    """Test that StartObserve raises ValueError when name is not a string."""
+    with pytest.raises(ValueError, match="name is required and must be a non-empty string"):
+        StartObserve(feature_slug="test_feature", name=123)
+
+
+def test_start_observe_name_strips_whitespace():
+    """Test that StartObserve strips leading/trailing whitespace from name."""
+    obs = StartObserve(feature_slug="test_feature", name="  test_name  ")
+    assert obs.name == "test_name"

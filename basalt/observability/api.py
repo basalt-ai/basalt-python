@@ -80,7 +80,7 @@ class StartObserve(ContextDecorator):
     def __init__(
         self,
         feature_slug: str,
-        name: str | None = None,
+        name: str,
         *,
         identity: Identity | Callable[..., Identity | None] | None = None,
         evaluate_config: EvaluationConfig | None = None,
@@ -95,7 +95,14 @@ class StartObserve(ContextDecorator):
                 "Please provide a valid feature identifier (e.g., 'user_authentication', 'payment_processing')."
             )
 
-        self.name = name
+        # Validate name is provided and non-empty
+        if not name or not isinstance(name, str) or not name.strip():
+            raise ValueError(
+                "name is required and must be a non-empty string. "
+                "Please provide a descriptive name for this span (e.g., 'user_authentication_flow', 'process_payment')."
+            )
+
+        self.name = name.strip()
         self.feature_slug = feature_slug.strip()
         self.identity_resolver = identity
         self.evaluate_config = evaluate_config
@@ -106,7 +113,7 @@ class StartObserve(ContextDecorator):
         self._ctx_manager = None
 
     def __enter__(self) -> StartSpanHandle:
-        span_name = self.name or "basalt_trace"
+        span_name = self.name
 
         # Resolve identity
         user_identity, org_identity = resolve_identity_payload(self.identity_resolver, None)
@@ -144,9 +151,6 @@ class StartObserve(ContextDecorator):
         return None
 
     def __call__(self, func: F) -> F:
-        if self.name is None:
-            self.name = f"{func.__module__}.{func.__qualname__}"
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Resolve identity from args/kwargs if needed
@@ -154,7 +158,7 @@ class StartObserve(ContextDecorator):
             user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
             pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
 
-            span_name = self.name or "basalt_trace"
+            span_name = self.name
             with _with_span_handle(
                 name=span_name,
                 attributes=self._metadata,
@@ -191,7 +195,7 @@ class StartObserve(ContextDecorator):
                 user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
                 pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
 
-                span_name = self.name or "basalt_trace"
+                span_name = self.name
                 with _with_span_handle(
                     name=span_name,
                     attributes=self._metadata,
@@ -260,7 +264,7 @@ class Observe(ContextDecorator):
 
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         kind: ObserveKind | str = ObserveKind.SPAN,
         *,
         metadata: dict[str, Any] | None = None,
@@ -270,7 +274,14 @@ class Observe(ContextDecorator):
         variables: dict[str, Any] | None = None,
         prompt: Prompt | None = None,
     ):
-        self.name = name
+        # Validate name is provided and non-empty
+        if not name or not isinstance(name, str) or not name.strip():
+            raise ValueError(
+                "name is required and must be a non-empty string. "
+                "Please provide a descriptive name for this span (e.g., 'llm_generation', 'vector_search')."
+            )
+
+        self.name = name.strip()
         self.kind = kind
         self._metadata = metadata
         self.evaluators = evaluators
@@ -328,7 +339,7 @@ class Observe(ContextDecorator):
             )
 
     def __enter__(self) -> SpanHandle:
-        span_name = self.name or "unknown_span"
+        span_name = self.name
 
         if isinstance(self.kind, ObserveKind):
             kind_str = self.kind.value
@@ -400,9 +411,6 @@ class Observe(ContextDecorator):
         return None
 
     def __call__(self, func: F) -> F:
-        if self.name is None:
-            self.name = f"{func.__module__}.{func.__qualname__}"
-
         if isinstance(self.kind, ObserveKind):
             kind_str = self.kind.value
         else:
@@ -479,7 +487,7 @@ class Observe(ContextDecorator):
                     apply_llm_response_metadata(span, result)
 
             with _with_span_handle(
-                name=self.name or "unknown_span",
+                name=self.name,
                 attributes=computed_attrs,
                 tracer_name=tracer_name,
                 handle_cls=handle_cls,
@@ -544,7 +552,7 @@ class Observe(ContextDecorator):
                         apply_llm_response_metadata(span, result)
 
                 with _with_span_handle(
-                    name=self.name or "unknown_span",
+                    name=self.name,
                     attributes=computed_attrs,
                     tracer_name=tracer_name,
                     handle_cls=handle_cls,
@@ -846,7 +854,7 @@ class AsyncStartObserve:
     def __init__(
         self,
         feature_slug: str,
-        name: str | None = None,
+        name: str,
         *,
         identity: Identity | Callable[..., Identity | None] | None = None,
         evaluate_config: EvaluationConfig | None = None,
@@ -861,7 +869,14 @@ class AsyncStartObserve:
                 "Please provide a valid feature identifier (e.g., 'user_authentication', 'payment_processing')."
             )
 
-        self.name = name
+        # Validate name is provided and non-empty
+        if not name or not isinstance(name, str) or not name.strip():
+            raise ValueError(
+                "name is required and must be a non-empty string. "
+                "Please provide a descriptive name for this span (e.g., 'async_workflow', 'async_operation')."
+            )
+
+        self.name = name.strip()
         self.feature_slug = feature_slug.strip()
         self.identity_resolver = identity
         self.evaluate_config = evaluate_config
@@ -872,7 +887,7 @@ class AsyncStartObserve:
         self._ctx_manager = None
 
     async def __aenter__(self) -> StartSpanHandle:
-        span_name = self.name or "basalt_trace"
+        span_name = self.name
 
         # Resolve identity
         user_identity, org_identity = resolve_identity_payload(self.identity_resolver, None)
@@ -939,7 +954,7 @@ class AsyncObserve:
 
     def __init__(
         self,
-        name: str | None = None,
+        name: str,
         kind: ObserveKind | str = ObserveKind.SPAN,
         *,
         metadata: dict[str, Any] | None = None,
@@ -949,7 +964,14 @@ class AsyncObserve:
         variables: dict[str, Any] | None = None,
         prompt: Prompt | None = None,
     ):
-        self.name = name
+        # Validate name is provided and non-empty
+        if not name or not isinstance(name, str) or not name.strip():
+            raise ValueError(
+                "name is required and must be a non-empty string. "
+                "Please provide a descriptive name for this span (e.g., 'async_operation', 'async_fetch')."
+            )
+
+        self.name = name.strip()
         self.kind = kind
         self._metadata = metadata
         self.evaluators = evaluators
@@ -1007,7 +1029,7 @@ class AsyncObserve:
             )
 
     async def __aenter__(self) -> SpanHandle:
-        span_name = self.name or "unknown_span"
+        span_name = self.name
 
         if isinstance(self.kind, ObserveKind):
             kind_str = self.kind.value
