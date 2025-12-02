@@ -215,6 +215,7 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
 # Known auto-instrumentation scope names
 KNOWN_AUTO_INSTRUMENTATION_SCOPES: Final[frozenset[str]] = frozenset({
     "opentelemetry.instrumentation.openai",
+    "opentelemetry.instrumentation.openai.v1",  # OpenAI SDK v1+
     "opentelemetry.instrumentation.anthropic",
     "opentelemetry.instrumentation.google_genai",
     "opentelemetry.instrumentation.google_generativeai",
@@ -235,6 +236,7 @@ KNOWN_AUTO_INSTRUMENTATION_SCOPES: Final[frozenset[str]] = frozenset({
 INSTRUMENTATION_SCOPE_KINDS: Final[dict[str, str]] = {
     # LLM Providers - all map to ObserveKind.GENERATION
     "opentelemetry.instrumentation.openai": ObserveKind.GENERATION.value,
+    "opentelemetry.instrumentation.openai.v1": ObserveKind.GENERATION.value,  # OpenAI SDK v1+
     "opentelemetry.instrumentation.anthropic": ObserveKind.GENERATION.value,
     "opentelemetry.instrumentation.google_genai": ObserveKind.GENERATION.value,
     "opentelemetry.instrumentation.google_generativeai": ObserveKind.GENERATION.value,

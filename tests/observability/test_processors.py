@@ -1,5 +1,5 @@
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -60,3 +60,45 @@ def test_merge_with_non_dict_attributes(mock_semconv):
     span.attributes = None  # attributes is not a dict
     processors._merge_evaluators(cast(processors.Span, span), ["foo"])
     assert span.set_attributes[key] == ["foo"]
+
+
+def test_openai_v1_scope_recognized():
+    """Test that opentelemetry.instrumentation.openai.v1 is recognized as an auto-instrumentation scope."""
+    assert "opentelemetry.instrumentation.openai.v1" in processors.KNOWN_AUTO_INSTRUMENTATION_SCOPES
+
+
+def test_openai_v1_scope_has_generation_kind():
+    """Test that opentelemetry.instrumentation.openai.v1 is mapped to GENERATION kind."""
+    assert "opentelemetry.instrumentation.openai.v1" in processors.INSTRUMENTATION_SCOPE_KINDS
+    assert processors.INSTRUMENTATION_SCOPE_KINDS["opentelemetry.instrumentation.openai.v1"] == "generation"
+
+
+def test_auto_instrumentation_processor_sets_in_trace_for_openai_v1():
+    """Test that BasaltAutoInstrumentationProcessor sets in_trace for OpenAI v1 spans."""
+    from opentelemetry import context as otel_context
+    from basalt.observability.context_managers import ROOT_SPAN_CONTEXT_KEY
+    from basalt.observability import semconv
+
+    # Create a mock span with OpenAI v1 instrumentation scope
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+    mock_scope = MagicMock()
+    mock_scope.name = "opentelemetry.instrumentation.openai.v1"
+    mock_span.instrumentation_scope = mock_scope
+
+    # Create a mock root span and attach it to the global context
+    mock_root_span = MagicMock()
+    ctx = otel_context.set_value(ROOT_SPAN_CONTEXT_KEY, mock_root_span)
+    token = otel_context.attach(ctx)
+
+    try:
+        # Create processor and call on_start
+        processor = processors.BasaltAutoInstrumentationProcessor()
+        processor.on_start(mock_span, None)  # parent_context=None means use global context
+
+        # Verify that basalt.in_trace was set to True
+        mock_span.set_attribute.assert_any_call(semconv.BasaltSpan.IN_TRACE, True)
+        # Verify that basalt.span.kind was set to "generation"
+        mock_span.set_attribute.assert_any_call(semconv.BasaltSpan.KIND, "generation")
+    finally:
+        otel_context.detach(token)
