@@ -146,6 +146,10 @@ def test_observe_handles_exception():
 
 def test_observe_static_metadata():
     """Test adding static metadata using Observe."""
+    import json
+
+    from basalt.observability import semconv
+
     from .utils import get_exporter
 
     exporter = get_exporter()
@@ -156,13 +160,16 @@ def test_observe_static_metadata():
     with Observe(name="test_static_metadata", kind=ObserveKind.SPAN, metadata=metadata) as span:
         assert span is not None
 
-    # Verify metadata was set as span attributes
+    # Verify metadata was set as aggregated JSON at basalt.metadata
     spans = exporter.get_finished_spans()
     assert len(spans) > 0
     test_span = next((s for s in spans if s.name == "test_static_metadata"), None)
     assert test_span is not None
-    assert test_span.attributes["key1"] == "value1"
-    assert test_span.attributes["key2"] == "value2"
+    metadata_json = test_span.attributes.get(semconv.BasaltSpan.METADATA)
+    assert metadata_json is not None
+    parsed_metadata = json.loads(metadata_json)
+    assert parsed_metadata["key1"] == "value1"
+    assert parsed_metadata["key2"] == "value2"
 
 
 

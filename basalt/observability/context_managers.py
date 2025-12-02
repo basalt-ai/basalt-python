@@ -250,11 +250,10 @@ class SpanHandle:
         _attach_attributes(self._span, attributes)
 
     def set_metadata(self, metadata: Mapping[str, Any] | None) -> None:
-        """Merge and flatten metadata onto span.
+        """Merge metadata onto span as a JSON object.
 
-        Each metadata key becomes an attribute ``basalt.span.metadata.<key>``.
-        Existing metadata attributes are preserved unless overridden by the incoming mapping.
-        A backward-compatible aggregated JSON copy is stored at ``semconv.BasaltSpan.METADATA``.
+        Metadata is stored as a JSON-serialized dictionary at ``semconv.BasaltSpan.METADATA``.
+        Existing metadata is preserved and shallow-merged with the incoming mapping.
         """
         if metadata is None:
             return
@@ -678,6 +677,7 @@ def _with_span_handle(
     user: TraceIdentity | Mapping[str, Any] | None = None,
     organization: TraceIdentity | Mapping[str, Any] | None = None,
     feature_slug: str | None = None,
+    metadata: Mapping[str, Any] | None = None,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
     defaults = _current_trace_defaults()
@@ -729,6 +729,12 @@ def _with_span_handle(
             span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
 
             _attach_attributes(span, attributes)
+
+            # Apply metadata if provided
+            if metadata:
+                from .utils import apply_span_metadata
+                apply_span_metadata(span, metadata)
+
             if span_type:
                 span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
 
@@ -777,6 +783,7 @@ async def _async_with_span_handle(
     user: TraceIdentity | Mapping[str, Any] | None = None,
     organization: TraceIdentity | Mapping[str, Any] | None = None,
     feature_slug: str | None = None,
+    metadata: Mapping[str, Any] | None = None,
 ) -> AsyncGenerator[SpanHandle, None]:
     """Async version of _with_span_handle.
 
@@ -834,6 +841,12 @@ async def _async_with_span_handle(
             span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
 
             _attach_attributes(span, attributes)
+
+            # Apply metadata if provided
+            if metadata:
+                from .utils import apply_span_metadata
+                apply_span_metadata(span, metadata)
+
             if span_type:
                 span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
 

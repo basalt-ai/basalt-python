@@ -121,7 +121,7 @@ class StartObserve(ContextDecorator):
         # Initialize context manager
         self._ctx_manager = _with_span_handle(
             name=span_name,
-            attributes=self._metadata,
+            attributes=None,
             tracer_name="basalt.observability",
             handle_cls=StartSpanHandle,
             span_type="basalt_trace",
@@ -129,6 +129,7 @@ class StartObserve(ContextDecorator):
             organization=org_identity,
             evaluators=self.evaluators,
             feature_slug=self.feature_slug,
+            metadata=self._metadata,
         )
         span = self._ctx_manager.__enter__()
         # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
@@ -161,7 +162,7 @@ class StartObserve(ContextDecorator):
             span_name = self.name
             with _with_span_handle(
                 name=span_name,
-                attributes=self._metadata,
+                attributes=None,
                 tracer_name="basalt.observability",
                 handle_cls=StartSpanHandle,
                 span_type="basalt_trace",
@@ -169,6 +170,7 @@ class StartObserve(ContextDecorator):
                 organization=org_identity,
                 evaluators=pre_evaluators,
                 feature_slug=self.feature_slug,
+                metadata=self._metadata,
             ) as handle:
                 # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
                 assert isinstance(handle, StartSpanHandle)
@@ -198,7 +200,7 @@ class StartObserve(ContextDecorator):
                 span_name = self.name
                 with _with_span_handle(
                     name=span_name,
-                    attributes=self._metadata,
+                    attributes=None,
                     tracer_name="basalt.observability",
                     handle_cls=StartSpanHandle,
                     span_type="basalt_trace",
@@ -206,6 +208,7 @@ class StartObserve(ContextDecorator):
                     organization=org_identity,
                     evaluators=pre_evaluators,
                     feature_slug=self.feature_slug,
+                    metadata=self._metadata,
                 ) as handle:
                     # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
                     assert isinstance(handle, StartSpanHandle)
@@ -360,11 +363,12 @@ class Observe(ContextDecorator):
         handle_cls, tracer_name, _, _ = self._get_config_for_kind(kind_str)
 
         # Process prompt parameter if provided
+        prompt_attrs = None
         if self.prompt is not None:
-            # Prepare prompt metadata for span attributes
+            # Prepare prompt attributes for span
             import json
 
-            prompt_metadata = {
+            prompt_attrs = {
                 "basalt.prompt.slug": self.prompt.slug,
                 "basalt.prompt.version": self.prompt.version,
                 "basalt.prompt.model.provider": self.prompt.model.provider,
@@ -373,13 +377,7 @@ class Observe(ContextDecorator):
 
             # Store prompt.variables separately if available (must serialize to JSON for OpenTelemetry)
             if self.prompt.variables:
-                prompt_metadata["basalt.prompt.variables"] = json.dumps(self.prompt.variables)
-
-            # Merge with existing metadata
-            if self._metadata is None:
-                self._metadata = prompt_metadata
-            else:
-                self._metadata = {**self._metadata, **prompt_metadata}
+                prompt_attrs["basalt.prompt.variables"] = json.dumps(self.prompt.variables)
 
         # Check for root span
         from opentelemetry import context as otel_context
@@ -392,11 +390,12 @@ class Observe(ContextDecorator):
 
         self._ctx_manager = _with_span_handle(
             name=span_name,
-            attributes=self._metadata,
+            attributes=prompt_attrs,
             tracer_name=tracer_name,
             handle_cls=handle_cls,
             span_type=kind_str,
             evaluators=self.evaluators,
+            metadata=self._metadata,
             # In context manager mode, we don't auto-resolve input/vars from args
             # User must call observe.input() or pass explicit input_payload if we added it to __init__
             # But __init__ has resolvers, not values.
@@ -452,10 +451,7 @@ class Observe(ContextDecorator):
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            computed_attrs = resolve_attributes(self._metadata, args, kwargs)
-            # Merge prompt metadata with computed attributes
-            if prompt_metadata:
-                computed_attrs = {**computed_attrs, **prompt_metadata} if computed_attrs else prompt_metadata
+            computed_metadata = resolve_attributes(self._metadata, args, kwargs)
             bound = resolve_bound_arguments(func, args, kwargs)
             input_payload = resolve_payload_from_bound(input_resolver, bound)
             variables_payload = resolve_variables_payload(variables_resolver, bound)
@@ -488,13 +484,14 @@ class Observe(ContextDecorator):
 
             with _with_span_handle(
                 name=self.name,
-                attributes=computed_attrs,
+                attributes=prompt_metadata if prompt_metadata else None,
                 tracer_name=tracer_name,
                 handle_cls=handle_cls,
                 span_type=kind_str,
                 input_payload=input_payload,
                 variables=variables_payload,
                 evaluators=pre_evaluators,
+                metadata=computed_metadata,
             ) as span:
                 if apply_pre:
                     apply_pre(span, bound)
@@ -517,10 +514,7 @@ class Observe(ContextDecorator):
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
-                computed_attrs = resolve_attributes(self._metadata, args, kwargs)
-                # Merge prompt metadata with computed attributes
-                if prompt_metadata:
-                    computed_attrs = {**computed_attrs, **prompt_metadata} if computed_attrs else prompt_metadata
+                computed_metadata = resolve_attributes(self._metadata, args, kwargs)
                 bound = resolve_bound_arguments(func, args, kwargs)
                 input_payload = resolve_payload_from_bound(input_resolver, bound)
                 variables_payload = resolve_variables_payload(variables_resolver, bound)
@@ -553,13 +547,14 @@ class Observe(ContextDecorator):
 
                 with _with_span_handle(
                     name=self.name,
-                    attributes=computed_attrs,
+                    attributes=prompt_metadata if prompt_metadata else None,
                     tracer_name=tracer_name,
                     handle_cls=handle_cls,
                     span_type=kind_str,
                     input_payload=input_payload,
                     variables=variables_payload,
                     evaluators=pre_evaluators,
+                    metadata=computed_metadata,
                 ) as span:
                     if apply_pre:
                         apply_pre(span, bound)
@@ -669,7 +664,7 @@ class Observe(ContextDecorator):
 
     @staticmethod
     def set_metadata(data: dict[str, Any]) -> None:
-        """Merge metadata into the current span as flattened basalt.span.metadata.* attributes.
+        """Merge metadata into the current span as a JSON object at basalt.metadata.
 
         Existing metadata keys are preserved unless overridden by ``data``.
         """
@@ -895,7 +890,7 @@ class AsyncStartObserve:
         # Initialize async context manager
         self._ctx_manager = _async_with_span_handle(
             name=span_name,
-            attributes=self._metadata,
+            attributes=None,
             tracer_name="basalt.observability",
             handle_cls=StartSpanHandle,
             span_type="basalt_trace",
@@ -903,6 +898,7 @@ class AsyncStartObserve:
             organization=org_identity,
             evaluators=self.evaluators,
             feature_slug=self.feature_slug,
+            metadata=self._metadata,
         )
         span = await self._ctx_manager.__aenter__()
         # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
@@ -1082,11 +1078,12 @@ class AsyncObserve:
 
         self._ctx_manager = _async_with_span_handle(
             name=span_name,
-            attributes=self._metadata,
+            attributes=None,
             tracer_name=tracer_name,
             handle_cls=handle_cls,
             span_type=kind_str,
             evaluators=self.evaluators,
+            metadata=self._metadata,
         )
         self._span_handle = await self._ctx_manager.__aenter__()
         return self._span_handle

@@ -413,13 +413,31 @@ async def test_async_deeply_nested_context_managers(setup_tracing):
 @pytest.mark.asyncio
 async def test_async_start_observe_with_metadata():
     """Test AsyncStartObserve correctly applies metadata."""
-    from basalt.observability import AsyncStartObserve
+    import json
+
+    from basalt.observability import AsyncStartObserve, semconv
+
+    from .utils import get_exporter
+
+    exporter = get_exporter()
+    exporter.clear()
 
     metadata = {"custom_key": "custom_value", "test_id": 42}
     async with AsyncStartObserve(name="test_with_metadata", feature_slug="test_metadata", metadata=metadata) as span:
         # Verify span was created successfully
         assert span is not None
         assert isinstance(span._span, object)  # Span exists
+    
+    # Verify metadata was properly stored in basalt.metadata
+    spans = exporter.get_finished_spans()
+    test_span = next((s for s in spans if s.name == "test_with_metadata"), None)
+    assert test_span is not None
+    assert semconv.BasaltSpan.METADATA in test_span.attributes
+    
+    metadata_json = test_span.attributes[semconv.BasaltSpan.METADATA]
+    parsed_metadata = json.loads(metadata_json)
+    assert parsed_metadata["custom_key"] == "custom_value"
+    assert parsed_metadata["test_id"] == 42
 
 
 @pytest.mark.asyncio
