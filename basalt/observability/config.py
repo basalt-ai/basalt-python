@@ -90,6 +90,19 @@ class TelemetryConfig:
 
         # Then instrument your custom provider
         CustomProviderInstrumentor().instrument()
+
+    Connection Error Handling
+    -------------------------
+    The SDK automatically wraps HTTP OTLP exporters to suppress connection errors
+    during span export. This prevents exceptions from propagating when the endpoint
+    is unavailable or misconfigured.
+
+    Connection errors are logged at warning level (visible by default) without
+    ugly stacktraces. You'll see clean warning messages like:
+    "Span export failed (endpoint may be unavailable): ConnectionError: ..."
+
+    The exporter will continue attempting to send spans in subsequent batches,
+    and your application will not be interrupted.
     """
 
     enabled: bool = True

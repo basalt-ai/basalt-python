@@ -8,6 +8,7 @@ from unittest import mock
 
 from basalt.observability.config import TelemetryConfig
 from basalt.observability.instrumentation import InstrumentationManager
+from basalt.observability.resilient_exporters import ResilientSpanExporter
 
 
 class TestInstrumentationManager(unittest.TestCase):
@@ -94,7 +95,9 @@ class TestInstrumentationManager(unittest.TestCase):
 
         exporter = manager._build_exporter_from_env()
 
-        self.assertIs(exporter, mock_http_exporter.return_value)
+        # HTTP exporter is now wrapped in ResilientSpanExporter
+        self.assertIsInstance(exporter, ResilientSpanExporter)
+        self.assertIs(exporter._exporter, mock_http_exporter.return_value)
         mock_http_exporter.assert_called_once()
         mock_grpc_exporter.assert_not_called()
         headers = mock_http_exporter.call_args.kwargs["headers"]
@@ -158,3 +161,40 @@ class TestInstrumentationManager(unittest.TestCase):
         self.assertEqual(mock_instrumentor.instrument.call_count, 2)
         self.assertIn("openai", manager._provider_instrumentors)
         self.assertIn("anthropic", manager._provider_instrumentors)
+
+    @mock.patch.dict(
+        os.environ,
+        {"BASALT_OTEL_EXPORTER_OTLP_ENDPOINT": "https://bad-endpoint.invalid/v1/traces"},
+        clear=False,
+    )
+    @mock.patch("basalt.observability.instrumentation.OTLPHTTPSpanExporter")
+    def test_http_exporter_wrapped_in_resilient_wrapper(self, mock_http_exporter):
+        """Verify HTTP exporters are wrapped for error resilience."""
+        mock_http_exporter_instance = mock.Mock()
+        mock_http_exporter.return_value = mock_http_exporter_instance
+        manager = InstrumentationManager()
+
+        exporter = manager._build_exporter_from_env()
+
+        # Should be wrapped in ResilientSpanExporter
+        self.assertIsInstance(exporter, ResilientSpanExporter)
+        # Underlying exporter should be the HTTP exporter instance
+        self.assertIs(exporter._exporter, mock_http_exporter_instance)
+
+    @mock.patch.dict(
+        os.environ,
+        {"BASALT_OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"},
+        clear=False,
+    )
+    @mock.patch("basalt.observability.instrumentation.OTLPSpanExporter")
+    def test_grpc_exporter_not_wrapped(self, mock_grpc_exporter):
+        """Verify gRPC exporters are NOT wrapped (they handle errors internally)."""
+        mock_grpc_exporter_instance = mock.Mock()
+        mock_grpc_exporter.return_value = mock_grpc_exporter_instance
+        manager = InstrumentationManager()
+
+        exporter = manager._build_exporter_from_env()
+
+        # Should NOT be wrapped, should be the gRPC exporter directly
+        self.assertNotIsInstance(exporter, ResilientSpanExporter)
+        self.assertIs(exporter, mock_grpc_exporter_instance)

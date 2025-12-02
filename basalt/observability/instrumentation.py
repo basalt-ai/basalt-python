@@ -32,6 +32,7 @@ from .processors import (
     BasaltCallEvaluatorProcessor,
     BasaltContextProcessor,
 )
+from .resilient_exporters import ResilientSpanExporter
 
 logger = logging.getLogger(__name__)
 
@@ -263,8 +264,11 @@ class InstrumentationManager:
         headers: dict[str, str] | None,
     ) -> SpanExporter:
         if self._should_use_http_exporter(endpoint):
-            return OTLPHTTPSpanExporter(endpoint=endpoint, headers=headers)
+            exporter = OTLPHTTPSpanExporter(endpoint=endpoint, headers=headers)
+            # Wrap HTTP exporter to suppress connection errors during export
+            return ResilientSpanExporter(exporter)
 
+        # gRPC exporter handles connection errors internally, no wrapping needed
         return OTLPSpanExporter(endpoint=endpoint, headers=headers)
 
     @staticmethod
