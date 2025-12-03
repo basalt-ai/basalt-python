@@ -4,7 +4,7 @@ import functools
 import inspect
 from collections.abc import Callable, Sequence
 from contextlib import ContextDecorator
-from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from opentelemetry.trace import StatusCode
 
@@ -31,6 +31,7 @@ from .context_managers import (
     get_root_span_handle,
 )
 from .decorators import ObserveKind
+from .types import Identity
 from .utils import (
     apply_llm_request_metadata,
     apply_llm_response_metadata,
@@ -47,28 +48,6 @@ from .utils import (
 )
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-
-class _IdentityEntity(TypedDict):
-    """Identity entity with required id and optional name."""
-
-    id: str
-    name: NotRequired[str]
-
-
-class Identity(TypedDict, total=False):
-    """
-    Identity structure for user and organization tracking.
-
-    Example:
-        {
-            "organization": {"id": "123", "name": "ACME"},
-            "user": {"id": "456", "name": "John Doe"}
-        }
-    """
-
-    organization: NotRequired[_IdentityEntity]
-    user: NotRequired[_IdentityEntity]
 
 
 class StartObserve(ContextDecorator):
@@ -822,22 +801,23 @@ class Observe(ContextDecorator):
             handle.add_evaluators(*slugs)
 
     @staticmethod
-    def set_identity(
-        *,
-        user_id: str | None = None,
-        user_name: str | None = None,
-        organization_id: str | None = None,
-        organization_name: str | None = None,
-    ) -> None:
-        """Set identity on the current span."""
+    def set_identity(identity: Identity | None = None) -> None:
+        """
+        Set identity on the current span.
+
+        Args:
+            identity: Identity TypedDict with optional 'user' and 'organization' keys.
+                Each key should contain a dict with 'id' (required) and 'name' (optional).
+
+        Example:
+            >>> Observe.set_identity({
+            ...     "user": {"id": "user-123", "name": "John Doe"},
+            ...     "organization": {"id": "org-456", "name": "ACME Corp"}
+            ... })
+        """
         handle = get_current_span_handle()
         if handle:
-            handle.set_identity(
-                user_id=user_id,
-                user_name=user_name,
-                organization_id=organization_id,
-                organization_name=organization_name,
-            )
+            handle.set_identity(identity)
 
 
 class AsyncStartObserve:

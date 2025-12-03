@@ -6,9 +6,17 @@ by the PromptsClient.
 """
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
+
+# Context variable for prompt data injection into child spans
+_current_prompt_context: ContextVar[dict[str, Any] | None] = ContextVar(
+    '_current_prompt_context',
+    default=None
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -172,7 +180,29 @@ class Prompt:
         return self
 
 
-class PromptContextManager:
+class _PromptContextMixin:
+    """Shared span helper for prompt context managers."""
+
+    def _set_span_attributes(self) -> None:
+        from basalt.observability import semconv
+        from basalt.observability.context_managers import get_tracer
+
+        tracer = get_tracer("basalt.prompts")
+        with tracer.start_as_current_span(f"basalt.prompt.{self._slug}") as span:
+            span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
+            span.set_attribute("basalt.prompt.slug", self._slug)
+            if self._version:
+                span.set_attribute("basalt.prompt.version", self._version)
+            if self._tag:
+                span.set_attribute("basalt.prompt.tag", self._tag)
+            span.set_attribute("basalt.prompt.model.provider", self._prompt.model.provider)
+            span.set_attribute("basalt.prompt.model.model", self._prompt.model.model)
+            if self._variables:
+                span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
+            span.set_attribute("basalt.prompt.from_cache", self._from_cache)
+
+
+class PromptContextManager(_PromptContextMixin):
     """
     Context manager wrapper for Prompt that enables observability.
 
@@ -200,13 +230,13 @@ class PromptContextManager:
         from_cache: bool = False,
     ):
         """
-        Initialize the wrapper and create an immediate span for tracking.
+        Initialize the wrapper.
 
         Args:
             prompt: The Prompt dataclass to wrap
-            slug: Prompt slug for span naming and attributes
-            version: Prompt version for span attributes
-            tag: Prompt tag for span attributes
+            slug: Prompt slug for context injection
+            version: Prompt version for context injection
+            tag: Prompt tag for context injection
             variables: Variables used in prompt compilation
             from_cache: Whether the prompt was retrieved from cache
         """
@@ -216,56 +246,8 @@ class PromptContextManager:
         self._tag = tag
         self._variables = variables
         self._from_cache = from_cache
-
-        # Context manager state
-        self._span = None
-        self._span_context = None
-        self._tracer = None
-
-        # Create and immediately end a span for imperative usage tracking
-        self._create_immediate_span()
-
-    def _create_immediate_span(self):
-        """Create a span that immediately ends to track prompt fetches."""
-        try:
-            from ..observability.context_managers import get_tracer
-
-            tracer = get_tracer("basalt.prompts")
-
-            # Create span context
-            with tracer.start_as_current_span(f"prompt.{self._slug}") as span:
-                # Set span attributes
-                self._set_span_attributes(span)
-        except Exception:
-            # Silently fail if observability is not available
-            # Prompt functionality should not break due to observability issues
-            pass
-
-    def _set_span_attributes(self, span):
-        """Set all prompt-related attributes on a span."""
-        import json
-
-        from ..observability import semconv
-
-        span.set_attribute("basalt.span.kind", "function")
-        span.set_attribute("basalt.prompt.slug", self._slug)
-
-        if self._version:
-            span.set_attribute("basalt.prompt.version", self._version)
-
-        if self._tag:
-            span.set_attribute("basalt.prompt.tag", self._tag)
-
-        span.set_attribute("basalt.prompt.model.provider", self._prompt.model.provider)
-        span.set_attribute("basalt.prompt.model.model", self._prompt.model.model)
-
-        if self._variables:
-            span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
-
-        span.set_attribute("basalt.prompt.from_cache", self._from_cache)
-
-        # Mark all prompt spans with basalt.in_trace
-        span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
+        self._context_token = None
+        # Span creation removed - ContextVar injection is sufficient for auto-instrumented spans
 
     def __getattr__(self, name):
         """Forward all attribute access to the wrapped Prompt."""
@@ -273,37 +255,31 @@ class PromptContextManager:
 
     def __enter__(self):
         """
-        Enter context manager mode - create a new span that stays open.
+        Enter context manager mode - set prompt context for child spans.
 
-        This allows auto-instrumented GenAI calls to nest under the prompt span.
+        This allows child spans to automatically receive prompt attributes.
         """
-        try:
-            from opentelemetry import trace
-
-            from ..observability.context_managers import get_tracer
-
-            self._tracer = get_tracer("basalt.prompts")
-
-            # Start a new span that will stay open
-            self._span = self._tracer.start_span(f"prompt.{self._slug}")
-            self._set_span_attributes(self._span)
-
-            # Use span context that will auto-end on exit
-            self._span_context = trace.use_span(self._span, end_on_exit=True)
-            self._span_context.__enter__()
-        except Exception:
-            # Silently fail - observability should not break functionality
-            pass
-
+        # Store prompt metadata in context
+        prompt_ctx = {
+            "slug": self._slug,
+            "version": self._version,
+            "tag": self._tag,
+            "provider": self._prompt.model.provider,
+            "model": self._prompt.model.model,
+            "variables": self._variables,
+            "from_cache": self._from_cache,
+        }
+        self._context_token = _current_prompt_context.set(prompt_ctx)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Exit context manager mode - end the span."""
-        if self._span_context:
-            try:
-                self._span_context.__exit__(exc_type, exc_val, exc_tb)
-            except Exception:
-                pass
+        """Exit context manager mode - clear prompt context."""
+        try:
+            # Any cleanup logic
+            pass
+        finally:
+            if self._context_token is not None:
+                _current_prompt_context.reset(self._context_token)
 
         # Don't suppress exceptions
         return False
@@ -317,7 +293,7 @@ class PromptContextManager:
         return str(self._prompt)
 
 
-class AsyncPromptContextManager:
+class AsyncPromptContextManager(_PromptContextMixin):
     """
     Async context manager wrapper for Prompt that enables observability.
 
@@ -335,13 +311,13 @@ class AsyncPromptContextManager:
         from_cache: bool = False,
     ):
         """
-        Initialize the wrapper and create an immediate span for tracking.
+        Initialize the wrapper.
 
         Args:
             prompt: The Prompt dataclass to wrap
-            slug: Prompt slug for span naming and attributes
-            version: Prompt version for span attributes
-            tag: Prompt tag for span attributes
+            slug: Prompt slug for context injection
+            version: Prompt version for context injection
+            tag: Prompt tag for context injection
             variables: Variables used in prompt compilation
             from_cache: Whether the prompt was retrieved from cache
         """
@@ -351,55 +327,8 @@ class AsyncPromptContextManager:
         self._tag = tag
         self._variables = variables
         self._from_cache = from_cache
-
-        # Context manager state
-        self._span = None
-        self._span_context = None
-        self._tracer = None
-
-        # Create and immediately end a span for imperative usage tracking
-        self._create_immediate_span()
-
-    def _create_immediate_span(self):
-        """Create a span that immediately ends to track prompt fetches."""
-        try:
-            from ..observability.context_managers import get_tracer
-
-            tracer = get_tracer("basalt.prompts")
-
-            # Create span context
-            with tracer.start_as_current_span(f"prompt.{self._slug}") as span:
-                # Set span attributes
-                self._set_span_attributes(span)
-        except Exception:
-            # Silently fail if observability is not available
-            pass
-
-    def _set_span_attributes(self, span):
-        """Set all prompt-related attributes on a span."""
-        import json
-
-        from ..observability import semconv
-
-        span.set_attribute("basalt.span.kind", "function")
-        span.set_attribute("basalt.prompt.slug", self._slug)
-
-        if self._version:
-            span.set_attribute("basalt.prompt.version", self._version)
-
-        if self._tag:
-            span.set_attribute("basalt.prompt.tag", self._tag)
-
-        span.set_attribute("basalt.prompt.model.provider", self._prompt.model.provider)
-        span.set_attribute("basalt.prompt.model.model", self._prompt.model.model)
-
-        if self._variables:
-            span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
-
-        span.set_attribute("basalt.prompt.from_cache", self._from_cache)
-
-        # Mark all prompt spans with basalt.in_trace
-        span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
+        self._context_token = None
+        # Span creation removed - ContextVar injection is sufficient for auto-instrumented spans
 
     def __getattr__(self, name):
         """Forward all attribute access to the wrapped Prompt."""
@@ -407,37 +336,31 @@ class AsyncPromptContextManager:
 
     async def __aenter__(self):
         """
-        Enter async context manager mode - create a new span that stays open.
+        Enter async context manager mode - set prompt context for child spans.
 
-        This allows auto-instrumented GenAI calls to nest under the prompt span.
+        This allows child spans to automatically receive prompt attributes.
         """
-        try:
-            from opentelemetry import trace
-
-            from ..observability.context_managers import get_tracer
-
-            self._tracer = get_tracer("basalt.prompts")
-
-            # Start a new span that will stay open
-            self._span = self._tracer.start_span(f"prompt.{self._slug}")
-            self._set_span_attributes(self._span)
-
-            # Use span context that will auto-end on exit
-            self._span_context = trace.use_span(self._span, end_on_exit=True)
-            self._span_context.__enter__()
-        except Exception:
-            # Silently fail - observability should not break functionality
-            pass
-
+        # Store prompt metadata in context
+        prompt_ctx = {
+            "slug": self._slug,
+            "version": self._version,
+            "tag": self._tag,
+            "provider": self._prompt.model.provider,
+            "model": self._prompt.model.model,
+            "variables": self._variables,
+            "from_cache": self._from_cache,
+        }
+        self._context_token = _current_prompt_context.set(prompt_ctx)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Exit async context manager mode - end the span."""
-        if self._span_context:
-            try:
-                self._span_context.__exit__(exc_type, exc_val, exc_tb)
-            except Exception:
-                pass
+        """Exit async context manager mode - clear prompt context."""
+        try:
+            # Any cleanup logic
+            pass
+        finally:
+            if self._context_token is not None:
+                _current_prompt_context.reset(self._context_token)
 
         # Don't suppress exceptions
         return False

@@ -29,6 +29,7 @@ from .trace_context import (
     apply_organization_from_context,
     apply_user_from_context,
 )
+from .types import Identity
 
 SPAN_TYPE_ATTRIBUTE = semconv.BasaltSpan.KIND
 EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
@@ -364,31 +365,30 @@ class SpanHandle:
         for attachment in normalize_evaluator_specs(evaluators):
             self._append_evaluator(attachment)
 
-    def set_identity(
-        self,
-        *,
-        user_id: str | None = None,
-        user_name: str | None = None,
-        organization_id: str | None = None,
-        organization_name: str | None = None,
-    ) -> None:
+    def set_identity(self, identity: Identity | None = None) -> None:
         """
         Set user and/or organization identity for the span.
 
         Args:
-            user_id: User identifier to associate with the span.
-            user_name: Optional user display name.
-            organization_id: Organization identifier to associate with the span.
-            organization_name: Optional organization display name.
+            identity: Identity TypedDict with optional 'user' and 'organization' keys.
+                Each key should contain a dict with 'id' (required) and 'name' (optional).
+
+        Example:
+            >>> span.set_identity({
+            ...     "user": {"id": "user-123", "name": "John Doe"},
+            ...     "organization": {"id": "org-456", "name": "ACME Corp"}
+            ... })
         """
-        if user_id is not None:
-            self._span.set_attribute(semconv.BasaltUser.ID, user_id)
-            if user_name is not None:
-                self._span.set_attribute(semconv.BasaltUser.NAME, user_name)
-        if organization_id is not None:
-            self._span.set_attribute(semconv.BasaltOrganization.ID, organization_id)
-            if organization_name is not None:
-                self._span.set_attribute(semconv.BasaltOrganization.NAME, organization_name)
+        if identity is None:
+            return
+
+        user_spec = identity.get("user") if identity else None
+        org_spec = identity.get("organization") if identity else None
+
+        if user_spec is not None:
+            apply_user_from_context(self._span, user_spec)
+        if org_spec is not None:
+            apply_organization_from_context(self._span, org_spec)
 
     def _append_evaluator(self, attachment: EvaluatorAttachment) -> None:
         """Attach an evaluator to the span, avoiding duplicates.
@@ -728,6 +728,27 @@ def _with_span_handle(
             # Mark all basalt spans with basalt.in_trace
             span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
 
+            # Inject prompt context if available
+            try:
+                from basalt.prompts.models import _current_prompt_context
+                prompt_ctx = _current_prompt_context.get()
+                if prompt_ctx:
+                    # Inject prompt attributes into this span
+                    import json
+                    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
+                    if prompt_ctx.get("version"):
+                        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
+                    if prompt_ctx.get("tag"):
+                        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
+                    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
+                    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
+                    if prompt_ctx.get("variables"):
+                        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
+                    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
+            except ImportError:
+                # Prompts module not available, skip injection
+                pass
+
             _attach_attributes(span, attributes)
 
             # Apply metadata if provided
@@ -839,6 +860,27 @@ async def _async_with_span_handle(
 
             # Mark all basalt spans with basalt.in_trace
             span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
+
+            # Inject prompt context if available
+            try:
+                from basalt.prompts.models import _current_prompt_context
+                prompt_ctx = _current_prompt_context.get()
+                if prompt_ctx:
+                    # Inject prompt attributes into this span
+                    import json
+                    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
+                    if prompt_ctx.get("version"):
+                        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
+                    if prompt_ctx.get("tag"):
+                        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
+                    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
+                    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
+                    if prompt_ctx.get("variables"):
+                        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
+                    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
+            except ImportError:
+                # Prompts module not available, skip injection
+                pass
 
             _attach_attributes(span, attributes)
 

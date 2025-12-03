@@ -5,11 +5,12 @@ This module provides the PromptsClient for interacting with the Basalt Prompts A
 """
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 from .._internal.base_client import BaseServiceClient
 from .._internal.http import HTTPClient
 from ..config import config
+from ..observability.spans import BasaltRequestSpan
 from ..types.cache import CacheProtocol
 from ..types.exceptions import BasaltAPIError
 from .models import (
@@ -21,6 +22,24 @@ from .models import (
     PromptResponse,
     PublishPromptResponse,
 )
+
+
+class PromptRequestSpan(BasaltRequestSpan):
+    """Span metadata for prompt API requests with JSON output."""
+
+    def format_output(self, response_data: dict[str, Any]) -> dict[str, Any]:
+        """Return the Prompt object as JSON output."""
+        prompt_data = response_data.get("prompt", {})
+        if not prompt_data:
+            # Fallback to status code if no prompt data
+            status_code = getattr(response_data, "status_code", None)
+            return {"status_code": status_code}
+
+        # Return the full prompt object as JSON
+        return {
+            "prompt": prompt_data,
+            "from_cache": response_data.get("from_cache", False)
+        }
 
 
 class PromptsClient(BaseServiceClient):
@@ -58,6 +77,74 @@ class PromptsClient(BaseServiceClient):
 
         # Cache responses for 5 minutes
         self._cache_duration = 5 * 60
+
+    async def _request_async(
+        self,
+        operation: str,
+        *,
+        method: str,
+        url: str,
+        span_attributes: dict[str, Any] | None = None,
+        span_variables: dict[str, Any] | None = None,
+        cache_hit: bool | None = None,
+        **request_kwargs: Any,
+    ):
+        """Override to use PromptRequestSpan for custom output formatting."""
+        # Lazy import to avoid circular dependency
+        import functools
+
+        from basalt.observability.request_tracing import trace_async_request
+
+        span = PromptRequestSpan(
+            client=self._client_name,
+            operation=operation,
+            method=method,
+            url=url,
+            cache_hit=cache_hit,
+            extra_attributes=self._filter_attributes(span_attributes),
+            variables=self._filter_attributes(span_variables),
+        )
+        call = functools.partial(
+            self._http_client.fetch,
+            url=url,
+            method=method,
+            **request_kwargs,
+        )
+        return await trace_async_request(span, call)
+
+    def _request_sync(
+        self,
+        operation: str,
+        *,
+        method: str,
+        url: str,
+        span_attributes: dict[str, Any] | None = None,
+        span_variables: dict[str, Any] | None = None,
+        cache_hit: bool | None = None,
+        **request_kwargs: Any,
+    ):
+        """Override to use PromptRequestSpan for custom output formatting."""
+        # Lazy import to avoid circular dependency
+        import functools
+
+        from basalt.observability.request_tracing import trace_sync_request
+
+        span = PromptRequestSpan(
+            client=self._client_name,
+            operation=operation,
+            method=method,
+            url=url,
+            cache_hit=cache_hit,
+            extra_attributes=self._filter_attributes(span_attributes),
+            variables=self._filter_attributes(span_variables),
+        )
+        call = functools.partial(
+            self._http_client.fetch_sync,
+            url=url,
+            method=method,
+            **request_kwargs,
+        )
+        return trace_sync_request(span, call)
 
     async def get(
         self,

@@ -40,6 +40,7 @@ class BasaltRequestSpan:
         attributes: dict[str, Any] = {
             semconv.BasaltAPI.CLIENT: self.client,
             semconv.BasaltAPI.OPERATION: self.operation,
+            semconv.BasaltAPI.INTERNAL: True,
             semconv.HTTP.METHOD: self.method.upper(),
             semconv.HTTP.URL: self.url,
         }

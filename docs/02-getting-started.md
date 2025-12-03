@@ -133,8 +133,8 @@ def handle_chat(message):
 # Method 2: Set dynamically
 @start_observe(name="api_handler")
 def handle_request(auth_token):
-    user_data = verify_token(auth_token)
-    observe.set_identity(user=user_data)
+    user_data = verify_token(auth_token)  # Returns {"id": "user-123", "name": "John Doe"}
+    observe.set_identity({"user": user_data})
     # Identity now set for entire trace
 ```
 

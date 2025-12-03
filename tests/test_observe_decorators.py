@@ -3,18 +3,6 @@
 import sys
 
 
-def test_imports():
-    """Test that all new decorators can be imported."""
-    try:
-        from basalt.observability import (
-            ObserveKind,
-            observe,
-        )
-        return True
-    except ImportError:
-        return False
-
-
 def test_observe_kind_enum():
     """Test ObserveKind enum values."""
     try:
