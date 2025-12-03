@@ -281,7 +281,7 @@ def test_identify_with_user_only():
 
     mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.set_identity(user_id="user-123", user_name="John Doe")
+    span_handle.set_identity({"user": {"id": "user-123", "name": "John Doe"}})
 
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-123"
     assert mock_span.attributes[semconv.BasaltUser.NAME] == "John Doe"
@@ -294,7 +294,7 @@ def test_identify_with_organization_only():
 
     mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.set_identity(organization_id="org-456", organization_name="Acme Corp")
+    span_handle.set_identity({"organization": {"id": "org-456", "name": "Acme Corp"}})
 
     assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-456"
     assert mock_span.attributes[semconv.BasaltOrganization.NAME] == "Acme Corp"
@@ -307,12 +307,10 @@ def test_identify_with_both_user_and_organization():
 
     mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.set_identity(
-        user_id="user-123",
-        user_name="John Doe",
-        organization_id="org-456",
-        organization_name="Acme Corp"
-    )
+    span_handle.set_identity({
+        "user": {"id": "user-123", "name": "John Doe"},
+        "organization": {"id": "org-456", "name": "Acme Corp"}
+    })
 
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-123"
     assert mock_span.attributes[semconv.BasaltUser.NAME] == "John Doe"
@@ -326,7 +324,10 @@ def test_identify_with_ids_only():
 
     mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.set_identity(user_id="user-789", organization_id="org-101")
+    span_handle.set_identity({
+        "user": {"id": "user-789"},
+        "organization": {"id": "org-101"}
+    })
 
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-789"
     assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-101"
@@ -340,7 +341,7 @@ def test_identify_with_no_parameters():
 
     mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.set_identity()
+    span_handle.set_identity(None)
 
     assert semconv.BasaltUser.ID not in mock_span.attributes
     assert semconv.BasaltOrganization.ID not in mock_span.attributes
@@ -427,13 +428,13 @@ async def test_async_start_observe_with_metadata():
         # Verify span was created successfully
         assert span is not None
         assert isinstance(span._span, object)  # Span exists
-    
+
     # Verify metadata was properly stored in basalt.metadata
     spans = exporter.get_finished_spans()
     test_span = next((s for s in spans if s.name == "test_with_metadata"), None)
     assert test_span is not None
     assert semconv.BasaltSpan.METADATA in test_span.attributes
-    
+
     metadata_json = test_span.attributes[semconv.BasaltSpan.METADATA]
     parsed_metadata = json.loads(metadata_json)
     assert parsed_metadata["custom_key"] == "custom_value"

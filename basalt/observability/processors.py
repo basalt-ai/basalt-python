@@ -328,6 +328,38 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
             # Apply prompt attributes (slug, version, provider, model)
             for key, value in prompt_data.items():
                 span.set_attribute(f"basalt.prompt.{key}", value)
+        else:
+            # If no explicit injection, try to read from ContextVar
+            # This allows auto-instrumented spans to inherit prompt context
+            # from the parent prompt context manager
+            try:
+                from basalt.prompts.models import _current_prompt_context
+                prompt_ctx = _current_prompt_context.get()
+                if prompt_ctx:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.debug(f"✓ Injecting prompt context from ContextVar for span '{scope.name}': slug='{prompt_ctx['slug']}'")
+                    # Inject prompt attributes from ContextVar
+                    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
+                    if prompt_ctx.get("version"):
+                        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
+                    if prompt_ctx.get("tag"):
+                        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
+                    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
+                    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
+                    if prompt_ctx.get("variables"):
+                        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
+                    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
+                else:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.debug(f"✗ No prompt context found in ContextVar for auto-instrumented span '{scope.name}'")
+            except (ImportError, LookupError) as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug(f"✗ Failed to read prompt context for span '{scope.name}': {e}")
+                # Prompts module not available or no context set - skip injection
+                pass
 
         # Clear all pending injection data (single-use semantics)
         # We create a new context with all injection keys set to None

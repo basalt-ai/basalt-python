@@ -378,7 +378,7 @@ When using context managers, the span handle provides these methods:
 
 **Identity & Experiments:**
 
-- `set_identity(user=..., organization=...)` - Set user/org identity
+- `set_identity(identity)` - Set user/org identity using dict format: `{"user": {"id": "...", "name": "..."}, "organization": {"id": "...", "name": "..."}}`
 - `add_evaluator(slug)` - Attach single evaluator
 - `add_evaluators(*slugs)` - Attach multiple evaluators
 
@@ -412,6 +412,55 @@ prompt = basalt.prompts.get_sync("qa-prompt", variables={"context": "..."})
 ```
 
 See [Prompts Documentation](03-prompts.md#observability-integration) for more details.
+
+### Automatic Prompt Context Injection for Auto-Instrumented Spans
+
+**NEW**: Basalt automatically injects prompt context into auto-instrumented LLM spans (OpenAI, Anthropic, Gemini, etc.) when they are called within a prompt context manager. This eliminates the need for manual prompt attribute setting.
+
+```python
+from basalt import Basalt
+from basalt.observability import start_observe
+from openai import OpenAI
+
+basalt = Basalt(api_key="your-api-key")
+openai_client = OpenAI(api_key="your-openai-key")
+
+# Root trace
+with start_observe(name="process_request", feature_slug="support-ticket"):
+    # Fetch prompt with context manager
+    with basalt.prompts.get_sync("joke-analyzer", variables={"jokeText": "..."}) as prompt:
+        # Auto-instrumented OpenAI call automatically receives prompt attributes
+        response = openai_client.chat.completions.create(
+            model=prompt.model.model,
+            messages=[{"role": "user", "content": prompt.text}]
+        )
+        # The OpenAI span will automatically have:
+        # - basalt.prompt.slug = "joke-analyzer"
+        # - basalt.prompt.version = (prompt version)
+        # - basalt.prompt.model.provider = "openai"
+        # - basalt.prompt.model.model = "gpt-4"
+        # - basalt.prompt.variables = {"jokeText": "..."}
+        # - basalt.prompt.from_cache = true/false
+```
+
+**How it works:**
+- When you use a prompt context manager (`with prompts.get_sync(...)`), it sets an internal context variable
+- Auto-instrumented spans (OpenAI, Gemini, Anthropic, etc.) automatically detect this context
+- Prompt attributes are injected into the span without any manual intervention
+
+**Supported providers:**
+- OpenAI
+- Anthropic (Claude)
+- Google Gemini
+- AWS Bedrock
+- Mistral
+- Any other auto-instrumented LLM provider
+
+**Benefits:**
+- Zero boilerplate - no manual attribute setting required
+- Consistent across all providers
+- Works with nested prompt contexts (inner context wins)
+- Thread-safe and async-compatible
 
 ## Best Practices
 

@@ -51,8 +51,16 @@ async def trace_async_request(
             )
             raise
 
+        # Type-safe output formatting for PromptRequestSpan
+        from basalt.prompts.client import PromptRequestSpan
+        if isinstance(span_data, PromptRequestSpan):
+            output = span_data.format_output(result)
+        else:
+            status_code = getattr(result, "status_code", None)
+            output = {"status_code": status_code}
+
+        observe.set_output(output)
         status_code = getattr(result, "status_code", None)
-        observe.set_output({"status_code": status_code})
         span_data.finalize(
             span,
             duration_s=time.perf_counter() - start,
@@ -101,8 +109,16 @@ def trace_sync_request(
             )
             raise
 
+        # Type-safe output formatting for PromptRequestSpan
+        from basalt.prompts.client import PromptRequestSpan
+        if isinstance(span_data, PromptRequestSpan):
+            output = span_data.format_output(result)
+        else:
+            status_code = getattr(result, "status_code", None)
+            output = {"status_code": status_code}
+
+        observe.set_output(output)
         status_code = getattr(result, "status_code", None)
-        observe.set_output({"status_code": status_code})
         span_data.finalize(
             span,
             duration_s=time.perf_counter() - start,

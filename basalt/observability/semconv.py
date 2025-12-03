@@ -362,6 +362,13 @@ class BasaltAPI:
     Examples: "get", "list", "create", "update"
     """
 
+    INTERNAL: Final[str] = "basalt.internal.api"
+    """
+    Marks internal Basalt SDK API calls.
+    Type: boolean
+    Value: True for SDK->API requests (prompts, datasets, etc.)
+    """
+
 
 class BasaltCache:
     """Basalt caching attributes."""

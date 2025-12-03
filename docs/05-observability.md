@@ -94,12 +94,15 @@ def calculate():
 
 You can enrich spans with various types of data using static methods on `observe`. These methods always apply to the *current active span*.
 
-#### Identity (`observe.identify`)
+#### Identity (`observe.set_identity`)
 
 Associate traces with users and organizations to track usage and costs.
 
 ```python
-observe.set_identity(user="user_123", organization="org_abc")
+observe.set_identity({
+    "user": {"id": "user-123", "name": "John Doe"},
+    "organization": {"id": "org-456", "name": "ACME Corp"}
+})
 ```
 
 #### Metadata (`observe.metadata`, `observe.update_metadata`)
