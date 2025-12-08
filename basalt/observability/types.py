@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 
 
 class _IdentityEntity(TypedDict):
@@ -23,5 +23,5 @@ class Identity(TypedDict, total=False):
         }
     """
 
-    organization: NotRequired[_IdentityEntity]
-    user: NotRequired[_IdentityEntity]
+    organization: _IdentityEntity
+    user: _IdentityEntity
