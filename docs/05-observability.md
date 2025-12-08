@@ -15,6 +15,7 @@ from basalt.observability import start_observe, observe, ObserveKind
 
 # Root span with identity tracking
 @start_observe(
+    feature_slug="request-processing",
     name="process_request",
     identity={"user": {"id": "user_123", "name": "Alice"}, "organization": {"id": "org_abc"}},
     metadata={"environment": "production", "version": "2.0"}
@@ -25,6 +26,7 @@ def process():
 
 # Root span with experiment tracking
 @start_observe(
+    feature_slug="ml-workflow",
     name="ml_workflow",
     experiment={"id": "exp_456", "name": "Model Comparison"},
     identity={"user": "analyst_001"}
@@ -34,6 +36,7 @@ def run_experiment():
 
 # Context manager form
 with start_observe(
+    feature_slug="batch-processing",
     name="batch_job",
     identity={"organization": {"id": "org_xyz", "name": "Acme Corp"}},
     metadata={"job_id": "batch_123"}
@@ -43,6 +46,8 @@ with start_observe(
 ```
 
 **Key features of `start_observe`:**
+- **`feature_slug`** (required): A unique identifier for the feature or workflow being traced (e.g., "user-auth", "payment-flow").
+- **`name`** (required): A descriptive name for the root span.
 - **`identity`**: Dict with `user` and/or `organization` keys for tracking. Can also use simple string format or callables for dynamic resolution.
 - **`experiment`**: Dict with `id`, `name`, and `variant` keys for A/B testing and feature tracking.
 - **`evaluate_config`**: Configuration for evaluators attached to the root span.
@@ -57,6 +62,7 @@ from basalt.observability import observe, start_observe, ObserveKind
 
 # Root span (required as entry point)
 @start_observe(
+    feature_slug="request-handler",
     name="process_request",
     identity={
         "organization": {"id": "123", "name": "ACME"},
@@ -182,7 +188,7 @@ Sometimes you need to set metadata or identity on the root span from deeply nest
 from basalt.observability import observe, start_observe
 
 
-@start_observe(name="API Handler")
+@start_observe(feature_slug="api-handler", name="API Handler")
 def handle_request(user_id):
     # Root span starts here with identity tracking
     observe.set_input({"user_id": user_id})

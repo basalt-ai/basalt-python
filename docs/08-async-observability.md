@@ -18,7 +18,7 @@ import asyncio
 from basalt.observability import async_start_observe, async_observe
 
 async def main():
-    async with async_start_observe(name="async_workflow") as span:
+    async with async_start_observe(feature_slug="async-workflow", name="async_workflow") as span:
         span.set_input({"task": "process_data"})
         result = await process_data()
         span.set_output(result)
@@ -42,6 +42,7 @@ from basalt.observability import async_start_observe
 # Context manager form
 async def workflow():
     async with async_start_observe(
+        feature_slug="user-request",
         name="User Request",
         identity={"user": {"id": "user_123"}},
         metadata={"environment": "production"}
@@ -52,6 +53,7 @@ async def workflow():
 
 # Decorator form
 @async_start_observe(
+    feature_slug="api-handler",
     name="API Handler",
     identity={"user": {"id": "user_456"}}
 )
@@ -95,7 +97,7 @@ The `@observe` and `@start_observe` decorators automatically detect async functi
 from basalt.observability import observe, start_observe
 
 # These automatically work with async functions
-@start_observe(name="Async Root")
+@start_observe(feature_slug="async-root", name="Async Root")
 async def async_root():
     await nested_operation()
 
@@ -133,6 +135,7 @@ async def generate_greeting(user: dict) -> str:
 async def handle_user_request(user_id: str) -> str:
     """Main handler with root span"""
     async with async_start_observe(
+        feature_slug="user-request",
         name="user_request",
         identity={"user": {"id": user_id}},
         metadata={"version": "2.0"}

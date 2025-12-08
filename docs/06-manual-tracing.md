@@ -24,6 +24,7 @@ Every trace must begin with a root span created using `start_observe`:
 from basalt.observability import start_observe, observe
 
 @start_observe(
+    feature_slug="data-processing",
     name="Data Processing Workflow",
     identity={
         "organization": {"id": "123", "name": "ACME"},
@@ -62,6 +63,7 @@ from basalt.observability import start_observe
 
 def process_request():
     with start_observe(
+            feature_slug="request-processing",
             name="Request Processing",
             identity={
                 "organization": {"id": "123", "name": "ACME"},
@@ -85,6 +87,7 @@ from basalt.observability import start_observe
 
 # With identity tracking
 @start_observe(
+    feature_slug="main-workflow",
     name="Main Workflow",
     identity={
         "organization": {"id": "123", "name": "ACME"},
@@ -97,6 +100,7 @@ def main_workflow(data):
 
 # With experiment tracking
 @start_observe(
+    feature_slug="ab-test",
     name="A/B Test",
     experiment={"id": "exp_001", "name": "Model Comparison", "variant": "model_a"},
     identity={
@@ -109,6 +113,7 @@ def run_experiment():
 
 # Context manager form
 with start_observe(
+    feature_slug="batch-job",
     name="Batch Job",
     identity={
         "organization": {"id": "123", "name": "ACME"},
@@ -121,7 +126,8 @@ with start_observe(
 
 **Key `start_observe` parameters:**
 
-- `name`: Span name (defaults to function name if used as decorator)
+- `feature_slug` (required): A unique identifier for the feature or workflow being traced
+- `name` (required): Span name (defaults to function name if used as decorator)
 - `identity`: Dict with `user` and/or `organization` keys for tracking
 - `experiment`: Dict with `id`, `name`, and `variant` for A/B testing
 - `evaluate_config`: Evaluator configuration for the root span
@@ -178,6 +184,7 @@ Decorators automatically create parent-child relationships. Always start with `s
 from basalt.observability import start_observe, observe
 
 @start_observe(
+    feature_slug="main-workflow",
     name="Main Workflow",
     identity={
         "organization": {"id": "123", "name": "ACME"},
@@ -347,7 +354,7 @@ You can mix decorators and context managers:
 ```python
 from basalt.observability import start_observe, observe
 
-@start_observe(name="Main Workflow")
+@start_observe(feature_slug="main-workflow", name="Main Workflow")
 def main_workflow(data):
     # Root span via decorator
     prepare_data(data)
@@ -426,7 +433,7 @@ basalt = Basalt(api_key="your-api-key")
 openai_client = OpenAI(api_key="your-openai-key")
 
 # Root trace
-with start_observe(name="process_request", feature_slug="support-ticket"):
+with start_observe(feature_slug="support-ticket", name="process_request"):
     # Fetch prompt with context manager
     with basalt.prompts.get_sync("joke-analyzer", variables={"jokeText": "..."}) as prompt:
         # Auto-instrumented OpenAI call automatically receives prompt attributes

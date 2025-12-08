@@ -54,6 +54,7 @@ from basalt.observability import start_observe, observe
 
 
 @start_observe(
+    feature_slug="workflow",
     name="my_workflow",
     identity={
         "organization": {"id": "123", "name": "ACME"},
@@ -89,6 +90,7 @@ from basalt.observability import start_observe, observe
 def process_request(user_id, data):
     # Create root span with identity
     with start_observe(
+            feature_slug="request-processing",
             name="process_request",
             identity={"user": user_id},
             metadata={"source": "api"}
@@ -119,6 +121,7 @@ from basalt.observability import start_observe, observe
 
 # Method 1: Set on root span (recommended)
 @start_observe(
+    feature_slug="chat-handler",
     name="chat_handler",
     identity={
         "organization": {"id": "123", "name": "ACME"},
@@ -131,7 +134,7 @@ def handle_chat(message):
 
 
 # Method 2: Set dynamically
-@start_observe(name="api_handler")
+@start_observe(feature_slug="api-handler", name="api_handler")
 def handle_request(auth_token):
     user_data = verify_token(auth_token)  # Returns {"id": "user-123", "name": "John Doe"}
     observe.set_identity({"user": user_data})
@@ -144,7 +147,7 @@ Add custom key-value pairs to your spans:
 
 ```python
 # On root span
-@start_observe(name="workflow", metadata={"model": "gpt-4", "temperature": 0.7})
+@start_observe(feature_slug="workflow", name="workflow", metadata={"model": "gpt-4", "temperature": 0.7})
 def workflow():
     pass
 

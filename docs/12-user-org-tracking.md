@@ -81,7 +81,7 @@ You can also set identity dynamically within a span using `observe.set_identity(
 ```python
 from basalt.observability import observe, start_observe
 
-@start_observe(name="workflow")
+@start_observe(feature_slug="data-workflow", name="workflow")
 def process_data(auth_token):
     # Authenticate and get user info
     user_info = authenticate(auth_token)
@@ -105,7 +105,7 @@ When using context managers, you can set identity on the span handle:
 from basalt.observability import async_start_observe
 
 async def workflow():
-    async with async_start_observe(name="process", feature_slug="task") as span:
+    async with async_start_observe(feature_slug="task", name="process") as span:
         # Set identity on the span handle
         span.set_identity({
             "user": {"id": "user-789"},
@@ -197,7 +197,7 @@ def get_identity_from_request():
     }
 
 @app.route("/api/orders/<order_id>")
-@start_observe(name="get_order", feature_slug="orders", identity=get_identity_from_request)
+@start_observe(feature_slug="orders", name="get_order", identity=get_identity_from_request)
 def get_order(order_id):
     # Identity automatically set from request
     order = fetch_order(order_id)
@@ -212,8 +212,8 @@ Identity works seamlessly with async/await:
 from basalt.observability import async_start_observe
 
 @async_start_observe(
-    name="async_workflow",
     feature_slug="background-jobs",
+    name="async_workflow",
     identity={"user": {"id": "user-123"}}
 )
 async def process_async(data):

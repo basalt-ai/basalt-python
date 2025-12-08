@@ -54,6 +54,7 @@ from basalt.observability import start_observe, observe
 
 
 @start_observe(
+    feature_slug="ab-test",
     name="experiment.variant_a",
     experiment="exp-456",
     identity={
@@ -73,6 +74,7 @@ def run_variant_a():
 
 # Or using context manager
 with start_observe(
+        feature_slug="ab-test",
         name="experiment.variant_b",
         experiment="exp-456",
 ):

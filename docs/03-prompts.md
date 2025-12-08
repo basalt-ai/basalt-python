@@ -514,7 +514,7 @@ Combine prompt context managers with manual spans:
 from basalt import Basalt
 from basalt.observability import start_observe, observe
 
-@start_observe(name="QA System", identity={"user": {"id": "user_123"}})
+@start_observe(feature_slug="qa-system", name="QA System", identity={"user": {"id": "user_123"}})
 def answer_question(question: str):
     with basalt.prompts.get_sync("qa-prompt", variables={"question": question}) as prompt:
         # Prompt span is a child of "QA System"
