@@ -183,6 +183,14 @@ class Prompt:
 class _PromptContextMixin:
     """Shared span helper for prompt context managers."""
 
+    # Type hints for attributes used in mixin (set by subclasses)
+    _prompt: Prompt
+    _slug: str
+    _version: str | None
+    _tag: str | None
+    _variables: dict[str, Any] | None
+    _from_cache: bool
+
     def _set_span_attributes(self) -> None:
         from basalt.observability import semconv
         from basalt.observability.context_managers import get_tracer
@@ -220,6 +228,17 @@ class PromptContextManager(_PromptContextMixin):
             response = llm.generate(prompt.text)
     """
 
+    # Type hints for forwarded Prompt attributes (for IntelliSense)
+    slug: str
+    text: str
+    raw_text: str
+    model: PromptModel
+    version: str
+    system_text: str | None
+    raw_system_text: str | None
+    variables: dict[str, Any] | None
+    tag: str | None
+
     def __init__(
         self,
         prompt: Prompt,
@@ -228,7 +247,7 @@ class PromptContextManager(_PromptContextMixin):
         tag: str | None,
         variables: dict[str, Any] | None,
         from_cache: bool = False,
-    ):
+    ) -> None:
         """
         Initialize the wrapper.
 
@@ -240,20 +259,19 @@ class PromptContextManager(_PromptContextMixin):
             variables: Variables used in prompt compilation
             from_cache: Whether the prompt was retrieved from cache
         """
-        self._prompt = prompt
-        self._slug = slug
-        self._version = version
-        self._tag = tag
-        self._variables = variables
-        self._from_cache = from_cache
-        self._context_token = None
-        # Span creation removed - ContextVar injection is sufficient for auto-instrumented spans
+        self._prompt: Prompt = prompt
+        self._slug: str = slug
+        self._version: str | None = version
+        self._tag: str | None = tag
+        self._variables: dict[str, Any] | None = variables
+        self._from_cache: bool = from_cache
+        self._context_token: Any = None
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Forward all attribute access to the wrapped Prompt."""
         return getattr(self._prompt, name)
 
-    def __enter__(self):
+    def __enter__(self) -> PromptContextManager:
         """
         Enter context manager mode - set prompt context for child spans.
 
@@ -272,7 +290,7 @@ class PromptContextManager(_PromptContextMixin):
         self._context_token = _current_prompt_context.set(prompt_ctx)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
         """Exit context manager mode - clear prompt context."""
         try:
             # Any cleanup logic
@@ -284,13 +302,17 @@ class PromptContextManager(_PromptContextMixin):
         # Don't suppress exceptions
         return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return representation forwarded from wrapped Prompt."""
         return repr(self._prompt)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation forwarded from wrapped Prompt."""
         return str(self._prompt)
+
+    def compile_variables(self, variables: dict[str, Any]) -> Prompt:
+        """Forward compile_variables to wrapped Prompt."""
+        return self._prompt.compile_variables(variables)
 
 
 class AsyncPromptContextManager(_PromptContextMixin):
@@ -301,6 +323,16 @@ class AsyncPromptContextManager(_PromptContextMixin):
     `async with prompts.get(...) as prompt:` syntax.
     """
 
+    slug: str
+    text: str
+    raw_text: str
+    model: PromptModel
+    version: str
+    system_text: str | None
+    raw_system_text: str | None
+    variables: dict[str, Any] | None
+    tag: str | None
+
     def __init__(
         self,
         prompt: Prompt,
@@ -309,7 +341,7 @@ class AsyncPromptContextManager(_PromptContextMixin):
         tag: str | None,
         variables: dict[str, Any] | None,
         from_cache: bool = False,
-    ):
+    ) -> None:
         """
         Initialize the wrapper.
 
@@ -321,20 +353,19 @@ class AsyncPromptContextManager(_PromptContextMixin):
             variables: Variables used in prompt compilation
             from_cache: Whether the prompt was retrieved from cache
         """
-        self._prompt = prompt
-        self._slug = slug
-        self._version = version
-        self._tag = tag
-        self._variables = variables
-        self._from_cache = from_cache
-        self._context_token = None
-        # Span creation removed - ContextVar injection is sufficient for auto-instrumented spans
+        self._prompt: Prompt = prompt
+        self._slug: str = slug
+        self._version: str | None = version
+        self._tag: str | None = tag
+        self._variables: dict[str, Any] | None = variables
+        self._from_cache: bool = from_cache
+        self._context_token: Any = None
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Forward all attribute access to the wrapped Prompt."""
         return getattr(self._prompt, name)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> AsyncPromptContextManager:
         """
         Enter async context manager mode - set prompt context for child spans.
 
@@ -353,7 +384,7 @@ class AsyncPromptContextManager(_PromptContextMixin):
         self._context_token = _current_prompt_context.set(prompt_ctx)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
         """Exit async context manager mode - clear prompt context."""
         try:
             # Any cleanup logic
@@ -365,13 +396,17 @@ class AsyncPromptContextManager(_PromptContextMixin):
         # Don't suppress exceptions
         return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return representation forwarded from wrapped Prompt."""
         return repr(self._prompt)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation forwarded from wrapped Prompt."""
         return str(self._prompt)
+
+    def compile_variables(self, variables: dict[str, Any]) -> Prompt:
+        """Forward compile_variables to wrapped Prompt."""
+        return self._prompt.compile_variables(variables)
 
 
 @dataclass(slots=True, frozen=True)
