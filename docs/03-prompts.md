@@ -192,6 +192,79 @@ print(prompt.text)
 basalt.shutdown()
 ```
 
+## Observability with Context Managers
+
+Prompts can be used as context managers to automatically inject prompt data to instrumented calls.
+This enables generations spans to link back to the prompt used.
+
+### Sync Context Manager Pattern
+
+```python
+from basalt import Basalt
+import openai
+
+basalt = Basalt(api_key="your-api-key")
+client = openai.OpenAI()
+
+# Use the prompt as a context manager for observability
+with basalt.prompts.get_sync(
+    slug='qa-prompt',
+    tag='production',
+    variables={"context": "Paris is the capital of France"}
+) as prompt:
+    # Any LLM calls here automatically nest under the prompt span
+    response = client.chat.completions.create(
+        model=prompt.model.model,
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt.text}
+        ],
+        temperature=prompt.model.parameters.temperature or 0.7,
+        max_tokens=prompt.model.parameters.max_tokens or 1000
+    )
+    
+    print(response.choices[0].message.content)
+
+basalt.shutdown()
+```
+
+### Async Context Manager Pattern
+
+```python
+import asyncio
+from basalt import Basalt
+import openai
+
+async def qa_workflow():
+    basalt = Basalt(api_key="your-api-key")
+    client = openai.AsyncOpenAI()
+    
+    # Async context manager for async LLM calls
+    async with await basalt.prompts.get(
+        slug='qa-prompt',
+        tag='production',
+        variables={"context": "Berlin is the capital of Germany"}
+    ) as prompt:
+        # Async LLM calls automatically nest under the prompt span
+        response = await client.chat.completions.create(
+            model=prompt.model.model,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt.text}
+            ],
+            temperature=prompt.model.parameters.temperature or 0.7,
+            max_tokens=prompt.model.parameters.max_tokens or 1000
+        )
+        
+        print(response.choices[0].message.content)
+    
+    basalt.shutdown()
+
+# Run async workflow
+asyncio.run(qa_workflow())
+```
+
+
 ## Describing Prompts
 
 Get metadata about a prompt including available versions and tags.

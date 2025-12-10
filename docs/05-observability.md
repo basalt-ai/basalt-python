@@ -221,3 +221,54 @@ client = Basalt(
 ```
 
 This metadata will be automatically attached to every span created by the SDK.
+
+## Prompt Context Managers
+
+Prompts can be used as context managers to automatically link LLM calls to the prompt data for enhanced observability.
+
+### How It Works
+
+When you use a prompt as a context manager, it creates an active span that any subsequent LLM calls (via auto-instrumented providers) will automatically link to the prompt's text and model configuration.
+
+```python
+from basalt import Basalt
+import openai
+
+basalt = Basalt(api_key="your-api-key")
+client = openai.OpenAI()
+
+# Prompt span becomes active and scopes LLM calls
+with basalt.prompts.get_sync('summary-prompt', tag='production') as prompt:
+    # This LLM call automatically links to the prompt data
+    response = client.chat.completions.create(
+        model=prompt.model.model,
+        messages=[{"role": "user", "content": prompt.text}]
+    )
+
+basalt.shutdown()
+```
+
+### Async Support
+
+Context managers work seamlessly with async/await as well:
+
+```python
+import asyncio
+from basalt import Basalt
+import openai
+
+async def generate_summary():
+    basalt = Basalt(api_key="your-api-key")
+    client = openai.AsyncOpenAI()
+    
+    # Async context manager for async LLM calls
+    async with await basalt.prompts.get('summary-prompt', tag='production') as prompt:
+        response = await client.chat.completions.create(
+            model=prompt.model.model,
+            messages=[{"role": "user", "content": prompt.text}]
+        )
+    
+    basalt.shutdown()
+
+asyncio.run(generate_summary())
+```
