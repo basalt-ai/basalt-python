@@ -129,6 +129,7 @@ from basalt.observability import observe, start_observe
 
 # Root span with identity tracking
 @start_observe(
+    feature_slug="dataset-processing",
     name="process_workflow",
     identity={
         "organization": {"id": "123", "name": "ACME"},
@@ -260,6 +261,55 @@ Your Basalt instance exposes a `prompts` property for interacting with your Basa
   finally:
       basalt.shutdown()
   ```
+
+- **Context Managers for Observability** (Recommended)
+
+  Use prompts as context managers to automatically nest LLM calls under a prompt span for better trace organization and observability:
+
+  **Sync Example:**
+
+  ```python
+  from basalt import Basalt
+  import openai
+
+  basalt = Basalt(api_key="your-api-key")
+  client = openai.OpenAI()
+
+  # Use context manager for automatic span nesting
+  with basalt.prompts.get_sync('summary-prompt', tag='production') as prompt:
+      response = client.chat.completions.create(
+          model=prompt.model.model,
+          messages=[{'role': 'user', 'content': prompt.text}]
+      )
+      print(response.choices[0].message.content)
+  
+  basalt.shutdown()
+  ```
+
+  **Async Example:**
+
+  ```python
+  import asyncio
+  from basalt import Basalt
+  import openai
+
+  async def generate():
+      basalt = Basalt(api_key="your-api-key")
+      client = openai.AsyncOpenAI()
+      
+      async with await basalt.prompts.get('summary-prompt', tag='production') as prompt:
+          response = await client.chat.completions.create(
+              model=prompt.model.model,
+              messages=[{'role': 'user', 'content': prompt.text}]
+          )
+          print(response.choices[0].message.content)
+      
+      basalt.shutdown()
+
+  asyncio.run(generate())
+  ```
+
+See the [Prompts guide](./docs/03-prompts.md#observability-with-context-managers) for complete details.
 
 - **Describe a Prompt**
 
