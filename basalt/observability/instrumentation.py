@@ -74,14 +74,17 @@ class BasaltConfig:
 
 def create_tracer_provider(
     config: BasaltConfig,
-    exporter: SpanExporter | None = None,
+    exporter: SpanExporter | list[SpanExporter] | None = None,
 ) -> TracerProvider:
     """
     Create and configure an OpenTelemetry TracerProvider for Basalt.
 
     Args:
         config: BasaltConfig instance with service and environment info.
-        exporter: Optional SpanExporter. Defaults to ConsoleSpanExporter for debugging.
+        exporter: Optional SpanExporter or list of SpanExporters. Can be:
+            - None: Defaults to ConsoleSpanExporter for debugging
+            - Single SpanExporter: Exports to one destination
+            - List of SpanExporters: Exports to multiple destinations simultaneously
 
     Returns:
         A configured TracerProvider instance.
@@ -102,8 +105,9 @@ def create_tracer_provider(
     resource = Resource.create(resource_attrs)
     provider = TracerProvider(resource=resource)
 
+    # Normalize exporter to list
     if exporter is None:
-        exporter = ConsoleSpanExporter()
+        exporters = [ConsoleSpanExporter()]
         warnings.warn(
             "No span exporter configured and default Basalt OTEL endpoint unavailable. "
             "Using ConsoleSpanExporter for debugging. For production, configure an exporter "
@@ -111,23 +115,36 @@ def create_tracer_provider(
             UserWarning,
             stacklevel=3,
         )
+    elif isinstance(exporter, list):
+        # Handle empty list
+        exporters = exporter if exporter else [ConsoleSpanExporter()]
+        if not exporter:
+            warnings.warn(
+                "Empty exporter list provided. Using ConsoleSpanExporter for debugging.",
+                UserWarning,
+                stacklevel=3,
+            )
+    else:
+        exporters = [exporter]
 
-    processor_cls = SimpleSpanProcessor if isinstance(exporter, ConsoleSpanExporter) else BatchSpanProcessor
-    provider.add_span_processor(processor_cls(exporter))
+    # Add a span processor for each exporter
+    for exp in exporters:
+        processor_cls = SimpleSpanProcessor if isinstance(exp, ConsoleSpanExporter) else BatchSpanProcessor
+        provider.add_span_processor(processor_cls(exp))
 
     return provider
 
 
 def setup_tracing(
     config: BasaltConfig,
-    exporter: SpanExporter | None = None,
+    exporter: SpanExporter | list[SpanExporter] | None = None,
 ) -> TracerProvider:
     """
     Set up global OpenTelemetry tracing for the Basalt SDK.
 
     Args:
         config: Tracing configuration.
-        exporter: Optional SpanExporter to use.
+        exporter: Optional SpanExporter or list of SpanExporters to use.
 
     Returns:
         The configured TracerProvider.
@@ -195,14 +212,32 @@ class InstrumentationManager:
             self._initialized = True
             return
 
-        exporter = effective_config.exporter or self._build_exporter_from_env()
+        # Combine user-provided exporters with environment-built exporter
+        user_exporters = effective_config.exporter
+        env_exporter = self._build_exporter_from_env()
+
+        # Normalize user_exporters to list
+        if user_exporters is None:
+            exporters_list = []
+        elif isinstance(user_exporters, list):
+            exporters_list = user_exporters.copy()
+        else:
+            exporters_list = [user_exporters]
+
+        # Add environment exporter if available and not already in list
+        if env_exporter and env_exporter not in exporters_list:
+            exporters_list.append(env_exporter)
+
+        # Pass to setup_tracing (will handle None/empty list → ConsoleSpanExporter)
+        final_exporter = exporters_list if exporters_list else None
+
         basalt_config = BasaltConfig(
             service_name=effective_config.service_name,
             service_version=effective_config.service_version or "",
             environment=effective_config.environment,
             extra_resource_attributes=effective_config.extra_resource_attributes,
         )
-        self._tracer_provider = setup_tracing(basalt_config, exporter=exporter)
+        self._tracer_provider = setup_tracing(basalt_config, exporter=final_exporter)
         if self._tracer_provider:
             self._install_basalt_processors(self._tracer_provider)
 
