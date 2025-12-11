@@ -133,15 +133,30 @@ def setup_tracing(
         The configured TracerProvider.
 
     Note:
-        If a TracerProvider is already set globally, this will return the existing
-        provider instead of creating a new one to avoid "Overriding of current
-        TracerProvider is not allowed" errors.
+        If a TracerProvider is already set globally (e.g., by Datadog, Honeycomb,
+        or another observability tool), this will return the existing provider instead
+        of creating a new one to avoid "Overriding of current TracerProvider is not allowed" errors.
+
+        When an existing provider is detected, Basalt's span processors
+        (BasaltContextProcessor, BasaltCallEvaluatorProcessor, BasaltAutoInstrumentationProcessor)
+        will be attached to it via _install_basalt_processors() in initialize().
+        This ensures that all spans (including those from external tools) are enriched
+        with Basalt's custom metadata, evaluators, and prompt context.
+
+        Integration order: For best results, initialize external observability tools
+        (Datadog, Honeycomb) before Basalt. If Basalt initializes first, external tools
+        may fail to override the global provider.
     """
     # Check if a tracer provider is already set globally
     existing_provider = trace.get_tracer_provider()
     # If it's a real TracerProvider (not the default proxy), reuse it
     if hasattr(existing_provider, 'add_span_processor'):
-        logger.debug("Reusing existing global TracerProvider")
+        provider_type = type(existing_provider).__name__
+        provider_module = type(existing_provider).__module__
+        logger.info(
+            f"Reusing existing global TracerProvider: {provider_module}.{provider_type}. "
+            f"Basalt processors will be attached to this provider to enrich all spans."
+        )
         return existing_provider  # type: ignore[return-value]
 
     # Otherwise create and set a new one
@@ -403,6 +418,7 @@ class InstrumentationManager:
 
     def _install_basalt_processors(self, provider: TracerProvider) -> None:
         if getattr(provider, "_basalt_processors_installed", False):
+            logger.debug("Basalt processors already installed on this provider, skipping")
             return
 
         processors: list[OTelSpanProcessor] = [
@@ -410,11 +426,19 @@ class InstrumentationManager:
             BasaltCallEvaluatorProcessor(),
             BasaltAutoInstrumentationProcessor(),
         ]
+
+        provider_type = type(provider).__name__
+        logger.info(
+            f"Installing {len(processors)} Basalt span processors on {provider_type}: "
+            f"{', '.join(type(p).__name__ for p in processors)}"
+        )
+
         for processor in processors:
             provider.add_span_processor(processor)
 
         provider._basalt_processors_installed = True  # type: ignore[attr-defined]
         self._span_processors = processors
+        logger.debug(f"Successfully installed Basalt processors on {provider_type}")
 
 
     def _uninstrument_providers(self) -> None:
