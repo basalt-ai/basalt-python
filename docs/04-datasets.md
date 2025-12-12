@@ -31,15 +31,14 @@ from basalt import Basalt
 basalt = Basalt(api_key="your-api-key")
 
 # List all datasets
-response = basalt.datasets.list_sync()
+datasets = basalt.datasets.list_sync()
 
-print(f"Total datasets: {response.total}")
+print(f"Total datasets: {len(datasets)}")
 
-for dataset in response.datasets:
+for dataset in datasets:
     print(f"\nSlug: {dataset.slug}")
     print(f"  Name: {dataset.name}")
-    print(f"  Description: {dataset.description}")
-    print(f"  Rows: {dataset.num_rows}")
+    print(f"  Rows: {len(dataset.rows)}")
     print(f"  Columns: {len(dataset.columns)}")
 
 basalt.shutdown()
@@ -54,10 +53,10 @@ from basalt import Basalt
 async def list_datasets_async():
     basalt = Basalt(api_key="your-api-key")
 
-    response = await basalt.datasets.list_async()
+    datasets = await basalt.datasets.list()
 
-    for dataset in response.datasets:
-        print(f"{dataset.slug}: {dataset.num_rows} rows")
+    for dataset in datasets:
+        print(f"{dataset.slug}: {len(dataset.rows)} rows")
 
     basalt.shutdown()
 
@@ -76,10 +75,10 @@ from basalt import Basalt
 basalt = Basalt(api_key="your-api-key")
 
 # Get dataset by slug
-dataset = basalt.datasets.get_sync(slug='customer-support-qa')
+dataset = basalt.datasets.get_sync('customer-support-qa')
 
 print(f"Dataset: {dataset.name}")
-print(f"Description: {dataset.description}")
+print(f"Slug: {dataset.slug}")
 print(f"Total rows: {len(dataset.rows)}")
 print(f"Columns: {[col.name for col in dataset.columns]}")
 
@@ -100,13 +99,12 @@ from basalt import Basalt
 
 basalt = Basalt(api_key="your-api-key")
 
-dataset = basalt.datasets.get_sync(slug='my-dataset')
+dataset = basalt.datasets.get_sync('my-dataset')
 
 # Iterate through columns
 for column in dataset.columns:
     print(f"\nColumn: {column.name}")
     print(f"  Type: {column.type}")
-    print(f"  Description: {column.description}")
 
 basalt.shutdown()
 ```
@@ -116,29 +114,26 @@ basalt.shutdown()
 ### Dataset Object
 
 ```python
-dataset.slug           # Unique identifier
-dataset.name           # Human-readable name
-dataset.description    # Description
-dataset.num_rows       # Number of rows
-dataset.columns        # List of DatasetColumn objects
-dataset.rows           # List of DatasetRow objects
+dataset.slug           # str - Unique identifier
+dataset.name           # str - Human-readable name
+dataset.columns        # list[DatasetColumn] - List of DatasetColumn objects
+dataset.rows           # list[DatasetRow] - List of DatasetRow objects
 ```
 
 ### DatasetColumn Object
 
 ```python
-column.name            # Column name
-column.type            # Data type (e.g., "string", "number")
-column.description     # Column description
+column.name            # str - Column name
+column.type            # str | None - Data type (optional)
 ```
 
 ### DatasetRow Object
 
 ```python
-row.name               # Row identifier
-row.values             # Dict[str, Any] - column_name -> value
-row.ideal_output       # Optional[str] - Expected output for evaluation
-row.metadata           # Optional[Dict[str, Any]] - Additional context
+row.name               # str | None - Row identifier (optional)
+row.values             # dict[str, str] - column_name -> value
+row.ideal_output       # str | None - Expected output for evaluation (optional)
+row.metadata           # dict[str, Any] - Additional context (defaults to empty dict)
 ```
 
 ## Adding Rows
@@ -153,7 +148,7 @@ from basalt import Basalt
 basalt = Basalt(api_key="your-api-key")
 
 # Add a row
-row, warning = basalt.datasets.add_row_sync(
+row = basalt.datasets.add_row_sync(
     slug='customer-support-qa',
     values={
         'question': 'How do I reset my password?',
@@ -165,8 +160,7 @@ row, warning = basalt.datasets.add_row_sync(
 )
 
 print(f"Added row: {row.name}")
-if warning:
-    print(f"Warning: {warning}")
+print(f"Row values: {row.values}")
 
 basalt.shutdown()
 ```
@@ -180,7 +174,7 @@ from basalt import Basalt
 async def add_test_case():
     basalt = Basalt(api_key="your-api-key")
 
-    row, warning = await basalt.datasets.add_row_async(
+    row = await basalt.datasets.add_row(
         slug='qa-dataset',
         values={'input': 'test input', 'category': 'support'},
         name='async-test-001',
@@ -197,6 +191,7 @@ asyncio.run(add_test_case())
 
 ```python
 from basalt import Basalt
+from basalt.types.exceptions import BasaltAPIError
 
 def add_multiple_test_cases(slug: str, test_cases: list):
     """Add multiple test cases to a dataset"""
@@ -206,7 +201,7 @@ def add_multiple_test_cases(slug: str, test_cases: list):
 
     for i, test_case in enumerate(test_cases):
         try:
-            row, warning = basalt.datasets.add_row_sync(
+            row = basalt.datasets.add_row_sync(
                 slug=slug,
                 values=test_case['values'],
                 name=test_case.get('name', f'test-{i:03d}'),
@@ -217,10 +212,7 @@ def add_multiple_test_cases(slug: str, test_cases: list):
             added_rows.append(row)
             print(f"✓ Added: {row.name}")
 
-            if warning:
-                print(f"  Warning: {warning}")
-
-        except Exception as e:
+        except BasaltAPIError as e:
             print(f"✗ Failed to add test case {i}: {e}")
 
     basalt.shutdown()
@@ -294,7 +286,7 @@ def create_rag_test_dataset(slug: str):
     ]
 
     for test_case in test_cases:
-        row, _ = basalt.datasets.add_row_sync(
+        row = basalt.datasets.add_row_sync(
             slug=slug,
             **test_case
         )
@@ -318,7 +310,7 @@ def evaluate_prompt_against_dataset(prompt_slug: str, dataset_slug: str):
     openai_client = openai.OpenAI()
 
     # Get dataset
-    dataset = basalt.datasets.get_sync(slug=dataset_slug)
+    dataset = basalt.datasets.get_sync(dataset_slug)
 
     results = []
 
@@ -398,7 +390,7 @@ def save_to_dataset(question: str, context: str, response: str, human_rating: in
 
     # Only save highly-rated responses
     if human_rating >= 4:
-        row, _ = basalt.datasets.add_row_sync(
+        row = basalt.datasets.add_row_sync(
             slug='support-golden-dataset',
             values={
                 'question': question,
@@ -422,210 +414,4 @@ human_rating = 5  # From human review
 save_to_dataset(question, context, response, human_rating)
 
 basalt.shutdown()
-```
-
-## Complete Examples
-
-### Example 1: Dataset-Driven Testing Framework
-
-```python
-from basalt import Basalt
-from typing import Callable, Dict, Any, List
-import openai
-
-class DatasetTester:
-    """Framework for testing AI functions against datasets"""
-
-    def __init__(self, api_key: str):
-        self.basalt = Basalt(api_key=api_key)
-        self.openai = openai.OpenAI()
-
-    def run_tests(
-        self,
-        dataset_slug: str,
-        test_function: Callable,
-        compare_function: Callable = None
-    ) -> List[Dict[str, Any]]:
-        """Run tests from a dataset"""
-
-        # Get dataset
-        dataset = self.basalt.datasets.get_sync(slug=dataset_slug)
-
-        results = []
-
-        for row in dataset.rows:
-            print(f"\nTesting: {row.name}")
-
-            try:
-                # Run test function with row values
-                actual_output = test_function(**row.values)
-
-                # Compare results
-                if compare_function:
-                    match = compare_function(actual_output, row.ideal_output)
-                else:
-                    match = str(actual_output).strip() == str(row.ideal_output).strip()
-
-                results.append({
-                    'test_case': row.name,
-                    'input': row.values,
-                    'expected': row.ideal_output,
-                    'actual': actual_output,
-                    'passed': match,
-                    'metadata': row.metadata
-                })
-
-                status = "✓ PASS" if match else "✗ FAIL"
-                print(f"  {status}")
-
-            except Exception as e:
-                print(f"  ✗ ERROR: {e}")
-                results.append({
-                    'test_case': row.name,
-                    'input': row.values,
-                    'error': str(e),
-                    'passed': False
-                })
-
-        return results
-
-    def report(self, results: List[Dict[str, Any]]):
-        """Generate test report"""
-        total = len(results)
-        passed = sum(1 for r in results if r.get('passed', False))
-        failed = total - passed
-
-        print(f"\n{'='*50}")
-        print(f"TEST REPORT")
-        print(f"{'='*50}")
-        print(f"Total tests: {total}")
-        print(f"Passed: {passed} ({passed/total:.1%})")
-        print(f"Failed: {failed} ({failed/total:.1%})")
-
-        if failed > 0:
-            print(f"\nFailed tests:")
-            for r in results:
-                if not r.get('passed', False):
-                    print(f"  - {r['test_case']}")
-                    if 'error' in r:
-                        print(f"    Error: {r['error']}")
-
-    def shutdown(self):
-        self.basalt.shutdown()
-
-# Usage
-tester = DatasetTester(api_key="your-api-key")
-
-def my_qa_function(question: str, context: str) -> str:
-    """Function to test"""
-    client = openai.OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": f"Context: {context}"},
-            {"role": "user", "content": question}
-        ]
-    )
-    return response.choices[0].message.content
-
-# Run tests
-results = tester.run_tests(
-    dataset_slug='qa-test-suite',
-    test_function=my_qa_function
-)
-
-# Generate report
-tester.report(results)
-tester.shutdown()
-```
-
-### Example 2: Continuous Dataset Improvement
-
-```python
-from basalt import Basalt
-from datetime import datetime
-
-class DatasetManager:
-    """Manage and improve datasets over time"""
-
-    def __init__(self, api_key: str):
-        self.basalt = Basalt(api_key=api_key)
-
-    def add_production_example(
-        self,
-        dataset_slug: str,
-        input_data: dict,
-        output: str,
-        quality_score: float,
-        source: str = "production"
-    ):
-        """Add high-quality production examples to dataset"""
-
-        # Only add high-quality examples
-        if quality_score < 0.8:
-            print(f"Skipping low-quality example (score: {quality_score})")
-            return None
-
-        # Generate unique name
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        name = f"{source}-{timestamp}"
-
-        # Add to dataset
-        row, warning = self.basalt.datasets.add_row_sync(
-            slug=dataset_slug,
-            values=input_data,
-            name=name,
-            ideal_output=output,
-            metadata={
-                'quality_score': quality_score,
-                'source': source,
-                'timestamp': timestamp
-            }
-        )
-
-        print(f"✓ Added {name} to dataset (quality: {quality_score:.2f})")
-
-        return row
-
-    def get_test_cases_by_category(
-        self,
-        dataset_slug: str,
-        category: str
-    ):
-        """Filter test cases by category"""
-
-        dataset = self.basalt.datasets.get_sync(slug=dataset_slug)
-
-        filtered_rows = [
-            row for row in dataset.rows
-            if row.metadata and row.metadata.get('category') == category
-        ]
-
-        print(f"Found {len(filtered_rows)} rows in category '{category}'")
-        return filtered_rows
-
-    def shutdown(self):
-        self.basalt.shutdown()
-
-# Usage
-manager = DatasetManager(api_key="your-api-key")
-
-# Add production examples
-manager.add_production_example(
-    dataset_slug='support-qa',
-    input_data={
-        'question': 'How do I export my data?',
-        'context': 'Data management'
-    },
-    output='Go to Settings > Data > Export. Choose format and click Download.',
-    quality_score=0.95
-)
-
-# Get test cases by category
-technical_cases = manager.get_test_cases_by_category(
-    dataset_slug='support-qa',
-    category='technical'
-)
-
-manager.shutdown()
 ```

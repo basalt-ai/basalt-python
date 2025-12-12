@@ -7,7 +7,7 @@ This guide will help you get started with the Basalt Python SDK.
 Install the SDK using pip:
 
 ```bash
-pip install basalt-python
+pip install basalt-sdk
 ```
 
 ## Configuration
