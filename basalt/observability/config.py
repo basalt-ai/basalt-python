@@ -127,7 +127,8 @@ class TelemetryConfig:
     Example: ["langchain", "llamaindex"]
     """
 
-    exporter: SpanExporter | None = None
+    exporter: SpanExporter | list[SpanExporter] | None = None
+
     extra_resource_attributes: dict[str, Any] = field(default_factory=dict)
 
     def clone(self) -> TelemetryConfig:
@@ -136,6 +137,9 @@ class TelemetryConfig:
         cloned.extra_resource_attributes = dict(self.extra_resource_attributes)
         cloned.enabled_providers = list(self.enabled_providers) if self.enabled_providers else None
         cloned.disabled_providers = list(self.disabled_providers) if self.disabled_providers else None
+        # Clone exporter list if it's a list (shallow copy of list, not exporters themselves)
+        if isinstance(self.exporter, list):
+            cloned.exporter = list(self.exporter)
         return cloned
 
     def with_env_overrides(self) -> TelemetryConfig:

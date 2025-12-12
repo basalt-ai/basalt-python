@@ -198,3 +198,56 @@ class TestInstrumentationManager(unittest.TestCase):
         # Should NOT be wrapped, should be the gRPC exporter directly
         self.assertNotIsInstance(exporter, ResilientSpanExporter)
         self.assertIs(exporter, mock_grpc_exporter_instance)
+
+    @mock.patch("basalt.observability.instrumentation.trace")
+    def test_install_processors_on_existing_provider(self, mock_trace):
+        """Test that Basalt processors are installed on an existing TracerProvider (e.g., Datadog)."""
+        from opentelemetry.sdk.trace import TracerProvider
+
+        # Simulate an external tool (like Datadog) creating a provider first
+        external_provider = TracerProvider()
+        mock_trace.get_tracer_provider.return_value = external_provider
+        mock_trace.set_tracer_provider = mock.Mock()  # Should not be called
+
+        manager = InstrumentationManager()
+        config = TelemetryConfig(service_name="test", enabled=True)
+
+        manager.initialize(config)
+
+        # Verify that setup_tracing reused the existing provider
+        mock_trace.set_tracer_provider.assert_not_called()
+
+        # Verify that Basalt processors were installed on the external provider
+        self.assertTrue(hasattr(external_provider, "_basalt_processors_installed"))
+        self.assertTrue(external_provider._basalt_processors_installed)
+
+        # Verify that the manager has references to the processors
+        self.assertEqual(len(manager._span_processors), 3)
+
+        # Verify that the manager stored the external provider
+        self.assertIs(manager._tracer_provider, external_provider)
+
+    @mock.patch("basalt.observability.instrumentation.trace")
+    def test_processors_not_installed_twice_on_same_provider(self, mock_trace):
+        """Test that Basalt processors are not installed twice on the same provider."""
+        from opentelemetry.sdk.trace import TracerProvider
+
+        external_provider = TracerProvider()
+        mock_trace.get_tracer_provider.return_value = external_provider
+
+        manager1 = InstrumentationManager()
+        manager2 = InstrumentationManager()
+
+        config = TelemetryConfig(service_name="test", enabled=True)
+
+        # First initialization should install processors
+        manager1.initialize(config)
+        processor_count_after_first = len(external_provider._active_span_processor._span_processors)
+
+        # Second initialization should NOT add processors again (idempotent)
+        manager2.initialize(config)
+        processor_count_after_second = len(external_provider._active_span_processor._span_processors)
+
+        # Verify processors were only added once
+        self.assertEqual(processor_count_after_first, processor_count_after_second)
+        self.assertTrue(external_provider._basalt_processors_installed)
