@@ -51,3 +51,17 @@ class NetworkError(BasaltError):
     def __init__(self, message: str):
         self.message = message
         super().__init__(message)
+
+
+class FileUploadError(BasaltError):
+    """Raised when file upload to S3 fails."""
+
+    def __init__(self, message: str, file_key: str | None = None):
+        self.file_key = file_key
+        super().__init__(message)
+
+
+class FileValidationError(BasaltError):
+    """Raised when file validation fails before upload."""
+
+    pass
