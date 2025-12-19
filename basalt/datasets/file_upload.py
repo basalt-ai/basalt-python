@@ -270,7 +270,7 @@ class FileUploadHandler:
         Raises:
             BasaltAPIError: If the API request fails
         """
-        url = f"{self._base_url}/files/presign-upload"
+        url = f"{self._base_url}/files/generate-upload-url"
         body = {"fileName": filename, "contentType": content_type}
 
         self._logger.debug(
