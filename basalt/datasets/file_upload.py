@@ -272,13 +272,14 @@ class FileUploadHandler:
         """
         url = f"{self._base_url}/files/generate-upload-url"
         body = {"fileName": filename, "contentType": content_type}
+        headers = {"Authorization": f"Bearer {self._api_key}"}
 
         self._logger.debug(
             "Requesting presigned URL",
             extra={"filename": filename, "content_type": content_type},
         )
 
-        response = await self._http_client.fetch(url, "POST", body=body)
+        response = await self._http_client.fetch(url, "POST", body=body, headers=headers)
 
         if not response or not response.data:
             raise FileUploadError("Failed to get presigned URL: empty response")
@@ -301,15 +302,16 @@ class FileUploadHandler:
         Raises:
             BasaltAPIError: If the API request fails
         """
-        url = f"{self._base_url}/files/presign-upload"
+        url = f"{self._base_url}/files/generate-upload-url"
         body = {"fileName": filename, "contentType": content_type}
+        headers = {"Authorization": f"Bearer {self._api_key}"}
 
         self._logger.debug(
             "Requesting presigned URL",
             extra={"filename": filename, "content_type": content_type},
         )
 
-        response = self._http_client.fetch_sync(url, "POST", body=body)
+        response = self._http_client.fetch_sync(url, "POST", body=body, headers=headers)
 
         if not response or not response.data:
             raise FileUploadError("Failed to get presigned URL: empty response")
