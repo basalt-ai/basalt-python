@@ -10,9 +10,10 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:  # pragma: no cover
     from .client import DatasetsClient
 
+from .file_upload import FileAttachment
 from .models import Dataset, DatasetRow
 
-__all__ = ["DatasetsClient", "Dataset", "DatasetRow"]
+__all__ = ["DatasetsClient", "Dataset", "DatasetRow", "FileAttachment"]
 
 
 def __getattr__(name: str) -> Any:
