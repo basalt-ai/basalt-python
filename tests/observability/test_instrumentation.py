@@ -222,7 +222,9 @@ class TestInstrumentationManager(unittest.TestCase):
         self.assertTrue(external_provider._basalt_processors_installed)
 
         # Verify that the manager has references to the processors
-        self.assertEqual(len(manager._span_processors), 3)
+        # 4 processors: BasaltContextProcessor, BasaltCallEvaluatorProcessor,
+        # BasaltShouldEvaluateProcessor, BasaltAutoInstrumentationProcessor
+        self.assertEqual(len(manager._span_processors), 4)
 
         # Verify that the manager stored the external provider
         self.assertIs(manager._tracer_provider, external_provider)

@@ -131,6 +131,17 @@ class TelemetryConfig:
 
     extra_resource_attributes: dict[str, Any] = field(default_factory=dict)
 
+    sample_rate: float = 0.0
+    """
+    Global default sampling rate for trace-level evaluation (0.0-1.0, default 0.0).
+    Controls whether evaluators run for a trace via should_evaluate attribute.
+    Can be overridden per-trace via EvaluationConfig(sample_rate=...) in start_observe().
+    """
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.sample_rate <= 1.0:
+            raise ValueError("sample_rate must be within [0.0, 1.0].")
+
     def clone(self) -> TelemetryConfig:
         """Return a defensive copy of the telemetry configuration."""
         cloned = replace(self)
@@ -174,6 +185,15 @@ class TelemetryConfig:
         disabled_instruments = os.getenv("BASALT_DISABLED_INSTRUMENTS")
         if disabled_instruments:
             cfg.disabled_providers = [p.strip() for p in disabled_instruments.split(",") if p.strip()]
+
+        sample_rate_env = os.getenv("BASALT_SAMPLE_RATE")
+        if sample_rate_env:
+            try:
+                rate = float(sample_rate_env)
+                if 0.0 <= rate <= 1.0:
+                    cfg.sample_rate = rate
+            except ValueError:
+                pass  # Ignore invalid values
 
         if not cfg.service_version:
             # basalt_sdk_config is a mapping defined in `basalt.config` module

@@ -130,8 +130,9 @@ class TestMultipleExporters(unittest.TestCase):
         # Verify both exporters were used
         provider = manager._tracer_provider
         self.assertIsInstance(provider, TracerProvider)
-        # Should have 2 exporters + 3 Basalt processors = 5 total processors
-        self.assertEqual(len(provider._active_span_processor._span_processors), 5)
+        # Should have 2 exporters + 4 Basalt processors = 6 total processors
+        # Basalt processors: Context, CallEvaluator, ShouldEvaluate, AutoInstrumentation
+        self.assertEqual(len(provider._active_span_processor._span_processors), 6)
 
     def test_mixed_console_and_otlp_exporters(self):
         """Test mix of ConsoleSpanExporter and regular exporters."""
