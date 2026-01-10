@@ -109,6 +109,8 @@ class StartObserve(ContextDecorator):
             evaluators=self.evaluators,
             feature_slug=self.feature_slug,
             metadata=self._metadata,
+            evaluate_config=self.evaluate_config,
+            experiment=self.experiment,
         )
         span = self._ctx_manager.__enter__()
         # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
@@ -150,6 +152,8 @@ class StartObserve(ContextDecorator):
                 evaluators=pre_evaluators,
                 feature_slug=self.feature_slug,
                 metadata=self._metadata,
+                evaluate_config=self.evaluate_config,
+                experiment=self.experiment,
             ) as handle:
                 # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
                 assert isinstance(handle, StartSpanHandle)
@@ -188,6 +192,8 @@ class StartObserve(ContextDecorator):
                     evaluators=pre_evaluators,
                     feature_slug=self.feature_slug,
                     metadata=self._metadata,
+                    evaluate_config=self.evaluate_config,
+                    experiment=self.experiment,
                 ) as handle:
                     # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
                     assert isinstance(handle, StartSpanHandle)
@@ -879,6 +885,8 @@ class AsyncStartObserve:
             evaluators=self.evaluators,
             feature_slug=self.feature_slug,
             metadata=self._metadata,
+            evaluate_config=self.evaluate_config,
+            experiment=self.experiment,
         )
         span = await self._ctx_manager.__aenter__()
         # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 from collections.abc import AsyncGenerator, Generator, Mapping, Sequence
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ from opentelemetry.trace import Span, Tracer
 from . import semconv
 from .trace_context import (
     ORGANIZATION_CONTEXT_KEY,
+    SHOULD_EVALUATE_CONTEXT_KEY,
     USER_CONTEXT_KEY,
     TraceIdentity,
     _current_trace_defaults,
@@ -44,14 +46,16 @@ class EvaluationConfig:
     """
     Type-safe configuration for evaluators attached to a span.
 
-    This configuration is span-scoped and shared by all evaluators in the span.
-    It's not handled client-side but attached to the span for server-side processing.
+    This configuration is span-scoped and controls trace-level sampling for evaluators.
+    The sample_rate determines whether evaluators run for the entire trace.
 
     Attributes:
-        sample_rate: Sampling rate for evaluators (0.0-1.0). Default is 1.0 (100%).
+        sample_rate: Sampling rate for trace-level evaluation (0.0-1.0). Default is 0.0 (no sampling).
+                     When set, one sampling decision is made at root span creation and propagated
+                     to all spans in the trace via basalt.span.should_evaluate attribute.
     """
 
-    sample_rate: float = 1.0
+    sample_rate: float = 0.0
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.sample_rate <= 1.0:
@@ -678,6 +682,8 @@ def _with_span_handle(
     organization: TraceIdentity | Mapping[str, Any] | None = None,
     feature_slug: str | None = None,
     metadata: Mapping[str, Any] | None = None,
+    evaluate_config: EvaluationConfig | None = None,
+    experiment: Any = None,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
     defaults = _current_trace_defaults()
@@ -713,6 +719,37 @@ def _with_span_handle(
 
     # Check if we're inside a basalt trace
     in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
+
+    # Make trace-level sampling decision
+    should_evaluate_token = None
+    if is_root:
+        # Root span: make new sampling decision
+        # If experiment is attached, ALWAYS evaluate (should_evaluate=True)
+        if experiment is not None:
+            should_evaluate = True
+        else:
+            # Get sample_rate from evaluate_config if provided, otherwise use global default
+            if evaluate_config is not None:
+                effective_sample_rate = evaluate_config.sample_rate
+            else:
+                effective_sample_rate = defaults.sample_rate
+            should_evaluate = random.random() < effective_sample_rate
+        should_evaluate_token = attach(set_value(SHOULD_EVALUATE_CONTEXT_KEY, should_evaluate))
+    else:
+        # Check if should_evaluate already exists in context
+        existing_should_evaluate = otel_context.get_value(SHOULD_EVALUATE_CONTEXT_KEY)
+        if existing_should_evaluate is None:
+            # Orphan span without root - make its own decision
+            # If experiment is attached, ALWAYS evaluate
+            if experiment is not None:
+                should_evaluate = True
+            else:
+                if evaluate_config is not None:
+                    effective_sample_rate = evaluate_config.sample_rate
+                else:
+                    effective_sample_rate = defaults.sample_rate
+                should_evaluate = random.random() < effective_sample_rate
+            should_evaluate_token = attach(set_value(SHOULD_EVALUATE_CONTEXT_KEY, should_evaluate))
 
     try:
         with tracer.start_as_current_span(name) as span:
@@ -780,6 +817,10 @@ def _with_span_handle(
                 handle.set_output(output_payload)
 
     finally:
+        # Detach should_evaluate token if it was set
+        if should_evaluate_token is not None:
+            detach(should_evaluate_token)
+
         # Detach root span token if it was set
         if root_span_token is not None:
             detach(root_span_token)
@@ -805,6 +846,8 @@ async def _async_with_span_handle(
     organization: TraceIdentity | Mapping[str, Any] | None = None,
     feature_slug: str | None = None,
     metadata: Mapping[str, Any] | None = None,
+    evaluate_config: EvaluationConfig | None = None,
+    experiment: Any = None,
 ) -> AsyncGenerator[SpanHandle, None]:
     """Async version of _with_span_handle.
 
@@ -847,6 +890,37 @@ async def _async_with_span_handle(
     # Check if we're inside a basalt trace
     in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
 
+    # Make trace-level sampling decision
+    should_evaluate_token = None
+    if is_root:
+        # Root span: make new sampling decision
+        # If experiment is attached, ALWAYS evaluate (should_evaluate=True)
+        if experiment is not None:
+            should_evaluate = True
+        else:
+            # Get sample_rate from evaluate_config if provided, otherwise use global default
+            if evaluate_config is not None:
+                effective_sample_rate = evaluate_config.sample_rate
+            else:
+                effective_sample_rate = defaults.sample_rate
+            should_evaluate = random.random() < effective_sample_rate
+        should_evaluate_token = attach(set_value(SHOULD_EVALUATE_CONTEXT_KEY, should_evaluate))
+    else:
+        # Check if should_evaluate already exists in context
+        existing_should_evaluate = otel_context.get_value(SHOULD_EVALUATE_CONTEXT_KEY)
+        if existing_should_evaluate is None:
+            # Orphan span without root - make its own decision
+            # If experiment is attached, ALWAYS evaluate
+            if experiment is not None:
+                should_evaluate = True
+            else:
+                if evaluate_config is not None:
+                    effective_sample_rate = evaluate_config.sample_rate
+                else:
+                    effective_sample_rate = defaults.sample_rate
+                should_evaluate = random.random() < effective_sample_rate
+            should_evaluate_token = attach(set_value(SHOULD_EVALUATE_CONTEXT_KEY, should_evaluate))
+
     try:
         with tracer.start_as_current_span(name) as span:
             # Store root span in context for retrieval from nested spans
@@ -913,6 +987,10 @@ async def _async_with_span_handle(
                 handle.set_output(output_payload)
 
     finally:
+        # Detach should_evaluate token if it was set
+        if should_evaluate_token is not None:
+            detach(should_evaluate_token)
+
         # Detach root span token if it was set
         if root_span_token is not None:
             detach(root_span_token)

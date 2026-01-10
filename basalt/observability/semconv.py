@@ -316,16 +316,15 @@ class BasaltSpan:
     """
     Optional, span-scoped configuration applied to evaluators as a whole.
     Type: JSON object (string-serialized) or key/value attributes under this prefix
-    Examples: '{"sample_rate": 0.25, "mode": "async"}'
+    Examples: '{"sample_rate": 0.25}'
     """
 
-    # Optional prefix for span-scoped evaluator metadata (not per evaluator)
-    # Example usage: set attributes like "basalt.span.evaluator.sample_rate" = 0.5
-    EVALUATOR_PREFIX: Final[str] = "basalt.span.evaluator"
+    SHOULD_EVALUATE: Final[str] = "basalt.span.should_evaluate"
     """
-    Prefix for evaluator-related, span-scoped attributes.
-    Type: various (string, number, boolean)
-    Examples: "basalt.span.evaluator.sample_rate" = 0.5
+    Boolean indicating whether evaluators should run for this span's trace.
+    Determined once at root span creation via trace-level sampling, propagated to all child spans.
+    Type: boolean
+    Value: true (run evaluators) or false (skip evaluators)
     """
 
     FEATURE_SLUG: Final[str] = "basalt.span.feature_slug"

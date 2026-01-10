@@ -16,6 +16,7 @@ from . import semconv
 USER_CONTEXT_KEY: Final[str] = "basalt.context.user"
 ORGANIZATION_CONTEXT_KEY: Final[str] = "basalt.context.organization"
 FEATURE_SLUG_CONTEXT_KEY: Final[str] = "basalt.context.feature_slug"
+SHOULD_EVALUATE_CONTEXT_KEY: Final[str] = "basalt.context.should_evaluate"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,16 +45,20 @@ class _TraceContextConfig:
 
     experiment: TraceExperiment | str | None = None
     observe_metadata: dict[str, Any] | None = None
+    sample_rate: float = 0.0
 
     def __post_init__(self) -> None:
         self.experiment = _coerce_experiment(self.experiment)
         self.observe_metadata = dict(self.observe_metadata) if self.observe_metadata else {}
+        if not 0.0 <= self.sample_rate <= 1.0:
+            raise ValueError("sample_rate must be within [0.0, 1.0].")
 
     def clone(self) -> _TraceContextConfig:
         """Return a defensive copy of the configuration."""
         return _TraceContextConfig(
             experiment=self.experiment,
             observe_metadata=dict(self.observe_metadata) if self.observe_metadata is not None else {},
+            sample_rate=self.sample_rate,
         )
 
 
@@ -104,6 +109,21 @@ def _current_trace_defaults() -> _TraceContextConfig:
     """Return a clone of the currently configured trace defaults (Internal)."""
     with _LOCK:
         return _DEFAULT_CONTEXT.clone()
+
+
+def set_global_sample_rate(sample_rate: float) -> None:
+    """
+    Set the global default sample rate for trace-level evaluation.
+
+    Args:
+        sample_rate: Sampling rate (0.0-1.0) where 1.0 means 100% sampling.
+    """
+    if not 0.0 <= sample_rate <= 1.0:
+        raise ValueError("sample_rate must be within [0.0, 1.0].")
+
+    global _DEFAULT_CONTEXT
+    with _LOCK:
+        _DEFAULT_CONTEXT.sample_rate = sample_rate
 
 
 def configure_global_metadata(metadata: dict[str, Any] | None) -> None:

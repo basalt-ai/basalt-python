@@ -31,6 +31,7 @@ from .processors import (
     BasaltAutoInstrumentationProcessor,
     BasaltCallEvaluatorProcessor,
     BasaltContextProcessor,
+    BasaltShouldEvaluateProcessor,
 )
 from .resilient_exporters import ResilientSpanExporter
 
@@ -431,6 +432,10 @@ class InstrumentationManager:
         Args:
             config: Telemetry configuration specifying trace content and provider settings.
         """
+        # Set global sample rate from config
+        from .trace_context import set_global_sample_rate
+        set_global_sample_rate(config.sample_rate)
+
         # Set environment variables for third-party OpenTelemetry instrumentors
         # These variables are READ by the instrumentation libraries (openai, anthropic, etc.)
         # and control whether they capture prompts/completions in traces.
@@ -459,6 +464,7 @@ class InstrumentationManager:
         processors: list[OTelSpanProcessor] = [
             BasaltContextProcessor(),
             BasaltCallEvaluatorProcessor(),
+            BasaltShouldEvaluateProcessor(),
             BasaltAutoInstrumentationProcessor(),
         ]
 
