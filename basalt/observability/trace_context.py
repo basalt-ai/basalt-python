@@ -121,11 +121,18 @@ def set_global_sample_rate(sample_rate: float) -> None:
     if not 0.0 <= sample_rate <= 1.0:
         raise ValueError("sample_rate must be within [0.0, 1.0].")
 
-    global _DEFAULT_CONTEXT
+    # Take a snapshot of the current defaults under the lock, then
+    # construct a new config that preserves existing fields while
+    # updating the sample_rate, and install it via _set_trace_defaults.
     with _LOCK:
-        _DEFAULT_CONTEXT.sample_rate = sample_rate
+        current = _DEFAULT_CONTEXT.clone()
 
-
+    new_config = _TraceContextConfig(
+        experiment=current.experiment,
+        observe_metadata=current.observe_metadata,
+        sample_rate=sample_rate,
+    )
+    _set_trace_defaults(new_config)
 def configure_global_metadata(metadata: dict[str, Any] | None) -> None:
     """
     Configure global observability metadata applied to all traces.
