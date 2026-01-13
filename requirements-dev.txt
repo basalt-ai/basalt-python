@@ -39,7 +39,7 @@ docstring-parser==0.17.0
     # via
     #   anthropic
     #   google-cloud-aiplatform
-docutils==0.22.2
+docutils==0.22.4
     # via readme-renderer
 google-api-core==2.28.1
     # via
