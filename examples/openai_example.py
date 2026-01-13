@@ -2,104 +2,130 @@ import json
 import logging
 import os
 
-from openai import AzureOpenAI, OpenAI
+from openai import OpenAI
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 from basalt import Basalt
-from basalt.observability import ObserveKind, evaluate, observe, start_observe
+from basalt.observability import Identity, ObserveKind, evaluate, observe, start_observe
 from basalt.observability.config import TelemetryConfig
 
-logging.basicConfig(level=logging.INFO)
-
-# Ensure API keys are set
-if "BASALT_API_KEY" not in os.environ:
-    os.environ["BASALT_API_KEY"] = "test-key"
-if "OPENAI_API_KEY" not in os.environ:
-    pass
-    # We don't exit to allow syntax checking, but real run needs key
-
-# Use environment variable for OTLP endpoint or default to localhost
-otlp_endpoint = os.getenv("BASALT_OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-
-exporter = OTLPSpanExporter(
-    endpoint="http://localhost:4317",
-    headers={"authorization": f"Bearer {os.environ['BASALT_API_KEY']}"},
-    insecure=True,
-    timeout=10
-)
+# --- Constants ---
+# Use a standard model name that users are likely to have access to
+OPENAI_MODEL_NAME = "gpt-4o-mini"
 
 
-telemetry = TelemetryConfig(
-    service_name="openai-demo",
-    exporter=exporter,
-    enabled_providers=["openai"],  # Only instrument OpenAI calls
+def build_basalt_client():
+    """
+    Initialize the Basalt client with specific telemetry configurations.
+    """
+    # 1. Setup API Keys & Endpoints
+    basalt_key = os.getenv("BASALT_API_KEY")
+    if not basalt_key:
+        logging.warning("BASALT_API_KEY not found. Using placeholder.")
+        basalt_key = "test-key"
+
+    otlp_endpoint = os.getenv("BASALT_OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+
+    # 2. Configure Exporter
+    # Note: insecure=True is for local/demo only. Use secure credentials for production.
+    exporter = OTLPSpanExporter(
+        endpoint=otlp_endpoint,
+        headers={"authorization": f"Bearer {basalt_key}"},
+        insecure=True,
+        timeout=10,
+    )
+
+    # 3. Configure Telemetry
+    telemetry = TelemetryConfig(
+        service_name="openai-demo",
+        exporter=exporter,
+        enabled_providers=["openai"],  # Only instrument OpenAI calls
+    )
+
+    # 4. Return Client
+    return Basalt(
+        api_key=basalt_key,
+        observability_metadata={"env": "development", "provider": "openai", "example": "auto-instrumentation"},
+        telemetry_config=telemetry,
     )
 
 
-# Initialize Basalt
-# Auto-instrumentation for OpenAI is enabled by default when the library is installed.
-client = Basalt(
-    api_key=os.environ["BASALT_API_KEY"],
-    observability_metadata={
-        "env": "development",
-        "provider": "openai",
-        "example": "auto-instrumentation"
-    },
-    telemetry_config=telemetry
-)
+# Initialize global client (logging should be configured before this in main, but for module level: careful)
+# In a real app, do this inside startup logic.
+basalt_client = build_basalt_client()
 
+# Initialize OpenAI Client securely
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if openai_api_key:
+    openai_client = OpenAI(api_key=openai_api_key)
+else:
+    logging.warning("OPENAI_API_KEY not set. OpenAI calls will be mocked.")
+    openai_client = None
 
-openai_api_version = os.environ.get("OPENAI_API_VERSION", "2025-03-01-preview")
-azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
-openai_api_key = os.environ.get("OPENAI_API_KEY")
-# openai_client = AzureOpenAI(api_key=openai_api_key, api_version=openai_api_version, azure_endpoint=azure_endpoint)
-openai_client = OpenAI(api_key=openai_api_key)
 
 @observe(kind=ObserveKind.TOOL, name="get_weather")
 def get_weather(location: str):
     """Mock weather tool."""
-    observe.set_metadata({"tool_used": "get_weather"})
-    observe.set_metadata({"location": location})
+    # Observe metadata helps track tool usage in traces
+    observe.set_metadata({"tool_used": "get_weather", "location": location})
     return json.dumps({"location": location, "temperature": "22C", "condition": "Sunny"})
 
-@start_observe(
-    name="weather_assistant",
-    feature_slug="weather_api",
-    identity={
-        "organization": {"id": "123", "name": "ACME"},
-        "user": {"id": "456", "name": "John Doe"}
-    },
-    metadata={"service_metadata_Start": "weather_api_start"},
-)
+
 @evaluate("helpfulness")
 def run_weather_assistant(user_query: str):
-    observe.set_input({"query": user_query})
+    # 'start_observe' creates a span for this workflow
+    with start_observe(
+        name="weather_assistant",
+        feature_slug="weather-assistant",
+        identity=Identity(organization={"id": "123", "name": "Demo Corp"}, user={"id": "456", "name": "Alice"}),
+    ) as span:
+        span.set_input({"query": user_query})
 
-    # 1. Mock Tool Call (simulating a decision to call a tool)
-    weather_data = get_weather("San Francisco, CA")
+        # 1. Mock Tool Call
+        weather_data = get_weather("San Francisco, CA")
 
-    # 2. Real LLM Call (Auto-instrumented)
-    # Basalt automatically captures the span, input (messages), and output (content).
-    if openai_client is None:
-        # If the samples are executed locally without an API key, provide a mock response
-        content = "This is a mock response because OPENAI_API_KEY is not set."
-    else:
-        response = openai_client.chat.completions.create(
-            model="gpt-5-mini",
-            messages=[
-                {"role": "system", "content": "You are a helpful weather assistant."},
-                {"role": "user", "content": f"Context: {weather_data}\n\nQuery: {user_query}"}
-            ]
-        )
+        # 2. LLM Call
+        if openai_client is None:
+            content = "Mock response: OPENAI_API_KEY is missing."
+        else:
+            # We wrap the call in a prompt context. Even if we don't explicitly inject the text,
+            # Basalt tracks that this specific prompt version was active during the LLM call.
+            # We changed the slug to 'weather-system-prompt' to make semantic sense.
+            with basalt_client.prompts.get_sync(
+                "weather-system-prompt",
+                variables={"location": "San Francisco"},
+            ):
+                response = openai_client.chat.completions.create(
+                    model=OPENAI_MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": "You are a helpful weather assistant."},
+                        {"role": "user", "content": f"Context: {weather_data}\n\nQuery: {user_query}"},
+                    ],
+                )
+                content = response.choices[0].message.content
 
-        content = response.choices[0].message.content
-    # Ensure we always pass a string slice to the output
-    content_str = (content or "")[:100]
-    observe.set_output({"response": content_str})
+        # 3. Finalize
+        # Ensure we always pass a string to the output for consistent logging
+        content_str = (content or "")[:100]
+        observe.set_output({"response": content_str})
 
-    return content
+        return content
 
-try:
-    result = run_weather_assistant("What's the weather like in SF?")
-except Exception:
-    pass
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+
+    try:
+        # Run the workflow
+        result = run_weather_assistant("What's the weather like in SF?")
+        logging.info(f"Final Result: {result}")
+    except Exception as e:
+        logging.error(f"Workflow failed: {e}")
+    finally:
+        # CRITICAL: Shutdown ensures traces are flushed to the exporter before exit
+        logging.info("Flushing telemetry...")
+        basalt_client.shutdown()
+
+
+if __name__ == "__main__":
+    main()

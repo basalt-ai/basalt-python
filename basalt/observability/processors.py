@@ -212,6 +212,39 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
         return True
 
 
+class BasaltShouldEvaluateProcessor(SpanProcessor):
+    """
+    Span processor that applies the trace-level should_evaluate attribute.
+
+    Reads the should_evaluate decision from OpenTelemetry context and applies
+    it as a span attribute. This ensures all spans in a trace have the same
+    should_evaluate value, enabling trace-level sampling for evaluators.
+    """
+
+    def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
+        if not span.is_recording():
+            return
+
+        from .trace_context import SHOULD_EVALUATE_CONTEXT_KEY
+
+        # Read should_evaluate from context
+        # Use parent_context if provided, otherwise use current context
+        ctx = parent_context if parent_context is not None else otel_context.get_current()
+        should_evaluate = otel_context.get_value(SHOULD_EVALUATE_CONTEXT_KEY, ctx)
+
+        if should_evaluate is not None:
+            span.set_attribute(semconv.BasaltSpan.SHOULD_EVALUATE, bool(should_evaluate))
+
+    def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
+        return
+
+    def shutdown(self) -> None:  # type: ignore[override]
+        return
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[override]
+        return True
+
+
 # Known auto-instrumentation scope names
 KNOWN_AUTO_INSTRUMENTATION_SCOPES: Final[frozenset[str]] = frozenset({
     "opentelemetry.instrumentation.openai",
