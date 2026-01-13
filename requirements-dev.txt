@@ -69,7 +69,7 @@ google-cloud-resource-manager==1.15.0
     # via google-cloud-aiplatform
 google-cloud-storage==3.6.0
     # via google-cloud-aiplatform
-google-crc32c==1.7.1
+google-crc32c==1.8.0
     # via
     #   google-cloud-storage
     #   google-resumable-media
