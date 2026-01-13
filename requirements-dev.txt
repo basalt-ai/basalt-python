@@ -167,7 +167,7 @@ nh3==0.3.1
     # via readme-renderer
 numpy==2.3.5
     # via shapely
-openai==2.8.0
+openai==2.15.0
     # via basalt-sdk (pyproject.toml)
 opentelemetry-api==1.38.0
     # via
