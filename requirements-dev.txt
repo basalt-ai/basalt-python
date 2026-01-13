@@ -57,7 +57,7 @@ google-auth==2.41.1
     #   google-cloud-resource-manager
     #   google-cloud-storage
     #   google-genai
-google-cloud-aiplatform==1.127.0
+google-cloud-aiplatform==1.133.0
     # via basalt-sdk (pyproject.toml)
 google-cloud-bigquery==3.38.0
     # via google-cloud-aiplatform
