@@ -305,7 +305,7 @@ pygments==2.19.2
     #   pytest
     #   readme-renderer
     #   rich
-pytest==9.0.1
+pytest==9.0.2
     # via
     #   basalt-sdk (pyproject.toml)
     #   pytest-asyncio
