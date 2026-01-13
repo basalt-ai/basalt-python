@@ -195,7 +195,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-anthropic", marker = "extra == 'anthropic'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-anthropic", marker = "extra == 'dev'", specifier = ">=0.48.1" },
     { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'bedrock'", specifier = "~=0.50.1" },
-    { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'chromadb'", specifier = "~=0.48.0" },
+    { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'chromadb'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-google-genai", marker = "extra == 'dev'" },
     { name = "opentelemetry-instrumentation-google-genai", marker = "extra == 'google-genai'", specifier = "~=0.5b0" },
     { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'dev'", specifier = ">=0.48.1" },
@@ -1682,7 +1682,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-chromadb"
-version = "0.48.0"
+version = "0.50.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1690,9 +1690,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/97/c6/41a01207481c9eab971c929d389bc9c6deafa6e393e94df86cfa1d781509/opentelemetry_instrumentation_chromadb-0.48.0.tar.gz", hash = "sha256:4eb04b14831b4355a9be51992baac26480156d666bd90d82008a416db4c569ef", size = 4391, upload-time = "2025-11-11T09:44:24.222Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/85/ae63353402a39726a4ed9f3af098dc1b52936a61df8e3f6302a9ac420c39/opentelemetry_instrumentation_chromadb-0.50.1.tar.gz", hash = "sha256:86b0e1df1057bbd5fdd8df529027c7c29bc22c3290873b54339489f94414bfea", size = 4395, upload-time = "2025-12-16T08:26:55.07Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/22/fc/dc5de37c42441ca617b7d95dd52502caaabcbf6bb246244395b2fb2d5ed8/opentelemetry_instrumentation_chromadb-0.48.0-py3-none-any.whl", hash = "sha256:c93a4d918d23bf33808c76880db8ba90ff88a36f63fdc368fc847a3e7f03aa2e", size = 6302, upload-time = "2025-11-11T09:43:48.252Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/48/eeb457fe03edde8eb16b56174e85e8dc061c0e907784ad860506ad80d01c/opentelemetry_instrumentation_chromadb-0.50.1-py3-none-any.whl", hash = "sha256:f9e6bd17783c02ec6dce38099f95d3c05b5ec5caa2e21eaaa2419970e5b490f9", size = 6301, upload-time = "2025-12-16T08:26:18.804Z" },
 ]
 
 [[package]]
