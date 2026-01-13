@@ -206,7 +206,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'mistralai'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'dev'", specifier = ">=0.48.1" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'openai'", specifier = "~=0.50.1" },
-    { name = "opentelemetry-instrumentation-pinecone", marker = "extra == 'pinecone'", specifier = "~=0.48.0" },
+    { name = "opentelemetry-instrumentation-pinecone", marker = "extra == 'pinecone'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'qdrant'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'dev'", specifier = ">=0.48.1" },
     { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'vertex-ai'", specifier = "~=0.50.1" },
@@ -1804,7 +1804,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-pinecone"
-version = "0.48.0"
+version = "0.50.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1812,9 +1812,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/82/eb/900faf946dfad113232788870d97f12bbfaaef0810ce7fad4640339676a9/opentelemetry_instrumentation_pinecone-0.48.0.tar.gz", hash = "sha256:d6303915e5121a4e53413a9ea47b354defd79dda5253bff6b4256b9f43ad6ad5", size = 4487, upload-time = "2025-11-11T09:44:39.916Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/25/13dcb1a575ee8de3ceaed9fb85eb7ae341343096d7eb7dacf614888ad163/opentelemetry_instrumentation_pinecone-0.50.1.tar.gz", hash = "sha256:6c24617d4bc265ca304fa63829427dec60570fc359571a416266917ad50ab08e", size = 4483, upload-time = "2025-12-16T08:27:09.049Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/36/dca1a67154a773c809fda66880c9dd736eb15180b7da07ccd2d29e425e05/opentelemetry_instrumentation_pinecone-0.48.0-py3-none-any.whl", hash = "sha256:092af0ff38061ebf3cf84aaa8ba4e27e885349f2f1265fc1a06bf52c690b9128", size = 6358, upload-time = "2025-11-11T09:44:09.091Z" },
+    { url = "https://files.pythonhosted.org/packages/da/f4/760326d1e27bb1ee2654eec4f63181b89841b72762a24f46c1bf7b1d096c/opentelemetry_instrumentation_pinecone-0.50.1-py3-none-any.whl", hash = "sha256:2a4fff70805d241ef713fb7dde46080b5f37cbb87a6919881b46f69c5e2811a1", size = 6359, upload-time = "2025-12-16T08:26:39.516Z" },
 ]
 
 [[package]]
