@@ -77,7 +77,7 @@ opentelemetry-util-http==0.59b0
     # via opentelemetry-instrumentation-httpx
 packaging==25.0
     # via opentelemetry-instrumentation
-protobuf==6.33.0
+protobuf==6.33.4
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
