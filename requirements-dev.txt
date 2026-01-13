@@ -48,7 +48,7 @@ google-api-core==2.28.1
     #   google-cloud-core
     #   google-cloud-resource-manager
     #   google-cloud-storage
-google-auth==2.41.1
+google-auth==2.47.0
     # via
     #   google-api-core
     #   google-cloud-aiplatform
