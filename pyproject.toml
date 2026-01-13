@@ -56,7 +56,7 @@ bedrock = [
     "opentelemetry-instrumentation-bedrock~=0.48.0",
 ]
 vertex-ai = [
-    "opentelemetry-instrumentation-vertexai~=0.48.0",
+    "opentelemetry-instrumentation-vertexai~=0.50.1",
 ]
 
 mistralai = [
