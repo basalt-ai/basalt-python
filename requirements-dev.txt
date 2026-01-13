@@ -4,7 +4,7 @@ annotated-types==0.7.0
     # via pydantic
 anthropic==0.73.0
     # via basalt-sdk (pyproject.toml)
-anyio==4.11.0
+anyio==4.12.1
     # via
     #   -c requirements.txt
     #   anthropic
