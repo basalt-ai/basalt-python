@@ -52,7 +52,7 @@ google-generativeai = [
 #     "opentelemetry-instrumentation-google-genai~=0.48.0",
 # ]
 bedrock = [
-    "opentelemetry-instrumentation-bedrock~=0.48.0",
+    "opentelemetry-instrumentation-bedrock~=0.50.1",
 ]
 vertex-ai = [
     "opentelemetry-instrumentation-vertexai~=0.48.0",
