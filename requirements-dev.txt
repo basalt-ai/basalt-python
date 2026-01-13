@@ -165,7 +165,7 @@ more-itertools==10.8.0
     #   jaraco-functools
 nh3==0.3.1
     # via readme-renderer
-numpy==2.3.5
+numpy==2.4.1
     # via shapely
 openai==2.8.0
     # via basalt-sdk (pyproject.toml)
