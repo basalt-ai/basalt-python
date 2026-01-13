@@ -268,7 +268,7 @@ pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-proto-plus==1.26.1
+proto-plus==1.27.0
     # via
     #   google-api-core
     #   google-cloud-aiplatform
