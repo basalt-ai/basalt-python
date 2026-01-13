@@ -76,7 +76,7 @@ qdrant = [
 
 # Framework Instrumentations
 langchain = [
-    "opentelemetry-instrumentation-langchain~=0.48.0",
+    "opentelemetry-instrumentation-langchain~=0.50.1",
 ]
 llamaindex = [
     "opentelemetry-instrumentation-llamaindex~=0.48.0",
