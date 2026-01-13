@@ -340,7 +340,7 @@ rsa==4.9.1
     # via google-auth
 ruff==0.14.5
     # via basalt-sdk (pyproject.toml)
-secretstorage==3.4.0
+secretstorage==3.5.0
     # via keyring
 setuptools==80.9.0
     # via basalt-sdk (pyproject.toml)
