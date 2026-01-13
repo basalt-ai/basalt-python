@@ -93,7 +93,7 @@ typing-extensions==4.15.0
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-urllib3==2.5.0
+urllib3==2.6.3
     # via requests
 wrapt==1.17.3
     # via
