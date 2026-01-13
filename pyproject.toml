@@ -48,9 +48,10 @@ google-generativeai = [
     "opentelemetry-instrumentation-google-generativeai~=0.48.0",
 ]
 # Note: google-genai instrumentation not yet available in openllmetry
-# google-genai = [
-#     "opentelemetry-instrumentation-google-genai~=0.48.0",
-# ]
+ google-genai = [
+     "opentelemetry-instrumentation-google-genai~=0.5b0",
+ ]
+
 bedrock = [
     "opentelemetry-instrumentation-bedrock~=0.48.0",
 ]
@@ -123,6 +124,7 @@ dev = [
     "google-cloud-aiplatform>=1.127.0",
     "opentelemetry-instrumentation-anthropic>=0.48.1",
     "opentelemetry-instrumentation-google-generativeai>=0.48.1",
+    "opentelemetry-instrumentation-google-genai",
     "opentelemetry-instrumentation-openai>=0.48.1",
     "opentelemetry-instrumentation-vertexai>=0.48.1",
 ]

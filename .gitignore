@@ -9,3 +9,5 @@ venv/
 .github/instructions/*.md
 .copilot-tracking
 .env*
+requirements*
+.serena
