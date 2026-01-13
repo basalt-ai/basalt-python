@@ -13,7 +13,7 @@ anyio==4.11.0
     #   openai
 cachetools==6.2.1
     # via google-auth
-certifi==2025.10.5
+certifi==2025.11.12
     # via
     #   -c requirements.txt
     #   httpcore
