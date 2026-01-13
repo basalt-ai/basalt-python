@@ -26,7 +26,7 @@ idna==3.11
     #   anyio
     #   httpx
     #   requests
-importlib-metadata==8.7.0
+importlib-metadata==8.7.1
     # via opentelemetry-api
 jinja2==3.1.6
     # via basalt-sdk (pyproject.toml)
