@@ -11,7 +11,7 @@ anyio==4.11.0
     #   google-genai
     #   httpx
     #   openai
-cachetools==6.2.1
+cachetools==6.2.4
     # via google-auth
 certifi==2025.10.5
     # via
