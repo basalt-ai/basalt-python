@@ -192,7 +192,7 @@ requires-dist = [
     { name = "opentelemetry-api", specifier = "~=1.38.0" },
     { name = "opentelemetry-exporter-otlp", specifier = "~=1.38.0" },
     { name = "opentelemetry-instrumentation", specifier = "~=0.59b0" },
-    { name = "opentelemetry-instrumentation-anthropic", marker = "extra == 'anthropic'", specifier = "~=0.48.0" },
+    { name = "opentelemetry-instrumentation-anthropic", marker = "extra == 'anthropic'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-anthropic", marker = "extra == 'dev'", specifier = ">=0.48.1" },
     { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'bedrock'", specifier = "~=0.48.0" },
     { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'chromadb'", specifier = "~=0.48.0" },
@@ -1650,7 +1650,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-anthropic"
-version = "0.48.1"
+version = "0.50.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1658,9 +1658,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/78/b90f8d933d56c407e64a0832be8c90bc5bf9df72c6a64deb75f45eede73b/opentelemetry_instrumentation_anthropic-0.48.1.tar.gz", hash = "sha256:4b48c6529f44e3f7aa5e6dc4ea1dd02f5ae785ab85ade01c85b34bbf3fb8bda0", size = 14836, upload-time = "2025-11-17T15:26:32.274Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3d/3e/a1101d8f79ad69666963598c52071b24336c309de4ed6d6f38e73142350c/opentelemetry_instrumentation_anthropic-0.50.1.tar.gz", hash = "sha256:d2c1a589d48bc056eb8424204a2a8b219854629278f851e9e7d4d18b8b788203", size = 14927, upload-time = "2025-12-16T08:26:53.058Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1f/61/c509f4ce2b39e9ecd250025cba8e805a4c9a1b859a8fcc5574c17fc113d8/opentelemetry_instrumentation_anthropic-0.48.1-py3-none-any.whl", hash = "sha256:561e2923b9776fa32277958ea3e263c7d6a16630d0382beb9b6b45f9980997c4", size = 18349, upload-time = "2025-11-17T15:25:58.765Z" },
+    { url = "https://files.pythonhosted.org/packages/db/31/5ff0ec511c2f98d3f983a3942bd71d2bfcc9b0e122c9327bdf20895b9edd/opentelemetry_instrumentation_anthropic-0.50.1-py3-none-any.whl", hash = "sha256:d5c12497c01a10ba34412805cb6d970fbdb5fc5d2f73f95ac387df99d2c9e813", size = 18458, upload-time = "2025-12-16T08:26:15.927Z" },
 ]
 
 [[package]]
