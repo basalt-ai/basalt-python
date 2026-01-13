@@ -383,7 +383,7 @@ urllib3==2.5.0
     #   -c requirements.txt
     #   requests
     #   twine
-websockets==15.0.1
+websockets==16.0
     # via google-genai
 wheel==0.45.1
     # via basalt-sdk (pyproject.toml)
