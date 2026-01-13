@@ -67,7 +67,7 @@ google-cloud-core==2.5.0
     #   google-cloud-storage
 google-cloud-resource-manager==1.15.0
     # via google-cloud-aiplatform
-google-cloud-storage==3.6.0
+google-cloud-storage==3.7.0
     # via google-cloud-aiplatform
 google-crc32c==1.7.1
     # via
