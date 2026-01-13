@@ -338,7 +338,7 @@ rich==14.2.0
     # via twine
 rsa==4.9.1
     # via google-auth
-ruff==0.14.5
+ruff==0.14.11
     # via basalt-sdk (pyproject.toml)
 secretstorage==3.4.0
     # via keyring
