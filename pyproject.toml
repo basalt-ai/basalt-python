@@ -39,7 +39,7 @@ Homepage = "https://github.com/basalt-ai/basalt-python"
 [project.optional-dependencies]
 # LLM Provider Instrumentations
 openai = [
-    "opentelemetry-instrumentation-openai~=0.48.0",
+    "opentelemetry-instrumentation-openai~=0.50.1",
 ]
 anthropic = [
     "opentelemetry-instrumentation-anthropic~=0.48.0",
