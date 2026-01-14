@@ -1,3 +1,11 @@
+"""
+Example of using Basalt with Google's Gemini AI for a complete RAG workflow:
+1. Fetch data from external API
+2. Generate summary with Gemini LLM
+3. Create embeddings from the summary
+
+Demonstrates both decorator-based and manual context manager instrumentation.
+"""
 import asyncio
 import logging
 import os
@@ -11,11 +19,12 @@ except ImportError:
     genai = None
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability import EvaluationConfig, ObserveKind, evaluate, observe, start_observe
+from basalt.observability import AsyncObserve, EvaluationConfig, ObserveKind, evaluate, observe, start_observe
 
 # --- Constants ---
 # specific model version to ensure consistency across execution and telemetry
 GEMINI_MODEL_NAME = "gemini-2.5-flash-lite"
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 
 
 # --- 1. Build Basalt client with custom OTLP exporter ---
@@ -45,7 +54,7 @@ def build_custom_exporter_client() -> Basalt:
 
     telemetry = TelemetryConfig(
         service_name="gemini-demo",
-        enabled_providers=["google-genai", "google_generativeai"],
+        enabled_providers=["google_generativeai"],
         # exporter=[exporter],  # Uncommented to make the example functional
     )
 
@@ -89,6 +98,116 @@ async def summarize_joke_with_gemini(joke: str) -> str | None:
 
     logging.debug(f"Gemini response: {getattr(response, 'text', response)}")
     return response.text
+
+
+async def embed_joke_summary(summary: str) -> dict | None:
+    """
+    Generate embeddings for the joke summary using Gemini Embedding model.
+
+    This demonstrates MANUAL instrumentation with AsyncObserve context manager,
+    in contrast to the decorator-based approach used in other functions.
+
+    It also showcases the GenAI convenience methods (set_model, set_tokens, etc.)
+    that are now available on the base SpanHandle class, eliminating the need
+    for type casting or isinstance checks.
+    """
+    if genai is None:
+        raise RuntimeError("google-genai is not installed. Run: pip install google-genai")
+
+    gemini_key = os.getenv("GEMINI_API_KEY", "dummy-key")
+
+    # Manual instrumentation using AsyncObserve context manager
+    async with AsyncObserve(
+        name="genai.embed_content",
+        kind=ObserveKind.GENERATION,
+    ) as span:
+        try:
+            # Create embeddings using the Google GenAI SDK
+            client = genai.Client(api_key=gemini_key)
+            async with client.aio as aclient:
+                result = await aclient.models.embed_content(
+                    model=GEMINI_EMBEDDING_MODEL,
+                    contents=summary,
+                )
+
+            # Extract embedding data
+            embedding_vector = result.embeddings[0].values
+            dimension_count = len(embedding_vector)
+
+            # Token usage: prefer API metadata, fall back to a simple estimate
+            usage_metadata = getattr(result, "usage_metadata", None)
+            if isinstance(usage_metadata, dict):
+                usage_lookup = usage_metadata
+            else:
+                usage_lookup = usage_metadata or {}
+            input_tokens = (
+                usage_lookup.get("prompt_token_count")
+                if isinstance(usage_lookup, dict)
+                else getattr(usage_lookup, "prompt_token_count", None)
+            )
+            output_tokens = (
+                usage_lookup.get("candidates_token_count")
+                if isinstance(usage_lookup, dict)
+                else getattr(usage_lookup, "candidates_token_count", None)
+            )
+            if output_tokens is None:
+                output_tokens = (
+                    usage_lookup.get("total_token_count")
+                    if isinstance(usage_lookup, dict)
+                    else getattr(usage_lookup, "total_token_count", None)
+                )
+            if input_tokens is None:
+                input_tokens = len(summary.split()) if summary else 0
+            if output_tokens is None:
+                output_tokens = 0
+
+            response_model = getattr(result, "model", GEMINI_EMBEDDING_MODEL)
+
+            # Set input/output for telemetry
+            span.set_input({"text": summary})
+
+            # Set GenAI semantic convention attributes using convenience methods
+            span.set_operation_name("embeddings")  # gen_ai.operation.name
+            span.set_provider("google")  # gen_ai.provider.name
+            span.set_model(GEMINI_EMBEDDING_MODEL)  # gen_ai.request.model
+            span.set_response_model(response_model)  # gen_ai.response.model
+            span.set_tokens(input=input_tokens, output=output_tokens)  # gen_ai.usage.*_tokens
+
+            # Set embedding-specific attribute (custom semantic convention)
+            span.set_attribute("gen_ai.embeddings.dimension.count", dimension_count)
+
+            # Set metadata for Basalt tracking
+            span.set_metadata({
+                "embedding.dimension": dimension_count,
+                "embedding.status": "success",
+                "embedding.model": GEMINI_EMBEDDING_MODEL,
+            })
+
+            # Set output (partial vector only - don't log full 768-dim vector)
+            output_data = {
+                "dimension": dimension_count,
+                "sample_values": embedding_vector[:5],  # First 5 values only
+                "status": "success",
+            }
+            span.set_output(output_data)
+
+            logging.info(
+                "Generated %s-dimensional embedding vector",
+                dimension_count,
+            )
+            return output_data
+
+        except Exception as exc:
+            logging.error(f"Embedding error: {exc}")
+            span.set_metadata({
+                "embedding.status": "error",
+                "embedding.error": str(exc),
+            })
+            span.set_output({
+                "status": "error",
+                "error": str(exc),
+            })
+            raise
 
 
 # --- 4. Main Workflow ---
@@ -136,6 +255,27 @@ async def start_workflow() -> None:
                     "status": "success",
                 }
             )
+
+            # 4. Generate embeddings for the summary (demonstrates manual instrumentation)
+            if gemini_result:
+                try:
+                    embedding_data = await embed_joke_summary(gemini_result)
+                    logging.info(
+                        f"Embedding: {embedding_data['dimension']} dimensions, "
+                        f"sample: {embedding_data['sample_values'][:3]}"
+                    )
+
+                    observe.set_metadata({
+                        "embedding.dimension": embedding_data["dimension"],
+                        "embedding.generated": True,
+                    })
+                except Exception as exc:
+                    logging.error(f"Failed to generate embeddings: {exc}")
+                    observe.set_metadata({
+                        "embedding.generated": False,
+                        "embedding.error": str(exc),
+                    })
+                    # Don't re-raise - allow workflow to continue even if embeddings fail
 
     except Exception as exc:
         logging.error(f"Gemini error: {exc}")

@@ -424,6 +424,60 @@ class SpanHandle:
     def span(self) -> Span:
         return self._span
 
+    # --- GenAI-specific convenience methods (promoted from LLMSpanHandle) ---
+
+    def set_model(self, model: str) -> None:
+        """Set the GenAI request model name."""
+        self.set_attribute(semconv.GenAI.REQUEST_MODEL, model)
+
+    def set_response_model(self, model: str) -> None:
+        """Set the GenAI response model name."""
+        self.set_attribute(semconv.GenAI.RESPONSE_MODEL, model)
+
+    def set_operation_name(self, operation: str) -> None:
+        """Set the GenAI operation name (e.g., 'chat', 'completion', 'embeddings')."""
+        self.set_attribute(semconv.GenAI.OPERATION_NAME, operation)
+
+    def set_provider(self, provider: str) -> None:
+        """Set the GenAI provider name (e.g., 'openai', 'anthropic', 'google')."""
+        self.set_attribute(semconv.GenAI.PROVIDER_NAME, provider)
+
+    def set_tokens(
+        self,
+        *,
+        input: int | None = None,
+        output: int | None = None,
+    ) -> None:
+        """Set token usage counts for the GenAI operation."""
+        if input is not None:
+            self.set_attribute(semconv.GenAI.USAGE_INPUT_TOKENS, input)
+        if output is not None:
+            self.set_attribute(semconv.GenAI.USAGE_OUTPUT_TOKENS, output)
+
+    def set_temperature(self, temperature: float) -> None:
+        """Set the temperature parameter for the GenAI request."""
+        self.set_attribute(semconv.GenAI.REQUEST_TEMPERATURE, temperature)
+
+    def set_top_p(self, top_p: float) -> None:
+        """Set the top_p parameter for the GenAI request."""
+        self.set_attribute(semconv.GenAI.REQUEST_TOP_P, top_p)
+
+    def set_top_k(self, top_k: float) -> None:
+        """Set the top_k parameter for the GenAI request."""
+        self.set_attribute(semconv.GenAI.REQUEST_TOP_K, top_k)
+
+    def set_max_tokens(self, max_tokens: int) -> None:
+        """Set the max_tokens parameter for the GenAI request."""
+        self.set_attribute(semconv.GenAI.REQUEST_MAX_TOKENS, max_tokens)
+
+    def set_response_id(self, response_id: str) -> None:
+        """Set the GenAI response ID (completion ID)."""
+        self.set_attribute(semconv.GenAI.RESPONSE_ID, response_id)
+
+    def set_finish_reasons(self, reasons: list[str]) -> None:
+        """Set the finish reasons array for the GenAI response."""
+        self.set_attribute(semconv.GenAI.RESPONSE_FINISH_REASONS, reasons)
+
 
 class StartSpanHandle(SpanHandle):
     """
@@ -473,25 +527,18 @@ class StartSpanHandle(SpanHandle):
 
 class LLMSpanHandle(SpanHandle):
     """
-    Span handle with helpers for LLM/GenAI calls.
+    Span handle for LLM/GenAI operations.
+
+    Provides specialized methods for LLM operations that require structured message formatting:
+    - set_prompt(): Wraps prompt text in OpenTelemetry message structure
+    - set_completion(): Wraps completion text in OpenTelemetry message structure
+
+    All other GenAI methods (set_tokens, set_model, etc.) are available via the base
+    SpanHandle class and can be used with any span type.
 
     Follows OpenTelemetry GenAI semantic conventions.
     See: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/
     """
-
-    def set_model(self, model: str) -> None:
-        """
-        Set the model name for the request.
-        Uses gen_ai.request.model attribute.
-        """
-        self.set_attribute(semconv.GenAI.REQUEST_MODEL, model)
-
-    def set_response_model(self, model: str) -> None:
-        """
-        Set the model name that generated the response.
-        Uses gen_ai.response.model attribute.
-        """
-        self.set_attribute(semconv.GenAI.RESPONSE_MODEL, model)
 
     def set_prompt(self, prompt: str | Prompt) -> None:
         """
@@ -529,54 +576,6 @@ class LLMSpanHandle(SpanHandle):
                 }
             ]
             self.set_attribute(semconv.GenAI.OUTPUT_MESSAGES, json.dumps(messages))
-
-    def set_tokens(self, *, input: int | None = None, output: int | None = None) -> None:
-        """
-        Set token usage counts.
-        Uses gen_ai.usage.input_tokens and gen_ai.usage.output_tokens attributes.
-        """
-        if input is not None:
-            self.set_attribute(semconv.GenAI.USAGE_INPUT_TOKENS, input)
-        if output is not None:
-            self.set_attribute(semconv.GenAI.USAGE_OUTPUT_TOKENS, output)
-
-    def set_operation_name(self, operation: str) -> None:
-        """
-        Set the GenAI operation name (e.g., "chat", "text_completion").
-        This is a required attribute per OpenTelemetry GenAI spec.
-        """
-        self.set_attribute(semconv.GenAI.OPERATION_NAME, operation)
-
-    def set_provider(self, provider: str) -> None:
-        """
-        Set the GenAI provider name (e.g., "openai", "anthropic").
-        This is a required attribute per OpenTelemetry GenAI spec.
-        """
-        self.set_attribute(semconv.GenAI.PROVIDER_NAME, provider)
-
-    def set_response_id(self, response_id: str) -> None:
-        """Set the unique response/completion ID."""
-        self.set_attribute(semconv.GenAI.RESPONSE_ID, response_id)
-
-    def set_finish_reasons(self, reasons: list[str]) -> None:
-        """Set the finish reasons array."""
-        self.set_attribute(semconv.GenAI.RESPONSE_FINISH_REASONS, reasons)
-
-    def set_temperature(self, temperature: float) -> None:
-        """Set the temperature parameter."""
-        self.set_attribute(semconv.GenAI.REQUEST_TEMPERATURE, temperature)
-
-    def set_top_p(self, top_p: float) -> None:
-        """Set the top_p parameter."""
-        self.set_attribute(semconv.GenAI.REQUEST_TOP_P, top_p)
-
-    def set_top_k(self, top_k: float) -> None:
-        """Set the top_k parameter."""
-        self.set_attribute(semconv.GenAI.REQUEST_TOP_K, top_k)
-
-    def set_max_tokens(self, max_tokens: int) -> None:
-        """Set the max_tokens parameter."""
-        self.set_attribute(semconv.GenAI.REQUEST_MAX_TOKENS, max_tokens)
 
 
 class RetrievalSpanHandle(SpanHandle):
