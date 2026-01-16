@@ -225,8 +225,8 @@ class InstrumentationManager:
         else:
             exporters_list = [user_exporters]
 
-        # Add environment exporter if available and not already in list
-        if env_exporter and env_exporter not in exporters_list:
+        # Add environment exporter ONLY if no user exporters were provided
+        if user_exporters is None and env_exporter:
             exporters_list.append(env_exporter)
 
         # Pass to setup_tracing (will handle None/empty list → ConsoleSpanExporter)
