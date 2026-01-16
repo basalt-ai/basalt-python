@@ -825,6 +825,104 @@ class Observe(ContextDecorator):
         if handle:
             handle.set_identity(identity)
 
+    @staticmethod
+    def set_attribute(key: str, value: Any) -> None:
+        """Set a single attribute on the current span.
+
+        Args:
+            key: The attribute key to set.
+            value: The attribute value.
+        """
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_attribute(key, value)
+
+    @staticmethod
+    def set_model(model: str) -> None:
+        """Set the GenAI request model name."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_model(model)
+
+    @staticmethod
+    def set_response_model(model: str) -> None:
+        """Set the GenAI response model name."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_response_model(model)
+
+    @staticmethod
+    def set_operation_name(operation: str) -> None:
+        """Set the GenAI operation name (e.g., 'chat', 'completion', 'embeddings')."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_operation_name(operation)
+
+    @staticmethod
+    def set_provider(provider: str) -> None:
+        """Set the GenAI provider name (e.g., 'openai', 'anthropic', 'google')."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_provider(provider)
+
+    @staticmethod
+    def set_tokens(
+        *,
+        input: int | None = None,
+        output: int | None = None,
+    ) -> None:
+        """Set token usage counts for the GenAI operation.
+
+        Args:
+            input: Number of input tokens used.
+            output: Number of output tokens used.
+        """
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_tokens(input=input, output=output)
+
+    @staticmethod
+    def set_temperature(temperature: float) -> None:
+        """Set the temperature parameter for the GenAI request."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_temperature(temperature)
+
+    @staticmethod
+    def set_top_p(top_p: float) -> None:
+        """Set the top_p parameter for the GenAI request."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_top_p(top_p)
+
+    @staticmethod
+    def set_top_k(top_k: float) -> None:
+        """Set the top_k parameter for the GenAI request."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_top_k(top_k)
+
+    @staticmethod
+    def set_max_tokens(max_tokens: int) -> None:
+        """Set the max_tokens parameter for the GenAI request."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_max_tokens(max_tokens)
+
+    @staticmethod
+    def set_response_id(response_id: str) -> None:
+        """Set the GenAI response ID (completion ID)."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_response_id(response_id)
+
+    @staticmethod
+    def set_finish_reasons(reasons: list[str]) -> None:
+        """Set the finish reasons array for the GenAI response."""
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_finish_reasons(reasons)
+
 
 class AsyncStartObserve:
     """
