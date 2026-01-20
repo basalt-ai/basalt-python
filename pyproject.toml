@@ -72,7 +72,7 @@ pinecone = [
     "opentelemetry-instrumentation-pinecone~=0.50.1",
 ]
 qdrant = [
-    "opentelemetry-instrumentation-qdrant~=0.50.1",
+    "opentelemetry-instrumentation-qdrant~=0.51.0",
 ]
 
 # Framework Instrumentations
