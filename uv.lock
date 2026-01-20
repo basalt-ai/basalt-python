@@ -197,7 +197,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-google-genai", marker = "extra == 'dev'" },
     { name = "opentelemetry-instrumentation-google-genai", marker = "extra == 'google-genai'", specifier = "~=0.5b0" },
     { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'dev'" },
-    { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'google-generativeai'", specifier = "~=0.50.1" },
+    { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'google-generativeai'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-httpx", specifier = "~=0.59b0" },
     { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'langchain'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'llamaindex'", specifier = "~=0.51.0" },
@@ -1368,7 +1368,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-google-generativeai"
-version = "0.50.1"
+version = "0.51.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1376,9 +1376,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/10/79/d57da4281e4a69da6907694bf8677d4188027cbf014b8ebcf3dd74453999/opentelemetry_instrumentation_google_generativeai-0.50.1.tar.gz", hash = "sha256:40e2e469ab4c30ef3853c58d2c3ef43209aa2da8134d7871f172d4d3ee272715", size = 9199, upload-time = "2025-12-16T08:26:57.492Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/67/5d8757d7aedf20261cc6a9d35d35613620dff08afedd7bdbbabed6d958cb/opentelemetry_instrumentation_google_generativeai-0.51.0.tar.gz", hash = "sha256:63f2a0bf36a42678d448715d284c5fc29345a7122b6ddc371a4853483aa8a18a", size = 68589, upload-time = "2026-01-20T11:41:57.719Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/6f/3997aa343d35eeb938270fcca7cc3ab0b4af2f0e890c8907d4f6e47e9a60/opentelemetry_instrumentation_google_generativeai-0.50.1-py3-none-any.whl", hash = "sha256:64cc86f81d5fc5afa685f2a59146627418c7ccc9684a7332ef2691f5c4c285d1", size = 12052, upload-time = "2025-12-16T08:26:22.828Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/a2/03de03c959b9dc6a851f1cf4d779f809b680faaab410bb7b0fb5ed8896c4/opentelemetry_instrumentation_google_generativeai-0.51.0-py3-none-any.whl", hash = "sha256:925f9334d8e6cac3b71583b58f1e697ab8b9bfef5d6e7b32dc468fa3e6b1c292", size = 12645, upload-time = "2026-01-20T11:41:21.633Z" },
 ]
 
 [[package]]
