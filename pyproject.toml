@@ -27,7 +27,7 @@ dependencies = [
     "opentelemetry-api~=1.39.1",
     "opentelemetry-sdk~=1.39.1",
     "opentelemetry-exporter-otlp~=1.39.1",
-    "wrapt~=1.17.3",
+    "wrapt~=2.0.1",
     "httpx>=0.28.1",
 ]
 
