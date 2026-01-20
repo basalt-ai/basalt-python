@@ -200,7 +200,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'google-generativeai'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-httpx", specifier = "~=0.59b0" },
     { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'langchain'", specifier = "~=0.50.1" },
-    { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'llamaindex'", specifier = "~=0.50.1" },
+    { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'llamaindex'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'mistralai'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'dev'" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'openai'", specifier = "~=0.50.1" },
@@ -1414,7 +1414,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-llamaindex"
-version = "0.50.1"
+version = "0.51.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "inflection" },
@@ -1423,9 +1423,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/99/f3/48869572007ededee435441dd635837e8c9f6c7ca8e1a553d30d7b1a80c3/opentelemetry_instrumentation_llamaindex-0.50.1.tar.gz", hash = "sha256:b24e41e0b22ec5a9458e7e2bbfe5524bd55a765396d1d4ccaf6fb408455c55d8", size = 12223, upload-time = "2025-12-16T08:27:02.04Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/1a/e91f2ad2e7c83028b1bced60b113b3edfac817d9526df6b89dac54e1a55d/opentelemetry_instrumentation_llamaindex-0.51.0.tar.gz", hash = "sha256:71b666500aecf0ce4e9a9276a1beddcca5964b10aca5bbfa45ea13d84d8e762c", size = 1254299, upload-time = "2026-01-20T11:42:02.085Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/d3/249974d50260154fcca9f5aa7abd143c54a3d1ab97d6d1f073f89c351e26/opentelemetry_instrumentation_llamaindex-0.50.1-py3-none-any.whl", hash = "sha256:24e7e4a11dc447712ca8b809f414632eda36d249464c2a693ddeb59bb786b9ad", size = 21129, upload-time = "2025-12-16T08:26:29.087Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/da/16590602093d1e0f82137b1ef744cddccd3aa745efac02299745126a602d/opentelemetry_instrumentation_llamaindex-0.51.0-py3-none-any.whl", hash = "sha256:0641ac964e21f6be5d8e8ba273b9d5762c37371d5fe0968904c3ce9f56ef62a8", size = 21848, upload-time = "2026-01-20T11:41:26.591Z" },
 ]
 
 [[package]]
