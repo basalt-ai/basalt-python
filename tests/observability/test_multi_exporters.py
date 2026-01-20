@@ -127,7 +127,7 @@ class TestMultipleExporters(unittest.TestCase):
         manager = InstrumentationManager()
         manager.initialize(config)
 
-        # Verify both exporters were used
+        # Verify user exporter was used
         provider = manager._tracer_provider
         self.assertIsInstance(provider, TracerProvider)
         # Should have 1 exporter + 4 Basalt processors = 5 total processors
