@@ -201,7 +201,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-httpx", specifier = "~=0.59b0" },
     { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'langchain'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'llamaindex'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'mistralai'", specifier = "~=0.50.1" },
+    { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'mistralai'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'dev'" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'openai'", specifier = "~=0.50.1" },
     { name = "opentelemetry-instrumentation-pinecone", marker = "extra == 'pinecone'", specifier = "~=0.50.1" },
@@ -1430,7 +1430,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-mistralai"
-version = "0.50.1"
+version = "0.51.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1438,9 +1438,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/b3/624aedefb5c3b6e65bd8de2ae8e66a79258ecb1b521bfa6cb82f1e6da078/opentelemetry_instrumentation_mistralai-0.50.1.tar.gz", hash = "sha256:089764adba5436969f32f0f679ff5df7e972e23119297c3c03ad243512c4ea2a", size = 6825, upload-time = "2025-12-16T08:27:05.336Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/29/eb7354a5caafdf704f2f1c9806f302dc4fe88bb6409b5c4e5f786fbee653/opentelemetry_instrumentation_mistralai-0.51.0.tar.gz", hash = "sha256:5ecef5d42046ab4b3c4f36bd9a92f9137aa3ec501a3983b2193ccbee7c6085e8", size = 101040, upload-time = "2026-01-20T11:42:05.798Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/48/75412f20b23206f07c247816461adb3985a251f0d4cfabe32eb9061c076f/opentelemetry_instrumentation_mistralai-0.50.1-py3-none-any.whl", hash = "sha256:1c3630a79dfbd007bab15ae0fd3e65a25f3541ba2f4b9acd97a95d3329329830", size = 8945, upload-time = "2025-12-16T08:26:34.126Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/82/01890a2619ec7cbd22916f8ef5219e28e6dfe9f82fe11649aa93dccf2ac2/opentelemetry_instrumentation_mistralai-0.51.0-py3-none-any.whl", hash = "sha256:0ec2ca723ca933a7246f4c911415e7b000db036d8358ce8f46df887e114a6d73", size = 8896, upload-time = "2026-01-20T11:41:34.467Z" },
 ]
 
 [[package]]

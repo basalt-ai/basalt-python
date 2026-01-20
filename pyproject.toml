@@ -60,7 +60,7 @@ vertex-ai = [
 ]
 
 mistralai = [
-    "opentelemetry-instrumentation-mistralai~=0.50.1",
+    "opentelemetry-instrumentation-mistralai~=0.51.0",
 ]
 
 
