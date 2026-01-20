@@ -113,7 +113,7 @@ class TestMultipleExporters(unittest.TestCase):
     @mock.patch.dict("os.environ", {"BASALT_OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318"}, clear=False)
     @mock.patch("basalt.observability.instrumentation.OTLPSpanExporter")
     def test_user_exporters_plus_env_exporter(self, mock_otlp_exporter):
-        """Test that user exporters are combined with environment exporter."""
+        """Test that user exporters are used instead of environment exporter."""
         # Mock the OTLP exporter creation
         mock_env_exporter = mock.Mock()
         mock_otlp_exporter.return_value = mock_env_exporter
