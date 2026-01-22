@@ -3,6 +3,7 @@ Main Basalt SDK client.
 
 This module provides the main Basalt client class for interacting with the Basalt API.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -40,10 +41,7 @@ class Basalt:
         basalt = Basalt(api_key="your-api-key", telemetry_config=telemetry)
 
         # Or use client-level parameters for simple cases
-        basalt = Basalt(
-            api_key="your-api-key",
-            enabled_instruments=["openai", "anthropic"]
-        )
+        basalt = Basalt(api_key="your-api-key", enabled_instruments=["openai", "anthropic"])
         ```
     """
 
@@ -55,11 +53,11 @@ class Basalt:
         enable_telemetry: bool = True,
         base_url: str | None = None,
         observability_metadata: dict[str, Any] | None = None,
-        cache : CacheProtocol | None = None,
+        cache: CacheProtocol | None = None,
         log_level: str | None = None,
         enabled_instruments: list[str] | None = None,
         disabled_instruments: list[str] | None = None,
-    ):
+    ) -> None:
         """
         Initialize the Basalt client.
 
@@ -157,7 +155,7 @@ class Basalt:
         """
         return self._experiments_client
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """
         Shutdown the client and flush any pending telemetry data.
 

@@ -8,7 +8,7 @@ import mimetypes
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 import httpx
 
@@ -56,7 +56,7 @@ class FileAttachment:
     content_type: str | None = None
     filename: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate the attachment at construction time."""
         # Validate source type
         if not isinstance(self.source, (str, Path, bytes, io.BytesIO, io.BufferedReader)):
@@ -74,7 +74,9 @@ class FileAttachment:
                 # File-like object with name attribute
                 self.filename = os.path.basename(str(self.source.name))
             else:
-                raise FileValidationError("filename is required for file-like objects without a name attribute")
+                raise FileValidationError(
+                    "filename is required for file-like objects without a name attribute"
+                )
 
 
 @dataclass
@@ -159,15 +161,17 @@ def _read_file_bytes(source: str | Path | bytes | BinaryIO) -> bytes:
         else:
             # File-like object
             if hasattr(source, "read"):
+                # Cast to BinaryIO for type checker - we've verified it has read()
+                file_obj = cast(BinaryIO, source)
                 # Save current position
-                current_pos = source.tell() if hasattr(source, "tell") else None
+                current_pos = file_obj.tell() if hasattr(file_obj, "tell") else None
                 # Seek to beginning if possible
-                if hasattr(source, "seek"):
-                    source.seek(0)
-                data = source.read()
+                if hasattr(file_obj, "seek"):
+                    file_obj.seek(0)
+                data = file_obj.read()
                 # Restore position if possible
-                if current_pos is not None and hasattr(source, "seek"):
-                    source.seek(current_pos)
+                if current_pos is not None and hasattr(file_obj, "seek"):
+                    file_obj.seek(current_pos)
                 if isinstance(data, bytes):
                     return data
                 else:
@@ -202,7 +206,7 @@ def _validate_file_size(file_bytes: bytes) -> None:
 class FileUploadHandler:
     """Handles file validation, presigned URL requests, and S3 uploads."""
 
-    def __init__(self, http_client: HTTPClient, base_url: str, api_key: str):
+    def __init__(self, http_client: HTTPClient, base_url: str, api_key: str) -> None:
         """
         Initialize FileUploadHandler.
 
@@ -271,7 +275,7 @@ class FileUploadHandler:
             BasaltAPIError: If the API request fails
         """
         url = f"{self._base_url}/files/generate-upload-url"
-        body = {"fileName": filename, "contentType": content_type}
+        body: dict[str, Any] = {"fileName": filename, "contentType": content_type}
         headers = {"Authorization": f"Bearer {self._api_key}"}
 
         self._logger.debug(
@@ -303,7 +307,7 @@ class FileUploadHandler:
             BasaltAPIError: If the API request fails
         """
         url = f"{self._base_url}/files/generate-upload-url"
-        body = {"fileName": filename, "contentType": content_type}
+        body: dict[str, Any] = {"fileName": filename, "contentType": content_type}
         headers = {"Authorization": f"Bearer {self._api_key}"}
 
         self._logger.debug(
@@ -318,9 +322,7 @@ class FileUploadHandler:
 
         return PresignedUploadResponse.from_dict(response.data)
 
-    async def upload_to_s3(
-        self, presigned_url: str, file_bytes: bytes, content_type: str
-    ) -> None:
+    async def upload_to_s3(self, presigned_url: str, file_bytes: bytes, content_type: str) -> None:
         """
         Upload file to S3 using presigned URL.
 
@@ -369,9 +371,7 @@ class FileUploadHandler:
         except Exception as e:
             raise FileUploadError(f"Unexpected error during upload: {e}") from e
 
-    def upload_to_s3_sync(
-        self, presigned_url: str, file_bytes: bytes, content_type: str
-    ) -> None:
+    def upload_to_s3_sync(self, presigned_url: str, file_bytes: bytes, content_type: str) -> None:
         """
         Upload file to S3 using presigned URL (synchronous version).
 

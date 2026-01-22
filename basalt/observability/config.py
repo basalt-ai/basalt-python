@@ -147,7 +147,9 @@ class TelemetryConfig:
         cloned = replace(self)
         cloned.extra_resource_attributes = dict(self.extra_resource_attributes)
         cloned.enabled_providers = list(self.enabled_providers) if self.enabled_providers else None
-        cloned.disabled_providers = list(self.disabled_providers) if self.disabled_providers else None
+        cloned.disabled_providers = (
+            list(self.disabled_providers) if self.disabled_providers else None
+        )
         # Clone exporter list if it's a list (shallow copy of list, not exporters themselves)
         if isinstance(self.exporter, list):
             cloned.exporter = list(self.exporter)
@@ -184,7 +186,9 @@ class TelemetryConfig:
 
         disabled_instruments = os.getenv("BASALT_DISABLED_INSTRUMENTS")
         if disabled_instruments:
-            cfg.disabled_providers = [p.strip() for p in disabled_instruments.split(",") if p.strip()]
+            cfg.disabled_providers = [
+                p.strip() for p in disabled_instruments.split(",") if p.strip()
+            ]
 
         sample_rate_env = os.getenv("BASALT_SAMPLE_RATE")
         if sample_rate_env:

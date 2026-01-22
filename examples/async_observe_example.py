@@ -24,11 +24,7 @@ async def process_item(item: dict) -> dict:
 
         # Simulate processing
         await asyncio.sleep(0.05)
-        result = {
-            "id": item["id"],
-            "processed": True,
-            "result": f"Processed: {item['name']}"
-        }
+        result = {"id": item["id"], "processed": True, "result": f"Processed: {item['name']}"}
 
         span.set_output(result)
         return result
@@ -56,7 +52,9 @@ async def main():
     """Main async workflow demonstrating async_start_observe."""
     logging.basicConfig(level=logging.INFO)
 
-    async with async_start_observe(name="async_workflow_example", feature_slug="async_demo") as root_span:
+    async with async_start_observe(
+        name="async_workflow_example", feature_slug="async_demo"
+    ) as root_span:
         logging.info("Starting async workflow...")
 
         # Set some metadata on the root span
@@ -69,10 +67,7 @@ async def main():
         results = await asyncio.gather(*tasks)
 
         # Set the final output
-        root_span.set_output({
-            "processed_count": len(results),
-            "items": results
-        })
+        root_span.set_output({"processed_count": len(results), "items": results})
 
         logging.info(f"Completed processing {len(results)} items")
 

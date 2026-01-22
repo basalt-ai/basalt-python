@@ -7,6 +7,8 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
+from opentelemetry.trace import Span
+
 if TYPE_CHECKING:
     from .context_managers import LLMSpanHandle
 
@@ -15,7 +17,7 @@ from .context_managers import trace_content_enabled
 from .trace_context import TraceIdentity
 
 
-def apply_span_metadata(span: Any, metadata: Mapping[str, Any] | None) -> None:
+def apply_span_metadata(span: Span, metadata: Mapping[str, Any] | None) -> None:
     """Apply metadata to a span as an aggregated JSON object at basalt.metadata.
 
     Behavior:
@@ -48,18 +50,33 @@ def apply_span_metadata(span: Any, metadata: Mapping[str, Any] | None) -> None:
     except Exception:
         # Fallback: try to serialize with str() for non-serializable values
         try:
-            safe_merged = {k: v if isinstance(v, (str, bool, int, float, type(None))) else str(v)
-                          for k, v in merged.items()}
+            safe_merged = {
+                k: v if isinstance(v, (str, bool, int, float, type(None))) else str(v)
+                for k, v in merged.items()
+            }
             span.set_attribute(semconv.BasaltSpan.METADATA, json.dumps(safe_merged))
         except Exception:
             pass
 
 
+def apply_prompt_context_attributes(span: Span, prompt_ctx: Mapping[str, Any]) -> None:
+    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
+    if prompt_ctx.get("version"):
+        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
+    if prompt_ctx.get("tag"):
+        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
+    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
+    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
+    if prompt_ctx.get("variables"):
+        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
+    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
+
+
 def resolve_attributes(
-    attributes: Any,
+    attributes: object,
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
-) -> Callable | None | Any:
+) -> object:
     """Resolve attributes into a dictionary."""
     if attributes is None:
         return None
@@ -85,9 +102,9 @@ def resolve_bound_arguments(
 
 
 def resolve_payload_from_bound(
-    resolver: Any,
+    resolver: object,
     bound: inspect.BoundArguments | None,
-) -> Any:
+) -> object:
     """Resolve input payload from bound arguments."""
     if resolver is None:
         if not bound:
@@ -111,7 +128,11 @@ def resolve_payload_from_bound(
 
 
 def resolve_variables_payload(
-    resolver: dict[str, Any] | Callable[[inspect.BoundArguments | None], Mapping[str, Any]] | Sequence[str] | Mapping[str, Any] | None,
+    resolver: dict[str, Any]
+    | Callable[[inspect.BoundArguments | None], Mapping[str, Any] | None]
+    | Sequence[str]
+    | Mapping[str, Any]
+    | None,
     bound: inspect.BoundArguments | None,
 ) -> Mapping[str, Any] | None:
     """Resolve variables payload."""
@@ -125,7 +146,7 @@ def resolve_variables_payload(
             return None
         return payload
     if isinstance(resolver, Mapping):
-        return resolver
+        return {str(key): value for key, value in resolver.items()}
     if isinstance(resolver, Sequence) and not isinstance(resolver, (str, bytes)):
         if not bound:
             return None
@@ -138,9 +159,9 @@ def resolve_variables_payload(
 
 
 def resolve_evaluators_payload(
-    resolver: Any,
+    resolver: object,
     bound: inspect.BoundArguments | None,
-    result: Any | None = None,
+    result: object | None = None,
 ) -> list[Any] | None:
     """Resolve evaluator specifications."""
     if resolver is None:
@@ -162,7 +183,7 @@ def resolve_evaluators_payload(
 
 
 def _normalize_identity_value(
-    value: Any,
+    value: object,
 ) -> TraceIdentity | dict[str, Any] | None:
     """Normalize a user/org identity specification."""
     if value is None:
@@ -184,7 +205,7 @@ def _normalize_identity_value(
 
 
 def resolve_identity_payload(
-    resolver: Any,
+    resolver: object,
     bound: inspect.BoundArguments | None,
 ) -> tuple[TraceIdentity | dict[str, Any] | None, TraceIdentity | dict[str, Any] | None]:
     """
@@ -205,13 +226,15 @@ def resolve_identity_payload(
     if payload is None:
         return None, None
 
-    def _from_mapping(mapping: Mapping[str, Any]) -> tuple[
-        TraceIdentity | dict[str, Any] | None, TraceIdentity | dict[str, Any] | None
-    ]:
-        lowered = {str(key).lower(): value for key, value in mapping.items() if isinstance(key, str)}
+    def _from_mapping(
+        mapping: Mapping[str, Any],
+    ) -> tuple[TraceIdentity | dict[str, Any] | None, TraceIdentity | dict[str, Any] | None]:
+        lowered = {
+            str(key).lower(): value for key, value in mapping.items() if isinstance(key, str)
+        }
 
-        user_spec: Any | None = None
-        org_spec: Any | None = None
+        user_spec: object | None = None
+        org_spec: object | None = None
 
         if "user" in lowered:
             user_spec = lowered["user"]
@@ -249,7 +272,7 @@ def resolve_identity_payload(
     return _normalize_identity_value(payload), None
 
 
-def _extract_first(bound, keys: tuple[str, ...]) -> Any | None:
+def _extract_first(bound, keys: tuple[str, ...]) -> object:
     if not bound:
         return None
     for key in keys:
@@ -258,7 +281,7 @@ def _extract_first(bound, keys: tuple[str, ...]) -> Any | None:
     return None
 
 
-def default_generation_input(bound: inspect.BoundArguments | None) -> Any:
+def default_generation_input(bound: inspect.BoundArguments | None) -> object:
     value = _extract_first(bound, ("prompt", "input", "inputs", "messages", "question"))
     if value is not None:
         return value
@@ -270,7 +293,7 @@ def default_generation_variables(bound: inspect.BoundArguments | None) -> Mappin
     return value if isinstance(value, Mapping) else None
 
 
-def default_retrieval_input(bound: inspect.BoundArguments | None) -> Any:
+def default_retrieval_input(bound: inspect.BoundArguments | None) -> object:
     value = _extract_first(bound, ("query", "question", "text", "search"))
     if value is not None:
         return value
@@ -282,7 +305,7 @@ def default_retrieval_variables(bound: inspect.BoundArguments | None) -> Mapping
     return value if isinstance(value, Mapping) else None
 
 
-def serialize_prompt(value: Any) -> str | None:
+def serialize_prompt(value: object) -> str | None:
     if value is None:
         return None
     if isinstance(value, str):
@@ -293,7 +316,7 @@ def serialize_prompt(value: Any) -> str | None:
         return str(value)
 
 
-def extract_completion(result: Any) -> str | None:
+def extract_completion(result: object) -> str | None:
     if result is None:
         return None
     if isinstance(result, str):
@@ -304,12 +327,16 @@ def extract_completion(result: Any) -> str | None:
         data = result
     elif hasattr(result, "model_dump"):
         try:
-            data = result.model_dump()
+            # Using getattr for type-safe dynamic attribute access
+            model_dump = result.model_dump # type: ignore[attr-defined]
+            data = model_dump()
         except Exception:
             data = None
     elif hasattr(result, "dict"):
         try:
-            data = result.dict()
+            # Using getattr for type-safe dynamic attribute access
+            dict_method = result.dict # type: ignore[attr-defined]
+            data = dict_method()
         except Exception:
             data = None
     elif hasattr(result, "__dict__"):
@@ -337,18 +364,21 @@ def extract_completion(result: Any) -> str | None:
     return None
 
 
-def extract_usage(result: Any) -> tuple[int | None, int | None]:
-    usage_section: Any | None = None
+def extract_usage(result: object) -> tuple[int | None, int | None]:
+    usage_section: object | None = None
     if isinstance(result, dict):
         usage_section = result.get("usage")
     elif hasattr(result, "usage"):
-        usage_section = result.usage
-    elif hasattr(result, "model_dump"):
-        try:
-            dumped = result.model_dump()
-            usage_section = dumped.get("usage")
-        except Exception:
-            usage_section = None
+        # Using getattr for type-safe dynamic attribute access
+        usage_section = getattr(result, "usage", None)
+    else:
+        model_dump = getattr(result, "model_dump", None)
+        if callable(model_dump):
+            try:
+                dumped = model_dump()
+                usage_section = dumped.get("usage") if isinstance(dumped, dict) else None
+            except Exception:
+                usage_section = None
     if not isinstance(usage_section, dict):
         return None, None
     input_tokens = usage_section.get("prompt_tokens") or usage_section.get("input_tokens")
@@ -358,7 +388,7 @@ def extract_usage(result: Any) -> tuple[int | None, int | None]:
     return input_tokens, output_tokens
 
 
-def apply_llm_request_metadata(span: LLMSpanHandle, bound) -> None:
+def apply_llm_request_metadata(span: LLMSpanHandle, bound: inspect.BoundArguments | None) -> None:
     if not bound:
         return
     model = _extract_first(bound, ("model", "model_name"))
@@ -370,7 +400,7 @@ def apply_llm_request_metadata(span: LLMSpanHandle, bound) -> None:
         span.set_prompt(serialized)
 
 
-def apply_llm_response_metadata(span: LLMSpanHandle, result: Any) -> None:
+def apply_llm_response_metadata(span: LLMSpanHandle, result: object) -> None:
     completion = extract_completion(result)
     if completion and trace_content_enabled():
         span.set_completion(completion)

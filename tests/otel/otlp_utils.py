@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 
-def _to_otel_attribute_value(value: Any) -> dict[str, Any]:
+def _to_otel_attribute_value(value: object) -> dict[str, object]:
     """
     Convert a Python attribute value to the OTLP JSON AttributeValue shape.
 

@@ -76,8 +76,10 @@ def test_get_config_for_kind_default():
     assert result[2] is None
     assert result[3] is None
 
+
 def test_call_decorator_sync_function():
     """Test using __call__ as a decorator on a synchronous function."""
+
     @Observe(name="test_function", kind=ObserveKind.FUNCTION, metadata={"key": "value"})
     def sample_function(x, y):
         return x + y
@@ -89,6 +91,7 @@ def test_call_decorator_sync_function():
 @pytest.mark.asyncio
 async def test_call_decorator_async_function():
     """Test using __call__ as a decorator on an asynchronous function."""
+
     @Observe(name="async_test_function", kind=ObserveKind.FUNCTION, metadata={"key": "value"})
     async def async_sample_function(x, y):
         return x * y
@@ -99,12 +102,14 @@ async def test_call_decorator_async_function():
 
 def test_call_decorator_handling_exceptions():
     """Test that __call__ as a decorator appropriately handles exceptions."""
+
     @Observe(name="exception_test_function", kind=ObserveKind.FUNCTION)
     def error_function(x):
         raise ValueError("Intentional error")
 
     with pytest.raises(ValueError, match="Intentional error"):
         error_function(10)
+
 
 def test_observe_as_decorator():
     """Test Observe when used as a decorator for a synchronous function."""
@@ -172,7 +177,6 @@ def test_observe_static_metadata():
     assert parsed_metadata["key2"] == "value2"
 
 
-
 def test_observe_decorator_sync_function():
     """Test Observe decorator on a synchronous function."""
     observed_data = {}
@@ -186,12 +190,14 @@ def test_observe_decorator_sync_function():
     assert result == 7
     assert observed_data["input"] == (3, 4)
 
+
 def test_observe_context_manager():
     """Test Observe used as a context manager."""
     with Observe(name="Test Context Manager", metadata={"key": "value"}) as span:
         span.set_input("test_input")
         span.set_output("test_output")
         assert span is not None
+
 
 def test_observe_with_metadata():
     """Test Observe with metadata added."""
@@ -207,9 +213,11 @@ def test_observe_with_metadata():
     assert result is True
     assert observed_metadata["user"] == "test_user"
 
+
 @pytest.mark.asyncio
 async def test_observe_decorator_async_function():
     """Test Observe decorator on an async function."""
+
     @Observe(name="Test Async Function", kind=ObserveKind.FUNCTION)
     async def test_async_function(x, y):
         return x * y
@@ -221,6 +229,7 @@ async def test_observe_decorator_async_function():
 @pytest.mark.asyncio
 async def test_start_observe_decorator_async_function(setup_tracing):
     """Test StartObserve decorator on an async function."""
+
     @StartObserve(name="test_async_decorated_root", feature_slug="test_decorator")
     async def async_root_function(x: int, y: int) -> int:
         """An async function that adds two numbers."""
@@ -290,7 +299,7 @@ def test_observe_with_prompt_parameter_decorator():
             frequency_penalty=None,
             presence_penalty=None,
             json_object=None,
-        )
+        ),
     )
 
     mock_prompt = MockPrompt(
@@ -299,7 +308,7 @@ def test_observe_with_prompt_parameter_decorator():
         raw_text="Hello, {{name}}!",
         version="1.0.0",
         model=mock_model,
-        variables={"name": "world"}
+        variables={"name": "world"},
     )
 
     @Observe(kind=ObserveKind.GENERATION, name="test_with_prompt", prompt=mock_prompt)
@@ -320,6 +329,7 @@ def test_observe_with_prompt_parameter_decorator():
     assert span.attributes.get("basalt.prompt.model.model") == "gpt-4"
     # Variables are stored as JSON string for OpenTelemetry compatibility
     import json
+
     assert json.loads(span.attributes.get("basalt.prompt.variables")) == {"name": "world"}
 
 
@@ -360,7 +370,7 @@ def test_observe_with_prompt_parameter_context_manager():
             frequency_penalty=None,
             presence_penalty=None,
             json_object=None,
-        )
+        ),
     )
 
     mock_prompt = MockPrompt(
@@ -369,10 +379,12 @@ def test_observe_with_prompt_parameter_context_manager():
         raw_text="Context manager {{test}}",
         version="2.0.0",
         model=mock_model,
-        variables={"test": "value"}
+        variables={"test": "value"},
     )
 
-    with Observe(kind=ObserveKind.GENERATION, name="test_context_with_prompt", prompt=mock_prompt) as span:
+    with Observe(
+        kind=ObserveKind.GENERATION, name="test_context_with_prompt", prompt=mock_prompt
+    ) as span:
         pass
 
     # Verify span attributes contain prompt metadata
@@ -386,6 +398,7 @@ def test_observe_with_prompt_parameter_context_manager():
     assert span.attributes.get("basalt.prompt.model.model") == "claude-3-opus"
     # Variables are stored as JSON string for OpenTelemetry compatibility
     import json
+
     assert json.loads(span.attributes.get("basalt.prompt.variables")) == {"test": "value"}
 
 
@@ -426,7 +439,7 @@ def test_observe_prompt_without_variables():
             frequency_penalty=None,
             presence_penalty=None,
             json_object=None,
-        )
+        ),
     )
 
     mock_prompt = MockPrompt(
@@ -435,7 +448,7 @@ def test_observe_prompt_without_variables():
         raw_text="Simple prompt",
         version="1.0.0",
         model=mock_model,
-        variables=None
+        variables=None,
     )
 
     @Observe(kind=ObserveKind.GENERATION, name="test_no_vars", prompt=mock_prompt)

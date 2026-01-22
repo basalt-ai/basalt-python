@@ -4,7 +4,7 @@ from basalt.observability import evaluators
 
 
 class DummyAttachment:
-    def __init__(self, slug):
+    def __init__(self, slug) -> None:
         self.slug = slug
 
 

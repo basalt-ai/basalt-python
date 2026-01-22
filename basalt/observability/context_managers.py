@@ -20,6 +20,7 @@ from opentelemetry import trace
 from opentelemetry.context import attach, detach, set_value
 from opentelemetry.trace import Span, Tracer
 
+from ..types.common import JSONValue, SpanAttributeValue
 from . import semconv
 from .trace_context import (
     ORGANIZATION_CONTEXT_KEY,
@@ -81,7 +82,7 @@ class EvaluatorAttachment:
             raise TypeError("Evaluator metadata must be a mapping.")
 
 
-def _normalize_evaluator_entry(entry: Any) -> EvaluatorAttachment:
+def _normalize_evaluator_entry(entry: object) -> EvaluatorAttachment:
     """Convert assorted evaluator payloads into EvaluatorAttachment objects."""
     if isinstance(entry, EvaluatorAttachment):
         return entry
@@ -155,10 +156,10 @@ def _attach_attributes(span: Span, attributes: dict[str, Any] | None) -> None:
     if not attributes:
         return
     for key, value in attributes.items():
-        span.set_attribute(key, value)
+        _set_serialized_attribute(span, key, value)
 
 
-def _serialize_attribute(value: Any) -> Any | None:
+def _serialize_attribute(value: JSONValue) -> SpanAttributeValue:
     if value is None or isinstance(value, (str, bool, int, float)):
         return value
     try:
@@ -167,7 +168,7 @@ def _serialize_attribute(value: Any) -> Any | None:
         return str(value)
 
 
-def _set_serialized_attribute(span: Span, key: str, value: Any) -> None:
+def _set_serialized_attribute(span: Span, key: str, value: JSONValue) -> None:
     serialized = _serialize_attribute(value)
     if serialized is not None:
         span.set_attribute(key, serialized)
@@ -224,33 +225,37 @@ class SpanHandle:
         span: Span,
         parent_span: Span | None = None,
         defaults: _TraceContextConfig | None = None,
-    ):
+    ) -> None:
         self._span = span
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
-        self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
+        self._parent_span = (
+            parent_span if parent_span and parent_span.get_span_context().is_valid else None
+        )
         self._evaluators: dict[str, EvaluatorAttachment] = {}
         self._evaluator_config: EvaluationConfig | None = None
         self._hydrate_existing_evaluators()
 
-    def set_attribute(self, key: str, value: Any) -> None:
+    def set_attribute(self, key: str, value: str | int | float | bool | None) -> None:
         """
         Sets metadata on the current span.
 
         Args:
             key (str): The metadata key to set.
-            value (Any): The metadata value.
+            value (str | int | float | bool | None): The metadata value.
 
         Returns:
             None
         """
-        self._span.set_attribute(key, value)
+        if value is not None:
+            self._span.set_attribute(key, value)
 
     def set_attributes(self, attributes: dict[str, Any]) -> None:
         """
         Set multiple attributes on the current span.
 
         Args:
-            attributes: Dictionary of attributes to set.
+            attributes: Dictionary of attributes to set. Complex values (dicts, lists)
+                       will be serialized to JSON strings.
         """
         _attach_attributes(self._span, attributes)
 
@@ -293,7 +298,7 @@ class SpanHandle:
     # ------------------------------------------------------------------
     # IO helpers
     # ------------------------------------------------------------------
-    def set_input(self, payload: str | dict[str, Any]) -> None:
+    def set_input(self, payload: JSONValue) -> None:
         """
         Sets the input payload for the current context manager.
         Stores the provided payload in the internal `_io_payload` dictionary under the "input" key.
@@ -307,7 +312,7 @@ class SpanHandle:
         if trace_content_enabled():
             _set_serialized_attribute(self._span, semconv.BasaltSpan.INPUT, payload)
 
-    def set_output(self, payload: str | dict[str, Any]) -> None:
+    def set_output(self, payload: JSONValue) -> None:
         """
         Sets the output payload for the current context manager.
         Stores the provided payload in the internal I/O payload dictionary under the "output" key.
@@ -323,8 +328,8 @@ class SpanHandle:
     def set_io(
         self,
         *,
-        input_payload: str | dict[str, Any] | None = None,
-        output_payload: str | dict[str, Any] | None = None,
+        input_payload: JSONValue | None = None,
+        output_payload: JSONValue | None = None,
         variables: Mapping[str, Any] | None = None,
     ) -> None:
         """
@@ -339,9 +344,11 @@ class SpanHandle:
                 raise TypeError("Span variables must be provided as a mapping.")
             self._io_payload["variables"] = dict(variables)
             if trace_content_enabled():
-                _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, variables)
+                _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, dict(variables))
                 if self._parent_span:
-                    _set_serialized_attribute(self._parent_span, semconv.BasaltSpan.VARIABLES, variables)
+                    _set_serialized_attribute(
+                        self._parent_span, semconv.BasaltSpan.VARIABLES, dict(variables)
+                    )
 
     def _io_snapshot(self) -> dict[str, Any]:
         """Return a shallow copy of the tracked IO payload."""
@@ -349,7 +356,6 @@ class SpanHandle:
         if snapshot["variables"] is not None:
             snapshot["variables"] = dict(snapshot["variables"])
         return snapshot
-
 
     def add_evaluator(
         self,
@@ -378,10 +384,12 @@ class SpanHandle:
                 Each key should contain a dict with 'id' (required) and 'name' (optional).
 
         Example:
-            >>> span.set_identity({
-            ...     "user": {"id": "user-123", "name": "John Doe"},
-            ...     "organization": {"id": "org-456", "name": "ACME Corp"}
-            ... })
+            >>> span.set_identity(
+            ...     {
+            ...         "user": {"id": "user-123", "name": "John Doe"},
+            ...         "organization": {"id": "org-456", "name": "ACME Corp"},
+            ...     }
+            ... )
         """
         if identity is None:
             return
@@ -476,7 +484,7 @@ class SpanHandle:
 
     def set_finish_reasons(self, reasons: list[str]) -> None:
         """Set the finish reasons array for the GenAI response."""
-        self.set_attribute(semconv.GenAI.RESPONSE_FINISH_REASONS, reasons)
+        _set_serialized_attribute(self._span, semconv.GenAI.RESPONSE_FINISH_REASONS, list(reasons))
 
 
 class StartSpanHandle(SpanHandle):
@@ -498,7 +506,9 @@ class StartSpanHandle(SpanHandle):
         """
         if isinstance(config, EvaluationConfig):
             self._evaluator_config = config
-            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict())
+            _set_serialized_attribute(
+                self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict()
+            )
         elif isinstance(config, Mapping):
             config_dict = dict(config)
             self._evaluator_config = EvaluationConfig(**config_dict)
@@ -594,9 +604,10 @@ class RetrievalSpanHandle(SpanHandle):
         """Set the number of results returned."""
         self.set_attribute(semconv.BasaltRetrieval.RESULTS_COUNT, count)
 
-    def set_top_k(self, top_k: int) -> None:
+    def set_top_k(self, top_k: float) -> None:
         """Set the top-K parameter for retrieval."""
-        self.set_attribute(semconv.BasaltRetrieval.TOP_K, top_k)
+        value = int(top_k) if isinstance(top_k, float) else top_k
+        self.set_attribute(semconv.BasaltRetrieval.TOP_K, value)
 
 
 class FunctionSpanHandle(SpanHandle):
@@ -612,7 +623,7 @@ class FunctionSpanHandle(SpanHandle):
         """Set the stage or phase associated with the execution."""
         self.set_attribute(semconv.BasaltFunction.STAGE, stage)
 
-    def add_metric(self, key: str, value: Any) -> None:
+    def add_metric(self, key: str, value: str | int | float | bool) -> None:
         """Attach custom metric data to the function execution."""
         self.set_attribute(f"{semconv.BasaltFunction.METRIC_PREFIX}.{key}", value)
 
@@ -628,7 +639,7 @@ class ToolSpanHandle(SpanHandle):
         """Set the name of the tool being invoked."""
         self.set_attribute(semconv.BasaltTool.NAME, name)
 
-    def set_input(self, payload: Any) -> None:
+    def set_input(self, payload: JSONValue) -> None:
         """Set the input payload for the tool."""
         super().set_input(payload)
         if trace_content_enabled():
@@ -636,7 +647,7 @@ class ToolSpanHandle(SpanHandle):
             if value is not None:
                 self.set_attribute(semconv.BasaltTool.INPUT, value)
 
-    def set_output(self, payload: Any) -> None:
+    def set_output(self, payload: JSONValue) -> None:
         """Set the output payload from the tool."""
         super().set_output(payload)
         if trace_content_enabled():
@@ -656,7 +667,7 @@ class EventSpanHandle(SpanHandle):
         """Set the type of custom event."""
         self.set_attribute(semconv.BasaltEvent.TYPE, event_type)
 
-    def set_payload(self, payload: Any) -> None:
+    def set_payload(self, payload: JSONValue) -> None:
         """Set the event payload."""
         super().set_input(payload)
         if trace_content_enabled():
@@ -673,8 +684,8 @@ def _with_span_handle(
     handle_cls: type[SpanHandle],
     span_type: str | None = None,
     *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
+    input_payload: JSONValue | None = None,
+    output_payload: JSONValue | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
     user: TraceIdentity | Mapping[str, Any] | None = None,
@@ -682,13 +693,15 @@ def _with_span_handle(
     feature_slug: str | None = None,
     metadata: Mapping[str, Any] | None = None,
     evaluate_config: EvaluationConfig | None = None,
-    experiment: Any = None,
+    experiment: str | dict[str, Any] | None = None,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
     defaults = _current_trace_defaults()
 
     parent_span = trace.get_current_span()
-    if parent_span and (not parent_span.get_span_context().is_valid or not parent_span.is_recording()):
+    if parent_span and (
+        not parent_span.get_span_context().is_valid or not parent_span.is_recording()
+    ):
         parent_span = None
 
     # Prepare context tokens for user/org propagation
@@ -767,20 +780,12 @@ def _with_span_handle(
             # Inject prompt context if available
             try:
                 from basalt.prompts.models import _current_prompt_context
+
                 prompt_ctx = _current_prompt_context.get()
                 if prompt_ctx:
-                    # Inject prompt attributes into this span
-                    import json
-                    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
-                    if prompt_ctx.get("version"):
-                        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
-                    if prompt_ctx.get("tag"):
-                        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
-                    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
-                    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
-                    if prompt_ctx.get("variables"):
-                        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
-                    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
+                    from .utils import apply_prompt_context_attributes
+
+                    apply_prompt_context_attributes(span, prompt_ctx)
             except ImportError:
                 # Prompts module not available, skip injection
                 pass
@@ -790,6 +795,7 @@ def _with_span_handle(
             # Apply metadata if provided
             if metadata:
                 from .utils import apply_span_metadata
+
                 apply_span_metadata(span, metadata)
 
             if span_type:
@@ -811,7 +817,7 @@ def _with_span_handle(
                 handle.set_io(variables=variables)
             if evaluators:
                 handle.add_evaluators(*evaluators)
-            yield handle  # type: ignore[misc]
+            yield handle
             if output_payload is not None:
                 handle.set_output(output_payload)
 
@@ -837,8 +843,8 @@ async def _async_with_span_handle(
     handle_cls: type[SpanHandle],
     span_type: str | None = None,
     *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
+    input_payload: JSONValue | None = None,
+    output_payload: JSONValue | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
     user: TraceIdentity | Mapping[str, Any] | None = None,
@@ -846,7 +852,7 @@ async def _async_with_span_handle(
     feature_slug: str | None = None,
     metadata: Mapping[str, Any] | None = None,
     evaluate_config: EvaluationConfig | None = None,
-    experiment: Any = None,
+    experiment: str | Experiment | None = None,
 ) -> AsyncGenerator[SpanHandle, None]:
     """Async version of _with_span_handle.
 
@@ -854,149 +860,34 @@ async def _async_with_span_handle(
     so this async context manager still calls sync OTel APIs internally.
     The async support is primarily for use with async with statements.
     """
-    tracer = get_tracer(tracer_name)
-    defaults = _current_trace_defaults()
+    # Coerce Experiment to str or dict if needed
+    experiment_arg = experiment
+    if experiment is not None and not isinstance(experiment, (str, dict)):
+        # Prefer id if available, else fallback to str
+        experiment_arg = getattr(experiment, "id", str(experiment))
 
-    parent_span = trace.get_current_span()
-    if parent_span and (not parent_span.get_span_context().is_valid or not parent_span.is_recording()):
-        parent_span = None
+    # Ensure experiment_arg is str, dict, or None
+    if experiment_arg is not None and not isinstance(experiment_arg, (str, dict)):
+        experiment_arg = getattr(experiment_arg, "id", str(experiment_arg))
 
-    # Prepare context tokens for user/org propagation
-    tokens = []
-    if user is not None:
-        from .trace_context import _coerce_identity
-
-        user_identity = _coerce_identity(user)
-        if user_identity:
-            tokens.append(attach(set_value(USER_CONTEXT_KEY, user_identity)))
-
-    if organization is not None:
-        from .trace_context import _coerce_identity
-
-        org_identity = _coerce_identity(organization)
-        if org_identity:
-            tokens.append(attach(set_value(ORGANIZATION_CONTEXT_KEY, org_identity)))
-
-    if feature_slug is not None:
-        from .trace_context import FEATURE_SLUG_CONTEXT_KEY
-
-        tokens.append(attach(set_value(FEATURE_SLUG_CONTEXT_KEY, feature_slug)))
-
-    # If this is a root span (no parent), store it in context
-    is_root = parent_span is None
-    root_span_token = None
-
-    # Check if we're inside a basalt trace
-    in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
-
-    # Make trace-level sampling decision
-    should_evaluate_token = None
-    if is_root:
-        # Root span: make new sampling decision
-        # If experiment is attached, ALWAYS evaluate (should_evaluate=True)
-        if experiment is not None:
-            should_evaluate = True
-        else:
-            # Get sample_rate from evaluate_config if provided, otherwise use global default
-            if evaluate_config is not None:
-                effective_sample_rate = evaluate_config.sample_rate
-            else:
-                effective_sample_rate = defaults.sample_rate
-            should_evaluate = random.random() < effective_sample_rate
-        should_evaluate_token = attach(set_value(SHOULD_EVALUATE_CONTEXT_KEY, should_evaluate))
-    else:
-        # Check if should_evaluate already exists in context
-        existing_should_evaluate = otel_context.get_value(SHOULD_EVALUATE_CONTEXT_KEY)
-        if existing_should_evaluate is None:
-            # Orphan span without root - make its own decision
-            # If experiment is attached, ALWAYS evaluate
-            if experiment is not None:
-                should_evaluate = True
-            else:
-                if evaluate_config is not None:
-                    effective_sample_rate = evaluate_config.sample_rate
-                else:
-                    effective_sample_rate = defaults.sample_rate
-                should_evaluate = random.random() < effective_sample_rate
-            should_evaluate_token = attach(set_value(SHOULD_EVALUATE_CONTEXT_KEY, should_evaluate))
-
-    try:
-        with tracer.start_as_current_span(name) as span:
-            # Store root span in context for retrieval from nested spans
-            if is_root:
-                root_span_token = attach(set_value(ROOT_SPAN_CONTEXT_KEY, span))
-                # Set basalt.root attribute
-                span.set_attribute("basalt.root", True)
-            elif in_basalt_trace:
-                # Child span inside a basalt trace
-                span.set_attribute("basalt.trace", True)
-
-            # Mark all basalt spans with basalt.in_trace
-            span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
-
-            # Inject prompt context if available
-            try:
-                from basalt.prompts.models import _current_prompt_context
-                prompt_ctx = _current_prompt_context.get()
-                if prompt_ctx:
-                    # Inject prompt attributes into this span
-                    import json
-                    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
-                    if prompt_ctx.get("version"):
-                        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
-                    if prompt_ctx.get("tag"):
-                        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
-                    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
-                    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
-                    if prompt_ctx.get("variables"):
-                        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
-                    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
-            except ImportError:
-                # Prompts module not available, skip injection
-                pass
-
-            _attach_attributes(span, attributes)
-
-            # Apply metadata if provided
-            if metadata:
-                from .utils import apply_span_metadata
-                apply_span_metadata(span, metadata)
-
-            if span_type:
-                span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
-
-            # Apply user/org from context (either explicit or inherited from parent)
-            apply_user_from_context(span, user)
-            apply_organization_from_context(span, organization)
-
-            if is_root and handle_cls == SpanHandle:
-                actual_handle_cls = StartSpanHandle
-            else:
-                actual_handle_cls = handle_cls
-
-            handle = actual_handle_cls(span, parent_span, defaults)
-            if input_payload is not None:
-                handle.set_input(input_payload)
-            if variables:
-                handle.set_io(variables=variables)
-            if evaluators:
-                handle.add_evaluators(*evaluators)
-            yield handle  # type: ignore[misc]
-            if output_payload is not None:
-                handle.set_output(output_payload)
-
-    finally:
-        # Detach should_evaluate token if it was set
-        if should_evaluate_token is not None:
-            detach(should_evaluate_token)
-
-        # Detach root span token if it was set
-        if root_span_token is not None:
-            detach(root_span_token)
-
-        # Detach context tokens in reverse order
-        for token in reversed(tokens):
-            detach(token)
+    with _with_span_handle(
+        name=name,
+        attributes=attributes,
+        tracer_name=tracer_name,
+        handle_cls=handle_cls,
+        span_type=span_type,
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
+        user=user,
+        organization=organization,
+        feature_slug=feature_slug,
+        metadata=metadata,
+        evaluate_config=evaluate_config,
+        experiment=experiment_arg,
+    ) as handle:
+        yield handle
 
 
 def _set_trace_user(user_id: str, name: str | None = None) -> None:

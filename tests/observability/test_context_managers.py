@@ -56,7 +56,6 @@ def test_normalize_evaluator_entry_with_existing_evaluator_attachment():
     assert result == entry
 
 
-
 def test_with_evaluators_no_values():
     """Test with_evaluators does not set any contexts when given no values."""
     token = otel_context.attach(otel_context.set_value("test_key", "initial_value"))
@@ -156,7 +155,8 @@ def test_set_io_with_no_arguments():
 
 class SimpleSpanMock:
     """Minimal mock for testing span attribute setting."""
-    def __init__(self):
+
+    def __init__(self) -> None:
         self.attributes = {}
 
     def set_attribute(self, key, value):
@@ -203,6 +203,7 @@ def mock_span():
     span = MagicMock(spec=Span)
     return span
 
+
 def test_set_attribute(mock_span):
     """Test SpanHandle.set_attribute sets attributes on the span."""
     span_handle = SpanHandle(span=mock_span)
@@ -214,8 +215,7 @@ def test_set_input(mock_span):
     """Test SpanHandle.set_input sets input payload and serializes it if tracing is enabled."""
     with pytest.MonkeyPatch().context() as monkeypatch:
         monkeypatch.setattr(
-            "basalt.observability.context_managers.trace_content_enabled",
-            lambda: True
+            "basalt.observability.context_managers.trace_content_enabled", lambda: True
         )
         span_handle = SpanHandle(span=mock_span)
         payload = {"key": "value"}
@@ -223,12 +223,12 @@ def test_set_input(mock_span):
         assert span_handle._io_payload["input"] == payload
         mock_span.set_attribute.assert_called_once()
 
+
 def test_set_output(mock_span):
     """Test SpanHandle.set_output sets output payload and serializes it if tracing is enabled."""
     with pytest.MonkeyPatch().context() as monkeypatch:
         monkeypatch.setattr(
-            "basalt.observability.context_managers.trace_content_enabled",
-            lambda: True
+            "basalt.observability.context_managers.trace_content_enabled", lambda: True
         )
         span_handle = SpanHandle(span=mock_span)
         payload = {"result": "success"}
@@ -236,25 +236,24 @@ def test_set_output(mock_span):
         assert span_handle._io_payload["output"] == payload
         mock_span.set_attribute.assert_called_once()
 
+
 def test_set_io(mock_span):
     """Test SpanHandle.set_io sets all I/O payloads correctly."""
     with pytest.MonkeyPatch().context() as monkeypatch:
         monkeypatch.setattr(
-            "basalt.observability.context_managers.trace_content_enabled",
-            lambda: False
+            "basalt.observability.context_managers.trace_content_enabled", lambda: False
         )
         span_handle = SpanHandle(span=mock_span)
         input_payload = {"input": "data"}
         output_payload = {"output": "data"}
         variables = {"key": "value"}
         span_handle.set_io(
-            input_payload=input_payload,
-            output_payload=output_payload,
-            variables=variables
+            input_payload=input_payload, output_payload=output_payload, variables=variables
         )
         assert span_handle._io_payload["input"] == input_payload
         assert span_handle._io_payload["output"] == output_payload
         assert span_handle._io_payload["variables"] == variables
+
 
 def test_io_snapshot(mock_span):
     """Test SpanHandle.io_snapshot returns a copy of the I/O payload."""
@@ -307,10 +306,12 @@ def test_identify_with_both_user_and_organization():
 
     mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.set_identity({
-        "user": {"id": "user-123", "name": "John Doe"},
-        "organization": {"id": "org-456", "name": "Acme Corp"}
-    })
+    span_handle.set_identity(
+        {
+            "user": {"id": "user-123", "name": "John Doe"},
+            "organization": {"id": "org-456", "name": "Acme Corp"},
+        }
+    )
 
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-123"
     assert mock_span.attributes[semconv.BasaltUser.NAME] == "John Doe"
@@ -324,10 +325,7 @@ def test_identify_with_ids_only():
 
     mock_span = SimpleSpanMock()
     span_handle = SpanHandle(span=mock_span)
-    span_handle.set_identity({
-        "user": {"id": "user-789"},
-        "organization": {"id": "org-101"}
-    })
+    span_handle.set_identity({"user": {"id": "user-789"}, "organization": {"id": "org-101"}})
 
     assert mock_span.attributes[semconv.BasaltUser.ID] == "user-789"
     assert mock_span.attributes[semconv.BasaltOrganization.ID] == "org-101"
@@ -424,7 +422,9 @@ async def test_async_start_observe_with_metadata():
     exporter.clear()
 
     metadata = {"custom_key": "custom_value", "test_id": 42}
-    async with AsyncStartObserve(name="test_with_metadata", feature_slug="test_metadata", metadata=metadata) as span:
+    async with AsyncStartObserve(
+        name="test_with_metadata", feature_slug="test_metadata", metadata=metadata
+    ) as span:
         # Verify span was created successfully
         assert span is not None
         assert isinstance(span._span, object)  # Span exists
@@ -449,9 +449,7 @@ async def test_async_observe_with_evaluators():
     async with AsyncStartObserve(name="test_root", feature_slug="test_evaluators"):
         evaluator_slugs = ["test_evaluator_1", "test_evaluator_2"]
         async with AsyncObserve(
-            name="test_with_evaluators",
-            kind=ObserveKind.GENERATION,
-            evaluators=evaluator_slugs
+            name="test_with_evaluators", kind=ObserveKind.GENERATION, evaluators=evaluator_slugs
         ) as span:
             # The evaluators should be attached to the span
             # We can verify by checking the context or span attributes
@@ -512,10 +510,12 @@ async def test_async_start_observe_with_identity():
 
     identity = {
         "user": {"id": "user-123", "name": "Test User"},
-        "organization": {"id": "org-456", "name": "Test Org"}
+        "organization": {"id": "org-456", "name": "Test Org"},
     }
 
-    async with AsyncStartObserve(name="test_identity", feature_slug="test_identity", identity=identity) as span:
+    async with AsyncStartObserve(
+        name="test_identity", feature_slug="test_identity", identity=identity
+    ) as span:
         # Verify span and identity setup completed successfully
         assert span is not None
 
@@ -572,4 +572,3 @@ async def test_async_observe_has_in_trace_attribute(setup_tracing):
         assert root_span._span.attributes.get("basalt.in_trace") is True
         async with AsyncObserve(kind=ObserveKind.GENERATION, name="async_child") as child_span:
             assert child_span._span.attributes.get("basalt.in_trace") is True
-

@@ -3,6 +3,7 @@ Experiments API Client.
 
 This module provides the ExperimentsClient for interacting with the Basalt Experiments API.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -27,7 +28,7 @@ class ExperimentsClient(BaseServiceClient):
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
         log_level: str | None = None,
-    ):
+    ) -> None:
         """
         Initialize the ExperimentsClient.
 

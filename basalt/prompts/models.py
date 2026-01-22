@@ -4,18 +4,19 @@ Data models for the Prompts API.
 This module contains all data models and data transfer objects used
 by the PromptsClient.
 """
+
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from dataclasses import dataclass
+from types import TracebackType
 from typing import Any
 
 # Context variable for prompt data injection into child spans
 _current_prompt_context: ContextVar[dict[str, Any] | None] = ContextVar(
-    '_current_prompt_context',
-    default=None
+    "_current_prompt_context", default=None
 )
 
 
@@ -25,6 +26,7 @@ class PromptModelParameters:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     temperature: float
     max_length: int
     response_format: str
@@ -60,10 +62,14 @@ class PromptModelParameters:
         top_p = float(top_p) if isinstance(top_p, (int, float)) else None
 
         frequency_penalty = data.get("frequencyPenalty")
-        frequency_penalty = float(frequency_penalty) if isinstance(frequency_penalty, (int, float)) else None
+        frequency_penalty = (
+            float(frequency_penalty) if isinstance(frequency_penalty, (int, float)) else None
+        )
 
         presence_penalty = data.get("presencePenalty")
-        presence_penalty = float(presence_penalty) if isinstance(presence_penalty, (int, float)) else None
+        presence_penalty = (
+            float(presence_penalty) if isinstance(presence_penalty, (int, float)) else None
+        )
 
         json_object = data.get("jsonObject")
         json_object = dict(json_object) if isinstance(json_object, Mapping) else None
@@ -86,6 +92,7 @@ class PromptModel:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     provider: str
     model: str
     version: str
@@ -106,7 +113,9 @@ class PromptModel:
         version = data.get("version") if isinstance(data.get("version"), str) else ""
 
         parameters_data = data.get("parameters")
-        parameters = PromptModelParameters.from_dict(parameters_data if isinstance(parameters_data, Mapping) else None)
+        parameters = PromptModelParameters.from_dict(
+            parameters_data if isinstance(parameters_data, Mapping) else None
+        )
 
         return cls(
             provider=str(provider),
@@ -119,6 +128,7 @@ class PromptModel:
 @dataclass
 class PromptParams:
     """Parameters for creating a new prompt instance."""
+
     slug: str
     text: str
     model: PromptModel
@@ -141,7 +151,7 @@ class Prompt:
         prompt = basalt.prompts.get(
             slug="qa-prompt",
             version="2.1.0",
-            variables={"context": "Paris is the capital of France"}
+            variables={"context": "Paris is the capital of France"},
         )
 
         # Access prompt properties
@@ -149,6 +159,7 @@ class Prompt:
         print(prompt.model.provider)
         ```
     """
+
     slug: str
     text: str
     raw_text: str
@@ -190,6 +201,7 @@ class _PromptContextMixin:
     _tag: str | None
     _variables: dict[str, Any] | None
     _from_cache: bool
+    _context_token: Token[dict[str, Any] | None] | None
 
     def _set_span_attributes(self) -> None:
         from basalt.observability import semconv
@@ -208,6 +220,23 @@ class _PromptContextMixin:
             if self._variables:
                 span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
             span.set_attribute("basalt.prompt.from_cache", self._from_cache)
+
+    def _enter_prompt_context(self) -> None:
+        # Store prompt metadata in context for child spans.
+        prompt_ctx = {
+            "slug": self._slug,
+            "version": self._version,
+            "tag": self._tag,
+            "provider": self._prompt.model.provider,
+            "model": self._prompt.model.model,
+            "variables": self._variables,
+            "from_cache": self._from_cache,
+        }
+        self._context_token = _current_prompt_context.set(prompt_ctx)
+
+    def _exit_prompt_context(self) -> None:
+        if self._context_token is not None:
+            _current_prompt_context.reset(self._context_token)
 
 
 class PromptContextManager(_PromptContextMixin):
@@ -265,9 +294,9 @@ class PromptContextManager(_PromptContextMixin):
         self._tag: str | None = tag
         self._variables: dict[str, Any] | None = variables
         self._from_cache: bool = from_cache
-        self._context_token: Any = None
+        self._context_token: Token[dict[str, Any] | None] | None = None
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         """Forward all attribute access to the wrapped Prompt."""
         return getattr(self._prompt, name)
 
@@ -277,27 +306,21 @@ class PromptContextManager(_PromptContextMixin):
 
         This allows child spans to automatically receive prompt attributes.
         """
-        # Store prompt metadata in context
-        prompt_ctx = {
-            "slug": self._slug,
-            "version": self._version,
-            "tag": self._tag,
-            "provider": self._prompt.model.provider,
-            "model": self._prompt.model.model,
-            "variables": self._variables,
-            "from_cache": self._from_cache,
-        }
-        self._context_token = _current_prompt_context.set(prompt_ctx)
+        self._enter_prompt_context()
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         """Exit context manager mode - clear prompt context."""
         try:
             # Any cleanup logic
             pass
         finally:
-            if self._context_token is not None:
-                _current_prompt_context.reset(self._context_token)
+            self._exit_prompt_context()
 
         # Don't suppress exceptions
         return False
@@ -359,9 +382,9 @@ class AsyncPromptContextManager(_PromptContextMixin):
         self._tag: str | None = tag
         self._variables: dict[str, Any] | None = variables
         self._from_cache: bool = from_cache
-        self._context_token: Any = None
+        self._context_token: Token[dict[str, Any] | None] | None = None
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         """Forward all attribute access to the wrapped Prompt."""
         return getattr(self._prompt, name)
 
@@ -371,27 +394,21 @@ class AsyncPromptContextManager(_PromptContextMixin):
 
         This allows child spans to automatically receive prompt attributes.
         """
-        # Store prompt metadata in context
-        prompt_ctx = {
-            "slug": self._slug,
-            "version": self._version,
-            "tag": self._tag,
-            "provider": self._prompt.model.provider,
-            "model": self._prompt.model.model,
-            "variables": self._variables,
-            "from_cache": self._from_cache,
-        }
-        self._context_token = _current_prompt_context.set(prompt_ctx)
+        self._enter_prompt_context()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         """Exit async context manager mode - clear prompt context."""
         try:
             # Any cleanup logic
             pass
         finally:
-            if self._context_token is not None:
-                _current_prompt_context.reset(self._context_token)
+            self._exit_prompt_context()
 
         # Don't suppress exceptions
         return False
@@ -415,6 +432,7 @@ class PromptResponse:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     text: str
     slug: str
     version: str
@@ -450,12 +468,42 @@ class PromptResponse:
         )
 
 
+def _parse_prompt_descriptor_fields(
+    data: Mapping[str, Any] | None,
+) -> tuple[str, str, str, str, list[str], list[str]]:
+    if data is None:
+        data = {}
+
+    slug = data.get("slug") if isinstance(data.get("slug"), str) else ""
+    status = data.get("status") if isinstance(data.get("status"), str) else ""
+    name = data.get("name") if isinstance(data.get("name"), str) else ""
+    description = data.get("description") if isinstance(data.get("description"), str) else ""
+
+    available_versions_raw = data.get("availableVersions")
+    available_versions = (
+        list(available_versions_raw) if isinstance(available_versions_raw, list) else []
+    )
+
+    available_tags_raw = data.get("availableTags")
+    available_tags = list(available_tags_raw) if isinstance(available_tags_raw, list) else []
+
+    return (
+        str(slug),
+        str(status),
+        str(name),
+        str(description),
+        available_versions,
+        available_tags,
+    )
+
+
 @dataclass(slots=True, frozen=True)
 class DescribePromptResponse:
     """Response from the Describe Prompt API endpoint.
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     slug: str
     status: str
     name: str
@@ -470,28 +518,23 @@ class DescribePromptResponse:
 
         Robust against missing keys or wrong types. Copies mutable inputs.
         """
-        if data is None:
-            data = {}
+        (
+            slug,
+            status,
+            name,
+            description,
+            available_versions,
+            available_tags,
+        ) = _parse_prompt_descriptor_fields(data)
 
-        slug = data.get("slug") if isinstance(data.get("slug"), str) else ""
-        status = data.get("status") if isinstance(data.get("status"), str) else ""
-        name = data.get("name") if isinstance(data.get("name"), str) else ""
-        description = data.get("description") if isinstance(data.get("description"), str) else ""
-
-        available_versions_raw = data.get("availableVersions")
-        available_versions = list(available_versions_raw) if isinstance(available_versions_raw, list) else []
-
-        available_tags_raw = data.get("availableTags")
-        available_tags = list(available_tags_raw) if isinstance(available_tags_raw, list) else []
-
-        variables_raw = data.get("variables")
+        variables_raw = data.get("variables") if data else None
         variables = list(variables_raw) if isinstance(variables_raw, list) else []
 
         return cls(
-            slug=str(slug),
-            status=str(status),
-            name=str(name),
-            description=str(description),
+            slug=slug,
+            status=status,
+            name=name,
+            description=description,
             available_versions=available_versions,
             available_tags=available_tags,
             variables=variables,
@@ -504,6 +547,7 @@ class PromptListResponse:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     slug: str
     status: str
     name: str
@@ -517,25 +561,20 @@ class PromptListResponse:
 
         Robust against missing keys or wrong types. Copies mutable inputs.
         """
-        if data is None:
-            data = {}
-
-        slug = data.get("slug") if isinstance(data.get("slug"), str) else ""
-        status = data.get("status") if isinstance(data.get("status"), str) else ""
-        name = data.get("name") if isinstance(data.get("name"), str) else ""
-        description = data.get("description") if isinstance(data.get("description"), str) else ""
-
-        available_versions_raw = data.get("availableVersions")
-        available_versions = list(available_versions_raw) if isinstance(available_versions_raw, list) else []
-
-        available_tags_raw = data.get("availableTags")
-        available_tags = list(available_tags_raw) if isinstance(available_tags_raw, list) else []
+        (
+            slug,
+            status,
+            name,
+            description,
+            available_versions,
+            available_tags,
+        ) = _parse_prompt_descriptor_fields(data)
 
         return cls(
-            slug=str(slug),
-            status=str(status),
-            name=str(name),
-            description=str(description),
+            slug=slug,
+            status=status,
+            name=name,
+            description=description,
             available_versions=available_versions,
             available_tags=available_tags,
         )
@@ -547,6 +586,7 @@ class PublishPromptResponse:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     id: str
     label: str
 
@@ -563,7 +603,9 @@ class PublishPromptResponse:
         deployment_tag = data.get("deploymentTag")
         if isinstance(deployment_tag, Mapping):
             id_val = deployment_tag.get("id") if isinstance(deployment_tag.get("id"), str) else ""
-            label_val = deployment_tag.get("label") if isinstance(deployment_tag.get("label"), str) else ""
+            label_val = (
+                deployment_tag.get("label") if isinstance(deployment_tag.get("label"), str) else ""
+            )
         else:
             id_val = data.get("id") if isinstance(data.get("id"), str) else ""
             label_val = data.get("label") if isinstance(data.get("label"), str) else ""

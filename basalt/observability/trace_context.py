@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from threading import RLock
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from opentelemetry import context as otel_context
 from opentelemetry.trace import Span
@@ -57,7 +57,9 @@ class _TraceContextConfig:
         """Return a defensive copy of the configuration."""
         return _TraceContextConfig(
             experiment=self.experiment,
-            observe_metadata=dict(self.observe_metadata) if self.observe_metadata is not None else {},
+            observe_metadata=dict(self.observe_metadata)
+            if self.observe_metadata is not None
+            else {},
             sample_rate=self.sample_rate,
         )
 
@@ -133,6 +135,8 @@ def set_global_sample_rate(sample_rate: float) -> None:
         sample_rate=sample_rate,
     )
     _set_trace_defaults(new_config)
+
+
 def configure_global_metadata(metadata: dict[str, Any] | None) -> None:
     """
     Configure global observability metadata applied to all traces.
@@ -157,7 +161,9 @@ def apply_trace_defaults(span: Span, defaults: _TraceContextConfig | None = None
         if context.experiment.name:
             span.set_attribute(semconv.BasaltExperiment.NAME, context.experiment.name)
         if context.experiment.feature_slug:
-            span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, context.experiment.feature_slug)
+            span.set_attribute(
+                semconv.BasaltExperiment.FEATURE_SLUG, context.experiment.feature_slug
+            )
 
     if context.observe_metadata:
         for key, value in context.observe_metadata.items():
@@ -166,15 +172,17 @@ def apply_trace_defaults(span: Span, defaults: _TraceContextConfig | None = None
 
 def get_context_user() -> TraceIdentity | None:
     """Retrieve user identity from the current OpenTelemetry context."""
-    return otel_context.get_value(USER_CONTEXT_KEY)
+    return cast(TraceIdentity | None, otel_context.get_value(USER_CONTEXT_KEY))
 
 
 def get_context_organization() -> TraceIdentity | None:
     """Retrieve organization identity from the current OpenTelemetry context."""
-    return otel_context.get_value(ORGANIZATION_CONTEXT_KEY)
+    return cast(TraceIdentity | None, otel_context.get_value(ORGANIZATION_CONTEXT_KEY))
 
 
-def apply_user_from_context(span: Span, user: TraceIdentity | Mapping[str, Any] | None = None) -> None:
+def apply_user_from_context(
+    span: Span, user: TraceIdentity | Mapping[str, Any] | None = None
+) -> None:
     """
     Apply user identity to a span from the provided value or OpenTelemetry context.
 

@@ -5,6 +5,7 @@ from typing import Any
 
 from opentelemetry.trace import Span, Tracer
 
+from ..types.common import SpanAttributeValue
 from . import semconv
 from .context_managers import (
     get_current_otel_span,
@@ -36,10 +37,10 @@ class Trace:
             span.add_event(name, attributes=attributes)
 
     @staticmethod
-    def set_attribute(key: str, value: Any) -> None:
+    def set_attribute(key: str, value: SpanAttributeValue) -> None:
         """Set a raw attribute on the current span."""
         span = get_current_otel_span()
-        if span:
+        if span and value is not None:
             span.set_attribute(key, value)
 
     @staticmethod
@@ -81,20 +82,22 @@ class Trace:
         current_user, current_org = _get_current_identity_from_span(span)
 
         if user is not None:
-            new_user = _parse_identity_input(user)
-            merged_user = _merge_identity(current_user, new_user)
-            if 'id' in merged_user:
-                span.set_attribute(semconv.BasaltUser.ID, merged_user['id'])
-            if 'name' in merged_user:
-                span.set_attribute(semconv.BasaltUser.NAME, merged_user['name'])
+            _apply_identity_attributes(
+                span=span,
+                current=current_user,
+                incoming=user,
+                id_attr=semconv.BasaltUser.ID,
+                name_attr=semconv.BasaltUser.NAME,
+            )
 
         if organization is not None:
-            new_org = _parse_identity_input(organization)
-            merged_org = _merge_identity(current_org, new_org)
-            if 'id' in merged_org:
-                span.set_attribute(semconv.BasaltOrganization.ID, merged_org['id'])
-            if 'name' in merged_org:
-                span.set_attribute(semconv.BasaltOrganization.NAME, merged_org['name'])
+            _apply_identity_attributes(
+                span=span,
+                current=current_org,
+                incoming=organization,
+                id_attr=semconv.BasaltOrganization.ID,
+                name_attr=semconv.BasaltOrganization.NAME,
+            )
 
 
 def _get_current_identity_from_span(span: Span) -> tuple[dict[str, str], dict[str, str]]:
@@ -102,15 +105,16 @@ def _get_current_identity_from_span(span: Span) -> tuple[dict[str, str], dict[st
     user_dict = {}
     org_dict = {}
 
-    if hasattr(span, 'attributes') and span.attributes:
-        if semconv.BasaltUser.ID in span.attributes:
-            user_dict['id'] = str(span.attributes[semconv.BasaltUser.ID])
-        if semconv.BasaltUser.NAME in span.attributes:
-            user_dict['name'] = str(span.attributes[semconv.BasaltUser.NAME])
-        if semconv.BasaltOrganization.ID in span.attributes:
-            org_dict['id'] = str(span.attributes[semconv.BasaltOrganization.ID])
-        if semconv.BasaltOrganization.NAME in span.attributes:
-            org_dict['name'] = str(span.attributes[semconv.BasaltOrganization.NAME])
+    attributes = getattr(span, "attributes", None)
+    if isinstance(attributes, Mapping):
+        if semconv.BasaltUser.ID in attributes:
+            user_dict["id"] = str(attributes[semconv.BasaltUser.ID])
+        if semconv.BasaltUser.NAME in attributes:
+            user_dict["name"] = str(attributes[semconv.BasaltUser.NAME])
+        if semconv.BasaltOrganization.ID in attributes:
+            org_dict["id"] = str(attributes[semconv.BasaltOrganization.ID])
+        if semconv.BasaltOrganization.NAME in attributes:
+            org_dict["name"] = str(attributes[semconv.BasaltOrganization.NAME])
 
     return user_dict, org_dict
 
@@ -125,13 +129,13 @@ def _parse_identity_input(value: str | dict[str, Any] | None) -> dict[str, str]:
     if value is None:
         return {}
     if isinstance(value, str):
-        return {'id': value}
+        return {"id": value}
     if isinstance(value, dict):
         result = {}
-        if 'id' in value:
-            result['id'] = str(value['id']) if value['id'] is not None else ''
-        if 'name' in value:
-            result['name'] = str(value['name']) if value['name'] is not None else ''
+        if "id" in value:
+            result["id"] = str(value["id"]) if value["id"] is not None else ""
+        if "name" in value:
+            result["name"] = str(value["name"]) if value["name"] is not None else ""
         return result
     return {}
 
@@ -139,6 +143,22 @@ def _parse_identity_input(value: str | dict[str, Any] | None) -> dict[str, str]:
 def _merge_identity(existing: dict[str, str], new: dict[str, str]) -> dict[str, str]:
     """Merge new identity values into existing, overriding keys present in new."""
     return {**existing, **new}
+
+
+def _apply_identity_attributes(
+    *,
+    span: Span,
+    current: dict[str, str],
+    incoming: str | dict[str, Any] | None,
+    id_attr: str,
+    name_attr: str,
+) -> None:
+    new_identity = _parse_identity_input(incoming)
+    merged_identity = _merge_identity(current, new_identity)
+    if "id" in merged_identity:
+        span.set_attribute(id_attr, merged_identity["id"])
+    if "name" in merged_identity:
+        span.set_attribute(name_attr, merged_identity["name"])
 
 
 # Singleton instance

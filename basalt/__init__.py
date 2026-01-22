@@ -13,6 +13,7 @@ Example:
     prompt = await basalt.prompts.get("my-prompt")
     ```
 """
+
 from typing import TYPE_CHECKING
 
 from ._version import __version__
@@ -30,8 +31,10 @@ __all__ = ["Basalt", "TelemetryConfig", "__version__"]
 def __getattr__(name: str):
     if name == "Basalt":
         from .client import Basalt  # imported only when accessed
+
         return Basalt
     if name == "TelemetryConfig":
         from .observability.config import TelemetryConfig  # imported only when accessed
+
         return TelemetryConfig
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

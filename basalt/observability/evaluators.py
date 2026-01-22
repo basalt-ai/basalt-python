@@ -16,14 +16,13 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any
 
 from opentelemetry import trace
 
 from .context_managers import SpanHandle, normalize_evaluator_specs, with_evaluators
 
 
-def _flatten_evaluator_specs(*evaluators: Any) -> list[str]:
+def _flatten_evaluator_specs(*evaluators: object) -> list[str]:
     """Normalize evaluator specifications into a flat list of slugs."""
     slugs: list[str] = []
     for attachment in normalize_evaluator_specs(evaluators):
@@ -34,7 +33,7 @@ def _flatten_evaluator_specs(*evaluators: Any) -> list[str]:
 
 @contextmanager
 def attach_evaluator(
-    *evaluators: Any,
+    *evaluators: object,
     span: SpanHandle | None = None,
 ) -> Generator[None, None, None]:
     """
@@ -79,7 +78,7 @@ def attach_evaluator(
         yield
 
 
-def attach_evaluators_to_span(span_handle: SpanHandle, *evaluators: Any) -> None:
+def attach_evaluators_to_span(span_handle: SpanHandle, *evaluators: object) -> None:
     """
     Directly attach evaluators to a span handle, respecting sample rates.
 
@@ -96,7 +95,7 @@ def attach_evaluators_to_span(span_handle: SpanHandle, *evaluators: Any) -> None
         span_handle.add_evaluator(slug)
 
 
-def attach_evaluators_to_current_span(*evaluators: Any) -> None:
+def attach_evaluators_to_current_span(*evaluators: object) -> None:
     """
     Attach evaluators to the current active span, respecting sample rates.
 

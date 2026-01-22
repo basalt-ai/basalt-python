@@ -4,6 +4,7 @@ Data models for the Experiments API.
 This module contains all data models and data transfer objects used
 by the ExperimentsClient.
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -24,6 +25,7 @@ class Experiment:
         feature_slug: The feature slug associated with the experiment.
         created_at: ISO 8601 timestamp of when the experiment was created.
     """
+
     id: str
     name: str
     feature_slug: str
@@ -47,7 +49,9 @@ class Experiment:
         # Defensive reads with defaults
         id_val = data.get("id") if isinstance(data.get("id"), str) else ""
         name_val = data.get("name") if isinstance(data.get("name"), str) else ""
-        feature_slug_val = data.get("featureSlug") if isinstance(data.get("featureSlug"), str) else ""
+        feature_slug_val = (
+            data.get("featureSlug") if isinstance(data.get("featureSlug"), str) else ""
+        )
         created_at_val = data.get("createdAt") if isinstance(data.get("createdAt"), str) else ""
 
         return cls(

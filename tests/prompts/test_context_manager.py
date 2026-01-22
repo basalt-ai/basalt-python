@@ -4,6 +4,7 @@ Tests for PromptContextManager functionality.
 This module tests the context manager wrappers for prompts that enable
 observability spans for prompt fetches and GenAI call scoping.
 """
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -203,6 +204,7 @@ def test_wrapper_repr_and_str(mock_prompt):
     # These should return the Prompt's repr/str
     assert "Prompt" in repr(wrapper)
     assert "Prompt" in str(wrapper)
+
 
 @pytest.mark.asyncio
 async def test_async_prompt_context_manager_sets_in_trace_attribute(mock_prompt):
