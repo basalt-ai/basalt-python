@@ -25,7 +25,7 @@ def _build_request_output(span_data: BasaltRequestSpan, result: object) -> dict[
     return {"status_code": status_code}
 
 
-async def trace_async_request[T](
+async def trace_async_request(
     span_data: BasaltRequestSpan,
     request_callable: Callable[[], Awaitable[T]],
 ) -> T:
@@ -78,7 +78,7 @@ async def trace_async_request[T](
         return result
 
 
-def trace_sync_request[T](
+def trace_sync_request(
     span_data: BasaltRequestSpan,
     request_callable: Callable[[], T],
 ) -> T:

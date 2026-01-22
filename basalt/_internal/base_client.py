@@ -6,7 +6,12 @@ import functools
 import logging
 import os
 from collections.abc import Mapping
-from typing import Any, TypedDict, Unpack
+from typing import Any, TypedDict
+
+try:
+    from typing import Unpack
+except ImportError:  # pragma: no cover - fallback for Python < 3.11
+    from typing_extensions import Unpack
 
 from .http import HTTPClient, HTTPResponse
 

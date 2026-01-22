@@ -33,7 +33,7 @@ class DummyObserve:
         self.outputs = []
         self.entered = []
 
-    def __call__(self, *, name, metadata) -> _DummyContext:
+    def __call__(self, *, name, metadata) -> "_DummyContext":
         self.entered.append({"name": name, "metadata": metadata})
         return _DummyContext(self)
 

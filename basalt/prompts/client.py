@@ -8,7 +8,12 @@ from __future__ import annotations
 
 import builtins
 from collections.abc import Mapping
-from typing import Any, Unpack, cast
+from typing import Any, cast
+
+try:
+    from typing import Unpack
+except ImportError:  # pragma: no cover - fallback for Python < 3.11
+    from typing_extensions import Unpack
 
 from .._internal.base_client import BaseServiceClient, HTTPRequestKwargs
 from .._internal.http import HTTPClient, HTTPResponse
@@ -86,6 +91,17 @@ class PromptsClient(BaseServiceClient):
         if not isinstance(prompt_data, dict):
             raise BasaltAPIError("Invalid prompt data in get prompt response")
         return PromptResponse.from_dict(prompt_data)
+
+    @staticmethod
+    def _publish_response_from_api(response: HTTPResponse | None) -> PublishPromptResponse:
+        if response is None:
+            raise BasaltAPIError("Empty response from publish prompt API")
+        payload = response.json() or {}
+        if not payload:
+            raise BasaltAPIError("Empty response from publish prompt API")
+        if not isinstance(payload, Mapping):
+            raise BasaltAPIError("Invalid publish prompt response")
+        return PublishPromptResponse.from_dict(payload)
 
     async def _request_async(
         self,
@@ -580,15 +596,7 @@ class PromptsClient(BaseServiceClient):
             },
         )
 
-        if response is None:
-            raise BasaltAPIError("Empty response from publish prompt API")
-        payload = response.json() or {}
-        if not payload:
-            raise BasaltAPIError("Empty response from publish prompt API")
-        if not isinstance(payload, Mapping):
-            raise BasaltAPIError("Invalid publish prompt response")
-
-        return PublishPromptResponse.from_dict(payload)
+        return self._publish_response_from_api(response)
 
     def publish_sync(
         self,
@@ -635,15 +643,7 @@ class PromptsClient(BaseServiceClient):
             },
         )
 
-        if response is None:
-            raise BasaltAPIError("Empty response from publish prompt API")
-        payload = response.json() or {}
-        if not payload:
-            raise BasaltAPIError("Empty response from publish prompt API")
-        if not isinstance(payload, Mapping):
-            raise BasaltAPIError("Invalid publish prompt response")
-
-        return PublishPromptResponse.from_dict(payload)
+        return self._publish_response_from_api(response)
 
     @staticmethod
     def _create_prompt_instance(
