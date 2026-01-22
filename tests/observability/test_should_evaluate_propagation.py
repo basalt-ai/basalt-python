@@ -17,7 +17,7 @@ from basalt.observability.semconv import BasaltSpan
 class InMemorySpanExporter(SpanExporter):
     """Simple in-memory span exporter for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.spans = []
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
@@ -391,7 +391,7 @@ class TestExperimentShouldEvaluate:
         exporter = setup_tracer
 
         class MockExperiment:
-            def __init__(self, id, name=None):
+            def __init__(self, id, name=None) -> None:
                 self.id = id
                 self.name = name
 

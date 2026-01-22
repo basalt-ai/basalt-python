@@ -20,6 +20,7 @@ from opentelemetry import trace
 from opentelemetry.context import attach, detach, set_value
 from opentelemetry.trace import Span, Tracer
 
+from ..types.common import JSONValue, SpanAttributeValue
 from . import semconv
 from .trace_context import (
     ORGANIZATION_CONTEXT_KEY,
@@ -81,7 +82,7 @@ class EvaluatorAttachment:
             raise TypeError("Evaluator metadata must be a mapping.")
 
 
-def _normalize_evaluator_entry(entry: Any) -> EvaluatorAttachment:
+def _normalize_evaluator_entry(entry: object) -> EvaluatorAttachment:
     """Convert assorted evaluator payloads into EvaluatorAttachment objects."""
     if isinstance(entry, EvaluatorAttachment):
         return entry
@@ -155,10 +156,10 @@ def _attach_attributes(span: Span, attributes: dict[str, Any] | None) -> None:
     if not attributes:
         return
     for key, value in attributes.items():
-        span.set_attribute(key, value)
+        _set_serialized_attribute(span, key, value)
 
 
-def _serialize_attribute(value: Any) -> Any | None:
+def _serialize_attribute(value: JSONValue) -> SpanAttributeValue:
     if value is None or isinstance(value, (str, bool, int, float)):
         return value
     try:
@@ -167,7 +168,7 @@ def _serialize_attribute(value: Any) -> Any | None:
         return str(value)
 
 
-def _set_serialized_attribute(span: Span, key: str, value: Any) -> None:
+def _set_serialized_attribute(span: Span, key: str, value: JSONValue) -> None:
     serialized = _serialize_attribute(value)
     if serialized is not None:
         span.set_attribute(key, serialized)
@@ -224,7 +225,7 @@ class SpanHandle:
         span: Span,
         parent_span: Span | None = None,
         defaults: _TraceContextConfig | None = None,
-    ):
+    ) -> None:
         self._span = span
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
         self._parent_span = (
@@ -234,25 +235,27 @@ class SpanHandle:
         self._evaluator_config: EvaluationConfig | None = None
         self._hydrate_existing_evaluators()
 
-    def set_attribute(self, key: str, value: Any) -> None:
+    def set_attribute(self, key: str, value: str | int | float | bool | None) -> None:
         """
         Sets metadata on the current span.
 
         Args:
             key (str): The metadata key to set.
-            value (Any): The metadata value.
+            value (str | int | float | bool | None): The metadata value.
 
         Returns:
             None
         """
-        self._span.set_attribute(key, value)
+        if value is not None:
+            self._span.set_attribute(key, value)
 
     def set_attributes(self, attributes: dict[str, Any]) -> None:
         """
         Set multiple attributes on the current span.
 
         Args:
-            attributes: Dictionary of attributes to set.
+            attributes: Dictionary of attributes to set. Complex values (dicts, lists)
+                       will be serialized to JSON strings.
         """
         _attach_attributes(self._span, attributes)
 
@@ -295,7 +298,7 @@ class SpanHandle:
     # ------------------------------------------------------------------
     # IO helpers
     # ------------------------------------------------------------------
-    def set_input(self, payload: str | dict[str, Any]) -> None:
+    def set_input(self, payload: JSONValue) -> None:
         """
         Sets the input payload for the current context manager.
         Stores the provided payload in the internal `_io_payload` dictionary under the "input" key.
@@ -309,7 +312,7 @@ class SpanHandle:
         if trace_content_enabled():
             _set_serialized_attribute(self._span, semconv.BasaltSpan.INPUT, payload)
 
-    def set_output(self, payload: str | dict[str, Any]) -> None:
+    def set_output(self, payload: JSONValue) -> None:
         """
         Sets the output payload for the current context manager.
         Stores the provided payload in the internal I/O payload dictionary under the "output" key.
@@ -325,8 +328,8 @@ class SpanHandle:
     def set_io(
         self,
         *,
-        input_payload: str | dict[str, Any] | None = None,
-        output_payload: str | dict[str, Any] | None = None,
+        input_payload: JSONValue | None = None,
+        output_payload: JSONValue | None = None,
         variables: Mapping[str, Any] | None = None,
     ) -> None:
         """
@@ -341,10 +344,10 @@ class SpanHandle:
                 raise TypeError("Span variables must be provided as a mapping.")
             self._io_payload["variables"] = dict(variables)
             if trace_content_enabled():
-                _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, variables)
+                _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, dict(variables))
                 if self._parent_span:
                     _set_serialized_attribute(
-                        self._parent_span, semconv.BasaltSpan.VARIABLES, variables
+                        self._parent_span, semconv.BasaltSpan.VARIABLES, dict(variables)
                     )
 
     def _io_snapshot(self) -> dict[str, Any]:
@@ -481,7 +484,7 @@ class SpanHandle:
 
     def set_finish_reasons(self, reasons: list[str]) -> None:
         """Set the finish reasons array for the GenAI response."""
-        self.set_attribute(semconv.GenAI.RESPONSE_FINISH_REASONS, reasons)
+        _set_serialized_attribute(self._span, semconv.GenAI.RESPONSE_FINISH_REASONS, list(reasons))
 
 
 class StartSpanHandle(SpanHandle):
@@ -620,7 +623,7 @@ class FunctionSpanHandle(SpanHandle):
         """Set the stage or phase associated with the execution."""
         self.set_attribute(semconv.BasaltFunction.STAGE, stage)
 
-    def add_metric(self, key: str, value: Any) -> None:
+    def add_metric(self, key: str, value: str | int | float | bool) -> None:
         """Attach custom metric data to the function execution."""
         self.set_attribute(f"{semconv.BasaltFunction.METRIC_PREFIX}.{key}", value)
 
@@ -636,7 +639,7 @@ class ToolSpanHandle(SpanHandle):
         """Set the name of the tool being invoked."""
         self.set_attribute(semconv.BasaltTool.NAME, name)
 
-    def set_input(self, payload: Any) -> None:
+    def set_input(self, payload: JSONValue) -> None:
         """Set the input payload for the tool."""
         super().set_input(payload)
         if trace_content_enabled():
@@ -644,7 +647,7 @@ class ToolSpanHandle(SpanHandle):
             if value is not None:
                 self.set_attribute(semconv.BasaltTool.INPUT, value)
 
-    def set_output(self, payload: Any) -> None:
+    def set_output(self, payload: JSONValue) -> None:
         """Set the output payload from the tool."""
         super().set_output(payload)
         if trace_content_enabled():
@@ -664,7 +667,7 @@ class EventSpanHandle(SpanHandle):
         """Set the type of custom event."""
         self.set_attribute(semconv.BasaltEvent.TYPE, event_type)
 
-    def set_payload(self, payload: Any) -> None:
+    def set_payload(self, payload: JSONValue) -> None:
         """Set the event payload."""
         super().set_input(payload)
         if trace_content_enabled():
@@ -681,8 +684,8 @@ def _with_span_handle(
     handle_cls: type[SpanHandle],
     span_type: str | None = None,
     *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
+    input_payload: JSONValue | None = None,
+    output_payload: JSONValue | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
     user: TraceIdentity | Mapping[str, Any] | None = None,
@@ -690,7 +693,7 @@ def _with_span_handle(
     feature_slug: str | None = None,
     metadata: Mapping[str, Any] | None = None,
     evaluate_config: EvaluationConfig | None = None,
-    experiment: Any = None,
+    experiment: str | dict[str, Any] | None = None,
 ) -> Generator[SpanHandle, None, None]:
     tracer = get_tracer(tracer_name)
     defaults = _current_trace_defaults()
@@ -840,8 +843,8 @@ async def _async_with_span_handle(
     handle_cls: type[SpanHandle],
     span_type: str | None = None,
     *,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
+    input_payload: JSONValue | None = None,
+    output_payload: JSONValue | None = None,
     variables: Mapping[str, Any] | None = None,
     evaluators: Sequence[Any] | None = None,
     user: TraceIdentity | Mapping[str, Any] | None = None,
@@ -849,7 +852,7 @@ async def _async_with_span_handle(
     feature_slug: str | None = None,
     metadata: Mapping[str, Any] | None = None,
     evaluate_config: EvaluationConfig | None = None,
-    experiment: Any = None,
+    experiment: str | Experiment | None = None,
 ) -> AsyncGenerator[SpanHandle, None]:
     """Async version of _with_span_handle.
 
@@ -857,6 +860,16 @@ async def _async_with_span_handle(
     so this async context manager still calls sync OTel APIs internally.
     The async support is primarily for use with async with statements.
     """
+    # Coerce Experiment to str or dict if needed
+    experiment_arg = experiment
+    if experiment is not None and not isinstance(experiment, (str, dict)):
+        # Prefer id if available, else fallback to str
+        experiment_arg = getattr(experiment, "id", str(experiment))
+
+    # Ensure experiment_arg is str, dict, or None
+    if experiment_arg is not None and not isinstance(experiment_arg, (str, dict)):
+        experiment_arg = getattr(experiment_arg, "id", str(experiment_arg))
+
     with _with_span_handle(
         name=name,
         attributes=attributes,
@@ -872,7 +885,7 @@ async def _async_with_span_handle(
         feature_slug=feature_slug,
         metadata=metadata,
         evaluate_config=evaluate_config,
-        experiment=experiment,
+        experiment=experiment_arg,
     ) as handle:
         yield handle
 

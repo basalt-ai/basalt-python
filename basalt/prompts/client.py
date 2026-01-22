@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import builtins
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any, Unpack, cast
 
-from .._internal.base_client import BaseServiceClient
-from .._internal.http import HTTPClient
+from .._internal.base_client import BaseServiceClient, HTTPRequestKwargs
+from .._internal.http import HTTPClient, HTTPResponse
 from ..config import config
 from ..observability.spans import BasaltRequestSpan
 from ..types.cache import CacheProtocol
@@ -58,7 +58,7 @@ class PromptsClient(BaseServiceClient):
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
         log_level: str | None = None,
-    ):
+    ) -> None:
         """
         Initialize the PromptsClient.
 
@@ -79,10 +79,12 @@ class PromptsClient(BaseServiceClient):
         self._cache_duration = 5 * 60
 
     @staticmethod
-    def _prompt_response_from_api(response: Any) -> PromptResponse:
+    def _prompt_response_from_api(response: HTTPResponse) -> PromptResponse:
         if response is None or response.body is None:
             raise BasaltAPIError("Empty response from get prompt API")
         prompt_data = response.get("prompt", {})
+        if not isinstance(prompt_data, dict):
+            raise BasaltAPIError("Invalid prompt data in get prompt response")
         return PromptResponse.from_dict(prompt_data)
 
     async def _request_async(
@@ -94,8 +96,8 @@ class PromptsClient(BaseServiceClient):
         span_attributes: Mapping[str, Any] | None = None,
         span_variables: Mapping[str, Any] | None = None,
         cache_hit: bool | None = None,
-        **request_kwargs: Any,
-    ):
+        **request_kwargs: Unpack[HTTPRequestKwargs],
+    ) -> HTTPResponse:
         """Override to use PromptRequestSpan for custom output formatting."""
         # Lazy import to avoid circular dependency
         import functools
@@ -117,7 +119,10 @@ class PromptsClient(BaseServiceClient):
             method=method,
             **request_kwargs,
         )
-        return await trace_async_request(span, call)
+        result = await trace_async_request(span, call)
+        if result is None:
+            raise BasaltAPIError("Empty response from async prompt API")
+        return result
 
     def _request_sync(
         self,
@@ -128,8 +133,8 @@ class PromptsClient(BaseServiceClient):
         span_attributes: Mapping[str, Any] | None = None,
         span_variables: Mapping[str, Any] | None = None,
         cache_hit: bool | None = None,
-        **request_kwargs: Any,
-    ):
+        **request_kwargs: Unpack[HTTPRequestKwargs],
+    ) -> HTTPResponse:
         """Override to use PromptRequestSpan for custom output formatting."""
         # Lazy import to avoid circular dependency
         import functools
@@ -151,7 +156,10 @@ class PromptsClient(BaseServiceClient):
             method=method,
             **request_kwargs,
         )
-        return trace_sync_request(span, call)
+        result = trace_sync_request(span, call)
+        if result is None:
+            raise BasaltAPIError("Empty response from sync prompt API")
+        return result
 
     async def get(
         self,
@@ -399,6 +407,8 @@ class PromptsClient(BaseServiceClient):
         if response is None or response.body is None:
             raise BasaltAPIError("Empty response from describe prompt API")
         prompt_data = response.get("prompt", {})
+        if not isinstance(prompt_data, dict):
+            raise BasaltAPIError("Invalid prompt data in describe response")
         return DescribePromptResponse.from_dict(prompt_data)
 
     def describe_sync(
@@ -445,6 +455,8 @@ class PromptsClient(BaseServiceClient):
         if response is None or response.body is None:
             raise BasaltAPIError("Empty response from describe prompt API")
         prompt_data = response.get("prompt", {})
+        if not isinstance(prompt_data, dict):
+            raise BasaltAPIError("Invalid prompt data in describe response")
         return DescribePromptResponse.from_dict(prompt_data)
 
     async def list(self, feature_slug: str | None = None) -> builtins.list[PromptListResponse]:
@@ -481,6 +493,8 @@ class PromptsClient(BaseServiceClient):
             return []
 
         prompts_data = response.get("prompts", [])
+        if not isinstance(prompts_data, list):
+            return []
         return [PromptListResponse.from_dict(p) for p in prompts_data if isinstance(p, dict)]
 
     def list_sync(self, feature_slug: str | None = None) -> builtins.list[PromptListResponse]:
@@ -517,6 +531,8 @@ class PromptsClient(BaseServiceClient):
             return []
 
         prompts_data = response.get("prompts", [])
+        if not isinstance(prompts_data, list):
+            return []
         return [PromptListResponse.from_dict(p) for p in prompts_data if isinstance(p, dict)]
 
     async def publish(
@@ -569,6 +585,8 @@ class PromptsClient(BaseServiceClient):
         payload = response.json() or {}
         if not payload:
             raise BasaltAPIError("Empty response from publish prompt API")
+        if not isinstance(payload, Mapping):
+            raise BasaltAPIError("Invalid publish prompt response")
 
         return PublishPromptResponse.from_dict(payload)
 
@@ -622,6 +640,8 @@ class PromptsClient(BaseServiceClient):
         payload = response.json() or {}
         if not payload:
             raise BasaltAPIError("Empty response from publish prompt API")
+        if not isinstance(payload, Mapping):
+            raise BasaltAPIError("Invalid publish prompt response")
 
         return PublishPromptResponse.from_dict(payload)
 

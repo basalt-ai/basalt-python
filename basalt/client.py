@@ -57,7 +57,7 @@ class Basalt:
         log_level: str | None = None,
         enabled_instruments: list[str] | None = None,
         disabled_instruments: list[str] | None = None,
-    ):
+    ) -> None:
         """
         Initialize the Basalt client.
 
@@ -155,7 +155,7 @@ class Basalt:
         """
         return self._experiments_client
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """
         Shutdown the client and flush any pending telemetry data.
 

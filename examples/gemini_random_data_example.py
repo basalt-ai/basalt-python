@@ -10,6 +10,7 @@ Demonstrates both decorator-based and manual context manager instrumentation.
 import asyncio
 import logging
 import os
+from typing import TypedDict
 
 import httpx
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -33,6 +34,14 @@ from basalt.observability import (
 # specific model version to ensure consistency across execution and telemetry
 GEMINI_MODEL_NAME = "gemini-2.5-flash-lite"
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
+
+
+class EmbeddingResult(TypedDict):
+    """Result of embedding generation."""
+
+    dimension: int
+    sample_values: list[float]
+    status: str
 
 
 # --- 1. Build Basalt client with custom OTLP exporter ---
@@ -111,7 +120,7 @@ async def summarize_joke_with_gemini(joke: str) -> str | None:
     return response.text
 
 
-async def embed_joke_summary(summary: str) -> dict | None:
+async def embed_joke_summary(summary: str) -> EmbeddingResult:
     """
     Generate embeddings for the joke summary using Gemini Embedding model.
 
@@ -142,7 +151,11 @@ async def embed_joke_summary(summary: str) -> dict | None:
                 )
 
             # Extract embedding data
+            if result.embeddings is None or len(result.embeddings) == 0:
+                raise ValueError("No embeddings returned from API response")
             embedding_vector = result.embeddings[0].values
+            if embedding_vector is None:
+                raise ValueError("Embedding vector is None from API response")
             dimension_count = len(embedding_vector)
 
             # Token usage: prefer API metadata, fall back to a simple estimate
@@ -197,12 +210,14 @@ async def embed_joke_summary(summary: str) -> dict | None:
             )
 
             # Set output (partial vector only - don't log full 768-dim vector)
-            output_data = {
+            output_data: EmbeddingResult = {
                 "dimension": dimension_count,
-                "sample_values": embedding_vector[:5],  # First 5 values only
+                "sample_values": embedding_vector[:5]
+                if embedding_vector
+                else [],  # First 5 values only
                 "status": "success",
             }
-            span.set_output(output_data)
+            span.set_output(str(output_data))
 
             logging.info(
                 "Generated %s-dimensional embedding vector",

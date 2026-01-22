@@ -20,6 +20,7 @@ from ..prompts.models import (
     PromptParams,
     PromptResponse,
 )
+from .common import JSONDict, JSONList, JSONPrimitive, JSONValue, SpanAttributeValue
 
 __all__ = [
     # Prompt types
@@ -33,4 +34,10 @@ __all__ = [
     # Dataset types
     "Dataset",
     "DatasetRow",
+    # Common types
+    "JSONValue",
+    "JSONDict",
+    "JSONList",
+    "JSONPrimitive",
+    "SpanAttributeValue",
 ]

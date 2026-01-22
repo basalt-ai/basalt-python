@@ -39,7 +39,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> object:
     if name == "PromptsClient":
         from .client import PromptsClient
 

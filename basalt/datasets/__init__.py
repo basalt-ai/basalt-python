@@ -17,7 +17,7 @@ from .models import Dataset, DatasetRow
 __all__ = ["DatasetsClient", "Dataset", "DatasetRow", "FileAttachment"]
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> object:
     if name == "DatasetsClient":
         from .client import DatasetsClient
 

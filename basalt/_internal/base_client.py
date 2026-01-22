@@ -6,9 +6,17 @@ import functools
 import logging
 import os
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, TypedDict, Unpack
 
-from .http import HTTPClient
+from .http import HTTPClient, HTTPResponse
+
+
+class HTTPRequestKwargs(TypedDict, total=False):
+    """Keyword arguments passed through to HTTPClient.fetch methods."""
+
+    body: Any
+    params: Mapping[str, str] | None
+    headers: Mapping[str, str] | None
 
 
 class BaseServiceClient:
@@ -52,8 +60,8 @@ class BaseServiceClient:
         span_attributes: Mapping[str, Any] | None = None,
         span_variables: Mapping[str, Any] | None = None,
         cache_hit: bool | None = None,
-        **request_kwargs: Any,
-    ):
+        **request_kwargs: Unpack[HTTPRequestKwargs],
+    ) -> HTTPResponse | None:
         # Lazy import to avoid circular dependency
         from basalt.observability.request_tracing import trace_async_request
         from basalt.observability.spans import BasaltRequestSpan
@@ -84,8 +92,8 @@ class BaseServiceClient:
         span_attributes: Mapping[str, Any] | None = None,
         span_variables: Mapping[str, Any] | None = None,
         cache_hit: bool | None = None,
-        **request_kwargs: Any,
-    ):
+        **request_kwargs: Unpack[HTTPRequestKwargs],
+    ) -> HTTPResponse | None:
         # Lazy import to avoid circular dependency
         from basalt.observability.request_tracing import trace_sync_request
         from basalt.observability.spans import BasaltRequestSpan

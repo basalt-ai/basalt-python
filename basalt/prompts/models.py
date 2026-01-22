@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from dataclasses import dataclass
+from types import TracebackType
 from typing import Any
 
 # Context variable for prompt data injection into child spans
@@ -200,6 +201,7 @@ class _PromptContextMixin:
     _tag: str | None
     _variables: dict[str, Any] | None
     _from_cache: bool
+    _context_token: Token[dict[str, Any] | None] | None
 
     def _set_span_attributes(self) -> None:
         from basalt.observability import semconv
@@ -218,6 +220,23 @@ class _PromptContextMixin:
             if self._variables:
                 span.set_attribute("basalt.prompt.variables", json.dumps(self._variables))
             span.set_attribute("basalt.prompt.from_cache", self._from_cache)
+
+    def _enter_prompt_context(self) -> None:
+        # Store prompt metadata in context for child spans.
+        prompt_ctx = {
+            "slug": self._slug,
+            "version": self._version,
+            "tag": self._tag,
+            "provider": self._prompt.model.provider,
+            "model": self._prompt.model.model,
+            "variables": self._variables,
+            "from_cache": self._from_cache,
+        }
+        self._context_token = _current_prompt_context.set(prompt_ctx)
+
+    def _exit_prompt_context(self) -> None:
+        if self._context_token is not None:
+            _current_prompt_context.reset(self._context_token)
 
 
 class PromptContextManager(_PromptContextMixin):
@@ -275,9 +294,9 @@ class PromptContextManager(_PromptContextMixin):
         self._tag: str | None = tag
         self._variables: dict[str, Any] | None = variables
         self._from_cache: bool = from_cache
-        self._context_token: Any = None
+        self._context_token: Token[dict[str, Any] | None] | None = None
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         """Forward all attribute access to the wrapped Prompt."""
         return getattr(self._prompt, name)
 
@@ -290,7 +309,12 @@ class PromptContextManager(_PromptContextMixin):
         self._enter_prompt_context()
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         """Exit context manager mode - clear prompt context."""
         try:
             # Any cleanup logic
@@ -312,23 +336,6 @@ class PromptContextManager(_PromptContextMixin):
     def compile_variables(self, variables: dict[str, Any]) -> Prompt:
         """Forward compile_variables to wrapped Prompt."""
         return self._prompt.compile_variables(variables)
-
-    def _enter_prompt_context(self) -> None:
-        # Store prompt metadata in context for child spans.
-        prompt_ctx = {
-            "slug": self._slug,
-            "version": self._version,
-            "tag": self._tag,
-            "provider": self._prompt.model.provider,
-            "model": self._prompt.model.model,
-            "variables": self._variables,
-            "from_cache": self._from_cache,
-        }
-        self._context_token = _current_prompt_context.set(prompt_ctx)
-
-    def _exit_prompt_context(self) -> None:
-        if self._context_token is not None:
-            _current_prompt_context.reset(self._context_token)
 
 
 class AsyncPromptContextManager(_PromptContextMixin):
@@ -375,9 +382,9 @@ class AsyncPromptContextManager(_PromptContextMixin):
         self._tag: str | None = tag
         self._variables: dict[str, Any] | None = variables
         self._from_cache: bool = from_cache
-        self._context_token: Any = None
+        self._context_token: Token[dict[str, Any] | None] | None = None
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         """Forward all attribute access to the wrapped Prompt."""
         return getattr(self._prompt, name)
 
@@ -390,7 +397,12 @@ class AsyncPromptContextManager(_PromptContextMixin):
         self._enter_prompt_context()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         """Exit async context manager mode - clear prompt context."""
         try:
             # Any cleanup logic

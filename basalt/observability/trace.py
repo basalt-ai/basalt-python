@@ -5,6 +5,7 @@ from typing import Any
 
 from opentelemetry.trace import Span, Tracer
 
+from ..types.common import SpanAttributeValue
 from . import semconv
 from .context_managers import (
     get_current_otel_span,
@@ -36,10 +37,10 @@ class Trace:
             span.add_event(name, attributes=attributes)
 
     @staticmethod
-    def set_attribute(key: str, value: Any) -> None:
+    def set_attribute(key: str, value: SpanAttributeValue) -> None:
         """Set a raw attribute on the current span."""
         span = get_current_otel_span()
-        if span:
+        if span and value is not None:
             span.set_attribute(key, value)
 
     @staticmethod

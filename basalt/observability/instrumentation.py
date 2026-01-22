@@ -38,7 +38,7 @@ from .resilient_exporters import ResilientSpanExporter
 logger = logging.getLogger(__name__)
 
 
-def _safe_import(module: str, target: str) -> Any | None:
+def _safe_import(module: str, target: str) -> object | None:
     """Safely import a target from a module, returning None on failure."""
     try:
         mod = __import__(module, fromlist=[target])

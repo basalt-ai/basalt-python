@@ -6,7 +6,7 @@ import enum
 import functools
 import inspect
 from collections.abc import Callable, Sequence
-from typing import Any, TypeAlias, TypeVar
+from typing import Any, TypeVar
 
 from .context_managers import (
     with_evaluators,
@@ -28,7 +28,7 @@ class ObserveKind(str, enum.Enum):
 F = TypeVar("F", bound=Callable[..., Any])
 
 # Type alias for span attributes: static dict, dynamic callable, or None
-AttributeSpec: TypeAlias = dict[str, Any] | Callable[..., dict[str, Any]] | None
+type AttributeSpec = dict[str, Any] | Callable[..., dict[str, Any]] | None
 
 
 def evaluate(

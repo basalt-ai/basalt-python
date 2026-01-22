@@ -8,7 +8,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any, Final
 
 from opentelemetry import context as otel_context
-from opentelemetry.context import attach
+from opentelemetry.context import Context, attach
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 from . import semconv
@@ -83,7 +83,7 @@ def _set_default_metadata(span: Span, defaults: _TraceContextConfig) -> None:
         span.set_attribute(f"{semconv.BASALT_META_PREFIX}{key}", value)
 
 
-def _apply_user_org_from_context(span: Span, parent_context: Any | None = None) -> None:
+def _apply_user_org_from_context(span: Span, parent_context: Context | None = None) -> None:
     """Apply user and organization from OpenTelemetry context to the span."""
     if not span.is_recording():
         return
@@ -103,7 +103,7 @@ def _apply_user_org_from_context(span: Span, parent_context: Any | None = None) 
             span.set_attribute(semconv.BasaltOrganization.NAME, org.name)
 
 
-def _apply_feature_slug_from_context(span: Span, parent_context: Any | None = None) -> None:
+def _apply_feature_slug_from_context(span: Span, parent_context: Context | None = None) -> None:
     """Apply feature slug from OpenTelemetry context to the span."""
     if not span.is_recording():
         return
@@ -121,7 +121,7 @@ def _apply_feature_slug_from_context(span: Span, parent_context: Any | None = No
 class BasaltContextProcessor(SpanProcessor):
     """Apply Basalt trace defaults to every started span."""
 
-    def on_start(self, span: Span, parent_context: Any | None = None) -> None:
+    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
         if not span.is_recording():
             return
         defaults = _current_trace_defaults()
@@ -147,7 +147,7 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
     def __init__(self, context_key: str = EVALUATOR_CONTEXT_KEY) -> None:
         self._context_key = context_key
 
-    def on_start(self, span: Span, parent_context: Any | None = None) -> None:
+    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
         if not span.is_recording():
             return
 
@@ -211,7 +211,7 @@ class BasaltShouldEvaluateProcessor(SpanProcessor):
     should_evaluate value, enabling trace-level sampling for evaluators.
     """
 
-    def on_start(self, span: Span, parent_context: Any | None = None) -> None:
+    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
         if not span.is_recording():
             return
 
@@ -290,7 +290,7 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
     after being applied to ensure single-use semantics.
     """
 
-    def on_start(self, span: Span, parent_context: Any | None = None) -> None:
+    def on_start(self, span: Span, parent_context: Context | None = None) -> None:
         """
         Called when a span starts.
 

@@ -140,6 +140,8 @@ class DatasetsClient(BaseServiceClient):
             return []
 
         datasets_data = response.get("datasets", [])
+        if not isinstance(datasets_data, list):
+            return []
         return [Dataset.from_dict(ds) for ds in datasets_data if isinstance(ds, dict)]
 
     def list_sync(self) -> list[Dataset]:
@@ -166,6 +168,8 @@ class DatasetsClient(BaseServiceClient):
             return []
 
         datasets_data = response.get("datasets", [])
+        if not isinstance(datasets_data, list):
+            return []
         return [Dataset.from_dict(ds) for ds in datasets_data if isinstance(ds, dict)]
 
     async def get(self, slug: str) -> Dataset:

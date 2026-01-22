@@ -7,7 +7,7 @@ from basalt.observability import processors
 
 
 class DummySpan:
-    def __init__(self, is_recording=True, attributes=None):
+    def __init__(self, is_recording=True, attributes=None) -> None:
         self._is_recording = is_recording
         self.attributes = attributes if attributes is not None else {}
         self.set_attributes = {}

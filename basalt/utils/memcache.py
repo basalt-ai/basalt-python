@@ -1,8 +1,10 @@
 import time
 from collections.abc import Hashable
-from typing import Any
+from typing import TypeVar
 
 from ..types.cache import CacheProtocol
+
+T = TypeVar("T")
 
 
 class MemoryCache(CacheProtocol):
@@ -11,11 +13,11 @@ class MemoryCache(CacheProtocol):
     It implements the ICache protocol.
     """
 
-    def __init__(self):
-        self._mem: dict[Hashable, Any] = {}
+    def __init__(self) -> None:
+        self._mem: dict[Hashable, object] = {}
         self._timeouts: dict[Hashable, float] = {}
 
-    def get(self, key: Hashable):
+    def get(self, key: Hashable) -> object | None:
         """
         Retrieves the value associated with the given key if it has not expired.
 
@@ -33,7 +35,7 @@ class MemoryCache(CacheProtocol):
 
         return None
 
-    def put(self, key: Hashable, value: Any, ttl: float = float("inf")) -> None:
+    def put(self, key: Hashable, value: object, ttl: float = float("inf")) -> None:
         """
         Stores a value in the cache with an associated time-to-live (TTL).
 

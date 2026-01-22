@@ -28,7 +28,7 @@ class ExperimentsClient(BaseServiceClient):
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
         log_level: str | None = None,
-    ):
+    ) -> None:
         """
         Initialize the ExperimentsClient.
 

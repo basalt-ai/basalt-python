@@ -5,7 +5,7 @@ from basalt.observability.spans import BasaltRequestSpan
 
 
 class DummySpan:
-    def __init__(self):
+    def __init__(self) -> None:
         self.variables = None
         self.attributes = {}
         self.exceptions = []
@@ -28,12 +28,12 @@ class DummySpan:
 
 
 class DummyObserve:
-    def __init__(self):
+    def __init__(self) -> None:
         self.inputs = []
         self.outputs = []
         self.entered = []
 
-    def __call__(self, *, name, metadata):
+    def __call__(self, *, name, metadata) -> _DummyContext:
         self.entered.append({"name": name, "metadata": metadata})
         return _DummyContext(self)
 
@@ -45,21 +45,21 @@ class DummyObserve:
 
 
 class _DummyContext:
-    def __init__(self, observe):
+    def __init__(self, observe) -> None:
         self.observe = observe
         self.span = DummySpan()
 
-    def __enter__(self):
+    def __enter__(self) -> DummySpan:
         return self.span
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         return False
 
 
 class RecordingSpan(BasaltRequestSpan):
     __slots__ = ("finalize_calls",)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.finalize_calls: list[dict] = []
 

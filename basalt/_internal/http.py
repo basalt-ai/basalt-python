@@ -7,9 +7,12 @@ import logging
 import time
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal
+from types import TracebackType
+from typing import Any, Literal, cast
 
 import httpx
+
+from basalt.types.common import JSONValue
 
 from ..types.exceptions import (
     BadRequestError,
@@ -44,12 +47,12 @@ class HTTPResponse(Mapping[str, Any]):
     def __len__(self) -> int:
         return len(self.data or {})
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
         if not self.data:
             raise KeyError(key)
-        return self.data[key]
+        return cast(object, self.data[key])
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: object | None = None) -> object | None:
         if not self.data:
             return default
         return self.data.get(key, default)
@@ -78,7 +81,7 @@ class HTTPClient:
         retry_backoff_factor: float = DEFAULT_RETRY_BACKOFF_FACTOR,
         async_client: httpx.AsyncClient | None = None,
         sync_client: httpx.Client | None = None,
-    ):
+    ) -> None:
         """
         Initialize HTTPClient with configuration options.
 
@@ -100,29 +103,39 @@ class HTTPClient:
         self._owns_async_client = async_client is None
         self._owns_sync_client = sync_client is None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> HTTPClient:
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Async context manager exit."""
         await self.aclose()
 
-    def __enter__(self):
+    def __enter__(self) -> HTTPClient:
         """Sync context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Sync context manager exit."""
         self.close()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close the async session."""
         if self._async_client and self._owns_async_client:
             await self._async_client.aclose()
             self._async_client = None
 
-    def close(self):
+    def close(self) -> None:
         """Close the sync session."""
         if self._sync_client and self._owns_sync_client:
             self._sync_client.close()
@@ -144,7 +157,7 @@ class HTTPClient:
         self,
         url: str,
         method: str | HTTPMethod,
-        body: Any | None = None,
+        body: JSONValue = None,
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> HTTPResponse | None:
@@ -207,7 +220,7 @@ class HTTPClient:
         self,
         url: str,
         method: str | HTTPMethod,
-        body: Any | None = None,
+        body: JSONValue = None,
         params: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> HTTPResponse | None:

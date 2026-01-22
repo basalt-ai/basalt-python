@@ -156,7 +156,7 @@ def test_set_io_with_no_arguments():
 class SimpleSpanMock:
     """Minimal mock for testing span attribute setting."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.attributes = {}
 
     def set_attribute(self, key, value):
