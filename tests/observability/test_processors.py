@@ -18,21 +18,25 @@ class DummySpan:
     def set_attribute(self, key, value):
         self.set_attributes[key] = value
 
+
 @pytest.fixture
 def mock_semconv():
     with patch("basalt.observability.processors.semconv") as mock_semconv:
         mock_semconv.BasaltSpan.EVALUATORS = "basalt.evaluators"
         yield mock_semconv
 
+
 def test_no_slugs(mock_semconv):
     span = DummySpan()
     processors._merge_evaluators(cast(processors.Span, span), [])
     assert span.set_attributes == {}
 
+
 def test_span_not_recording(mock_semconv):
     span = DummySpan(is_recording=False)
     processors._merge_evaluators(cast(processors.Span, span), ["foo"])
     assert span.set_attributes == {}
+
 
 def test_merge_with_no_existing(mock_semconv):
     span = DummySpan(attributes={})
@@ -41,6 +45,7 @@ def test_merge_with_no_existing(mock_semconv):
     assert key in span.set_attributes
     assert span.set_attributes[key] == ["foo", "bar"]
 
+
 def test_merge_with_existing(mock_semconv):
     key = mock_semconv.BasaltSpan.EVALUATORS
     span = DummySpan(attributes={key: ["foo", "baz"]})
@@ -48,11 +53,13 @@ def test_merge_with_existing(mock_semconv):
     # Should merge and deduplicate: ["foo", "baz", "bar"]
     assert span.set_attributes[key] == ["foo", "baz", "bar"]
 
+
 def test_merge_with_empty_and_whitespace_slugs(mock_semconv):
     key = mock_semconv.BasaltSpan.EVALUATORS
     span = DummySpan(attributes={key: ["", "  ", "foo"]})
     processors._merge_evaluators(cast(processors.Span, span), ["", "bar", " "])
     assert span.set_attributes[key] == ["foo", "bar"]
+
 
 def test_merge_with_non_dict_attributes(mock_semconv):
     key = mock_semconv.BasaltSpan.EVALUATORS
@@ -70,7 +77,10 @@ def test_openai_v1_scope_recognized():
 def test_openai_v1_scope_has_generation_kind():
     """Test that opentelemetry.instrumentation.openai.v1 is mapped to GENERATION kind."""
     assert "opentelemetry.instrumentation.openai.v1" in processors.INSTRUMENTATION_SCOPE_KINDS
-    assert processors.INSTRUMENTATION_SCOPE_KINDS["opentelemetry.instrumentation.openai.v1"] == "generation"
+    assert (
+        processors.INSTRUMENTATION_SCOPE_KINDS["opentelemetry.instrumentation.openai.v1"]
+        == "generation"
+    )
 
 
 def test_auto_instrumentation_processor_sets_in_trace_for_openai_v1():
@@ -132,7 +142,7 @@ def test_auto_instrumentation_processor_injects_prompt_from_contextvar():
         "provider": "gemini",
         "model": "gemini-2.5-flash-lite",
         "variables": {"var1": "value1"},
-        "from_cache": False
+        "from_cache": False,
     }
     cv_token = _current_prompt_context.set(prompt_ctx)
 
@@ -146,11 +156,14 @@ def test_auto_instrumentation_processor_injects_prompt_from_contextvar():
         mock_span.set_attribute.assert_any_call("basalt.prompt.version", "v1.0.0")
         mock_span.set_attribute.assert_any_call("basalt.prompt.tag", "latest")
         mock_span.set_attribute.assert_any_call("basalt.prompt.model.provider", "gemini")
-        mock_span.set_attribute.assert_any_call("basalt.prompt.model.model", "gemini-2.5-flash-lite")
+        mock_span.set_attribute.assert_any_call(
+            "basalt.prompt.model.model", "gemini-2.5-flash-lite"
+        )
         mock_span.set_attribute.assert_any_call("basalt.prompt.from_cache", False)
 
         # Check that variables were serialized as JSON
         import json
+
         calls = mock_span.set_attribute.call_args_list
         variables_call = [call for call in calls if call[0][0] == "basalt.prompt.variables"]
         assert len(variables_call) == 1
@@ -185,7 +198,7 @@ def test_auto_instrumentation_processor_explicit_injection_overrides_contextvar(
         "version": "v1.0.0",
         "provider": "openai",
         "model": "gpt-4",
-        "from_cache": False
+        "from_cache": False,
     }
     cv_token = _current_prompt_context.set(contextvar_prompt)
 
@@ -277,7 +290,7 @@ def test_auto_instrumentation_processor_prompt_context_with_optional_fields():
         "provider": "openai",
         "model": "gpt-4",
         "variables": None,
-        "from_cache": True
+        "from_cache": True,
     }
     cv_token = _current_prompt_context.set(prompt_ctx)
 

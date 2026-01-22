@@ -1,11 +1,11 @@
-# This section defines the build system. It's standard for setuptools.
+# This section defines the build system using Hatchling
 [build-system]
-requires = ["setuptools>=80.9.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "basalt_sdk"
-version = "1.1.0"
+dynamic = ["version"]
 description = "Basalt SDK for python"
 readme = "README.md" # Replaces long_description
 license = "MIT"
@@ -29,6 +29,7 @@ dependencies = [
     "opentelemetry-exporter-otlp~=1.39.1",
     "wrapt~=1.17.3",
     "httpx>=0.28.1",
+    "black>=26.1.0",
 ]
 
 # This section lists URLs, replacing the `url` parameter
@@ -48,9 +49,9 @@ google-generativeai = [
     "opentelemetry-instrumentation-google-generativeai~=0.51.0",
 ]
 # Note: google-genai instrumentation not yet available in openllmetry
- google-genai = [
-     "opentelemetry-instrumentation-google-genai~=0.5b0",
- ]
+# google-genai = [
+#     "opentelemetry-instrumentation-google-genai~=0.5b0",
+# ]
 
 bedrock = [
     "opentelemetry-instrumentation-bedrock~=0.51.0",
@@ -95,7 +96,7 @@ vector-all = [
     "basalt_sdk[chromadb,pinecone,qdrant]",
 ]
 framework-all = [
-    "basalt_sdk[langchain,llamaindex,haystack]",
+    "basalt_sdk[langchain,llamaindex]",
 ]
 all = [
     "basalt_sdk[llm-all,vector-all,framework-all]",
@@ -131,11 +132,83 @@ dev = [
 
 # A recommended configuration for Ruff, the modern linter/formatter
 [tool.ruff]
-line-length = 120
-target-version = "py310"
+line-length = 100
+target-version = "py312"
+# Enable lint + format in one tool
+lint.select = ["E", "F", "I", "B", "UP", "ANN"]
+lint.ignore = ["ANN101", "ANN102"]  # example: ignore self/cls annotations
+lint.fixable = ["ALL"]
+lint.unfixable = []
 
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "T20"]
+[tool.ruff.lint.isort]
+known-first-party = ["basalt"]
 
 [tool.ruff.format]
 quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+
+# Hatch configuration
+[tool.hatch.version]
+path = "basalt/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["basalt"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/basalt",
+    "/tests",
+    "/docs",
+    "/README.md",
+    "/pyproject.toml",
+]
+
+# Hatch environments for development and testing
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=9.0.2",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.0",
+    "anyio>=4.12.1",
+    "ruff>=0.14.13",
+    "mypy>=1.8.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest tests/ --cov=basalt --cov-report=term --cov-report=xml"
+test-verbose = "pytest tests/ -v --cov=basalt --cov-report=term --cov-report=xml"
+lint = "ruff check ."
+lint-fix = "ruff check --fix ."
+fmt = "ruff format ."
+fmt-check = "ruff format --check ."
+typecheck = "mypy basalt tests"
+all = [
+    "fmt",
+    "lint-fix",
+    "typecheck",
+    "test",
+]
+
+# Matrix environments for testing across Python versions
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.0",
+    "anyio>=4.0.0",
+]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+[tool.hatch.envs.test.scripts]
+run = "pytest tests/ --cov=basalt --cov-report=term"
+
+# Environment with all optional dependencies for comprehensive testing
+[tool.hatch.envs.full]
+features = ["all", "dev"]
+
+[tool.hatch.envs.full.scripts]
+test = "pytest tests/ --cov=basalt --cov-report=term --cov-report=xml"

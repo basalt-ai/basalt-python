@@ -33,7 +33,7 @@ class MemoryCache(CacheProtocol):
 
         return None
 
-    def put(self, key: Hashable, value: Any, ttl: float = float('inf')) -> None:
+    def put(self, key: Hashable, value: Any, ttl: float = float("inf")) -> None:
         """
         Stores a value in the cache with an associated time-to-live (TTL).
 

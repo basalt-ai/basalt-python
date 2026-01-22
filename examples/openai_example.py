@@ -45,7 +45,11 @@ def build_basalt_client():
     # 4. Return Client
     return Basalt(
         api_key=basalt_key,
-        observability_metadata={"env": "development", "provider": "openai", "example": "auto-instrumentation"},
+        observability_metadata={
+            "env": "development",
+            "provider": "openai",
+            "example": "auto-instrumentation",
+        },
         telemetry_config=telemetry,
     )
 
@@ -77,7 +81,9 @@ def run_weather_assistant(user_query: str):
     with start_observe(
         name="weather_assistant",
         feature_slug="weather-assistant",
-        identity=Identity(organization={"id": "123", "name": "Demo Corp"}, user={"id": "456", "name": "Alice"}),
+        identity=Identity(
+            organization={"id": "123", "name": "Demo Corp"}, user={"id": "456", "name": "Alice"}
+        ),
     ) as span:
         span.set_input({"query": user_query})
 
@@ -99,7 +105,10 @@ def run_weather_assistant(user_query: str):
                     model=OPENAI_MODEL_NAME,
                     messages=[
                         {"role": "system", "content": "You are a helpful weather assistant."},
-                        {"role": "user", "content": f"Context: {weather_data}\n\nQuery: {user_query}"},
+                        {
+                            "role": "user",
+                            "content": f"Context: {weather_data}\n\nQuery: {user_query}",
+                        },
                     ],
                 )
                 content = response.choices[0].message.content

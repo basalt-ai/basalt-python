@@ -1,4 +1,5 @@
 """Cache protocol used throughout the Basalt SDK."""
+
 from __future__ import annotations
 
 from collections.abc import Hashable

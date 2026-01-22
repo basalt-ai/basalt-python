@@ -32,13 +32,13 @@ def test_decorator_definitions():
 
         # Test that observe accepts kind parameter
         import inspect
+
         sig = inspect.signature(observe)
         assert "kind" in sig.parameters
 
         return True
     except (ImportError, AssertionError):
         return False
-
 
 
 def test_basic_usage():
@@ -78,7 +78,6 @@ def main():
     ]
 
     results = [test() for test in tests]
-
 
     return all(results)
 

@@ -130,7 +130,9 @@ def create_tracer_provider(
 
     # Add a span processor for each exporter
     for exp in exporters:
-        processor_cls = SimpleSpanProcessor if isinstance(exp, ConsoleSpanExporter) else BatchSpanProcessor
+        processor_cls = (
+            SimpleSpanProcessor if isinstance(exp, ConsoleSpanExporter) else BatchSpanProcessor
+        )
         provider.add_span_processor(processor_cls(exp))
 
     return provider
@@ -168,7 +170,7 @@ def setup_tracing(
     # Check if a tracer provider is already set globally
     existing_provider = trace.get_tracer_provider()
     # If it's a real TracerProvider (not the default proxy), reuse it
-    if hasattr(existing_provider, 'add_span_processor'):
+    if hasattr(existing_provider, "add_span_processor"):
         provider_type = type(existing_provider).__name__
         provider_module = type(existing_provider).__module__
         logger.info(
@@ -219,14 +221,14 @@ class InstrumentationManager:
 
         # Normalize user_exporters to list
         if user_exporters is None:
-            exporters_list = []
+            exporters_list: list[SpanExporter] = []
         elif isinstance(user_exporters, list):
-            exporters_list = user_exporters.copy()
+            exporters_list = list(user_exporters)
         else:
             exporters_list = [user_exporters]
 
         # Add environment exporter ONLY if no user exporters were provided
-        if user_exporters is None and env_exporter:
+        if user_exporters is None and env_exporter is not None:
             exporters_list.append(env_exporter)
 
         # Pass to setup_tracing (will handle None/empty list → ConsoleSpanExporter)
@@ -330,7 +332,7 @@ class InstrumentationManager:
             return False
 
         # Check if hostname contains 'grpc' - indicates gRPC endpoint
-        if parsed.hostname and 'grpc' in parsed.hostname.lower():
+        if parsed.hostname and "grpc" in parsed.hostname.lower():
             return False
 
         if parsed.port == 4317 and parsed.path in {"", "/"}:
@@ -363,13 +365,21 @@ class InstrumentationManager:
             "openai": ("opentelemetry.instrumentation.openai", "OpenAIInstrumentor"),
             "anthropic": ("opentelemetry.instrumentation.anthropic", "AnthropicInstrumentor"),
             # NEW Google GenAI SDK (from google import genai)
-            "google_genai": ("opentelemetry.instrumentation.google_genai", "GoogleGenAiSdkInstrumentor"),
+            "google_genai": (
+                "opentelemetry.instrumentation.google_genai",
+                "GoogleGenAiSdkInstrumentor",
+            ),
             # OLD Google Generative AI SDK (import google.generativeai)
-            "google_generativeai": ("opentelemetry.instrumentation.google_generativeai",
-                                     "GoogleGenerativeAiInstrumentor"),
+            "google_generativeai": (
+                "opentelemetry.instrumentation.google_generativeai",
+                "GoogleGenerativeAiInstrumentor",
+            ),
             "bedrock": ("opentelemetry.instrumentation.bedrock", "BedrockInstrumentor"),
             "vertexai": ("opentelemetry.instrumentation.vertexai", "VertexAIInstrumentor"),
-            "vertex-ai": ("opentelemetry.instrumentation.vertexai", "VertexAIInstrumentor"),  # Alias
+            "vertex-ai": (
+                "opentelemetry.instrumentation.vertexai",
+                "VertexAIInstrumentor",
+            ),  # Alias
             "ollama": ("opentelemetry.instrumentation.ollama", "OllamaInstrumentor"),
             "mistralai": ("opentelemetry.instrumentation.mistralai", "MistralAiInstrumentor"),
             # Frameworks
@@ -404,7 +414,7 @@ class InstrumentationManager:
             try:
                 instrumentor = instrumentor_cls()
                 # Check if already instrumented to avoid double instrumentation
-                if hasattr(instrumentor, 'is_instrumented_by_opentelemetry'):
+                if hasattr(instrumentor, "is_instrumented_by_opentelemetry"):
                     if not instrumentor.is_instrumented_by_opentelemetry:
                         instrumentor.instrument()
                         self._provider_instrumentors[provider_key] = instrumentor
@@ -434,6 +444,7 @@ class InstrumentationManager:
         """
         # Set global sample rate from config
         from .trace_context import set_global_sample_rate
+
         set_global_sample_rate(config.sample_rate)
 
         # Set environment variables for third-party OpenTelemetry instrumentors
@@ -449,9 +460,9 @@ class InstrumentationManager:
         # - TRACELOOP_TRACE_CONTENT: Used by most OpenLLMetry instrumentors
         # - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: Used by Google GenAI instrumentor
         os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.trace_content else "false"
-        os.environ[
-            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"
-        ] = "true" if config.trace_content else "false"
+        os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = (
+            "true" if config.trace_content else "false"
+        )
 
         # Instrument providers directly without using Traceloop.init()
         self._instrument_providers(config)
@@ -481,12 +492,11 @@ class InstrumentationManager:
         self._span_processors = processors
         logger.debug(f"Successfully installed Basalt processors on {provider_type}")
 
-
     def _uninstrument_providers(self) -> None:
         for provider_key, instrumentor in list(self._provider_instrumentors.items()):
             try:
                 # Check if it's actually instrumented before trying to uninstrument
-                if hasattr(instrumentor, 'is_instrumented_by_opentelemetry'):
+                if hasattr(instrumentor, "is_instrumented_by_opentelemetry"):
                     if instrumentor.is_instrumented_by_opentelemetry:
                         instrumentor.uninstrument()
                         logger.debug(f"Uninstrumented provider: {provider_key}")

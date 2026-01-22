@@ -104,15 +104,16 @@ def _get_current_identity_from_span(span: Span) -> tuple[dict[str, str], dict[st
     user_dict = {}
     org_dict = {}
 
-    if hasattr(span, 'attributes') and span.attributes:
-        if semconv.BasaltUser.ID in span.attributes:
-            user_dict['id'] = str(span.attributes[semconv.BasaltUser.ID])
-        if semconv.BasaltUser.NAME in span.attributes:
-            user_dict['name'] = str(span.attributes[semconv.BasaltUser.NAME])
-        if semconv.BasaltOrganization.ID in span.attributes:
-            org_dict['id'] = str(span.attributes[semconv.BasaltOrganization.ID])
-        if semconv.BasaltOrganization.NAME in span.attributes:
-            org_dict['name'] = str(span.attributes[semconv.BasaltOrganization.NAME])
+    attributes = getattr(span, "attributes", None)
+    if isinstance(attributes, Mapping):
+        if semconv.BasaltUser.ID in attributes:
+            user_dict["id"] = str(attributes[semconv.BasaltUser.ID])
+        if semconv.BasaltUser.NAME in attributes:
+            user_dict["name"] = str(attributes[semconv.BasaltUser.NAME])
+        if semconv.BasaltOrganization.ID in attributes:
+            org_dict["id"] = str(attributes[semconv.BasaltOrganization.ID])
+        if semconv.BasaltOrganization.NAME in attributes:
+            org_dict["name"] = str(attributes[semconv.BasaltOrganization.NAME])
 
     return user_dict, org_dict
 
@@ -127,13 +128,13 @@ def _parse_identity_input(value: str | dict[str, Any] | None) -> dict[str, str]:
     if value is None:
         return {}
     if isinstance(value, str):
-        return {'id': value}
+        return {"id": value}
     if isinstance(value, dict):
         result = {}
-        if 'id' in value:
-            result['id'] = str(value['id']) if value['id'] is not None else ''
-        if 'name' in value:
-            result['name'] = str(value['name']) if value['name'] is not None else ''
+        if "id" in value:
+            result["id"] = str(value["id"]) if value["id"] is not None else ""
+        if "name" in value:
+            result["name"] = str(value["name"]) if value["name"] is not None else ""
         return result
     return {}
 

@@ -3,6 +3,7 @@ Datasets API Client.
 
 This module provides the DatasetsClient for interacting with the Basalt Datasets API.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -28,7 +29,7 @@ class DatasetsClient(BaseServiceClient):
         base_url: str | None = None,
         http_client: HTTPClient | None = None,
         log_level: str | None = None,
-    ):
+    ) -> None:
         """
         Initialize the DatasetsClient.
 
@@ -38,7 +39,7 @@ class DatasetsClient(BaseServiceClient):
             log_level: Optional log level for the client logger.
         """
         self._api_key = api_key
-        self._base_url = base_url or config.get("api_url")
+        self._base_url = base_url or config["api_url"]
         super().__init__(client_name="datasets", http_client=http_client, log_level=log_level)
 
         # Initialize file upload handler
@@ -49,14 +50,19 @@ class DatasetsClient(BaseServiceClient):
         )
 
     @staticmethod
-    def _ensure_response(response: Any) -> Any:
+    def _ensure_response(response: object) -> object:
         if response is None:
             raise BasaltAPIError("Empty response from dataset API")
         return response
 
-    def _dataset_from_response(self, response: Any) -> Dataset:
+    def _dataset_from_response(self, response: object) -> Dataset:
+        # The response is expected to be an HTTP response object with a .json() method.
+        # Add a runtime check and type ignore for static analysis tools.
         response = self._ensure_response(response)
-        payload = response.json() or {}
+        if not hasattr(response, "json") or not callable(getattr(response, "json", None)):
+            raise BasaltAPIError("Response object does not have a callable .json() method")
+        payload = response.json()  # type: ignore[attr-defined]
+        payload = payload or {}
 
         dataset_data = payload.get("dataset", {})
         dataset = Dataset.from_dict(dataset_data)
@@ -70,10 +76,13 @@ class DatasetsClient(BaseServiceClient):
     def _dataset_items_url(self, slug: str) -> str:
         return f"{self._base_url}/datasets/{slug}/items"
 
-    def _dataset_row_from_response(self, response: Any) -> DatasetRow:
-        if response is None:
-            raise BasaltAPIError("Empty response from dataset add row API")
-        payload = response.json() or {}
+    def _dataset_row_from_response(self, response: object) -> DatasetRow:
+        # The response is expected to be an HTTP response object with a .json() method.
+        response = self._ensure_response(response)
+        if not hasattr(response, "json") or not callable(getattr(response, "json", None)):
+            raise BasaltAPIError("Response object does not have a callable .json() method")
+        payload = response.json()  # type: ignore[attr-defined]
+        payload = payload or {}
         row_data = payload.get("datasetRow", {})
 
         # Log warning if present
@@ -131,11 +140,7 @@ class DatasetsClient(BaseServiceClient):
             return []
 
         datasets_data = response.get("datasets", [])
-        return [
-            Dataset.from_dict(ds)
-            for ds in datasets_data
-            if isinstance(ds, dict)
-        ]
+        return [Dataset.from_dict(ds) for ds in datasets_data if isinstance(ds, dict)]
 
     def list_sync(self) -> list[Dataset]:
         """
@@ -161,11 +166,7 @@ class DatasetsClient(BaseServiceClient):
             return []
 
         datasets_data = response.get("datasets", [])
-        return [
-            Dataset.from_dict(ds)
-            for ds in datasets_data
-            if isinstance(ds, dict)
-        ]
+        return [Dataset.from_dict(ds) for ds in datasets_data if isinstance(ds, dict)]
 
     async def get(self, slug: str) -> Dataset:
         """
@@ -247,9 +248,7 @@ class DatasetsClient(BaseServiceClient):
 
         return processed
 
-    def _process_file_uploads_sync(
-        self, values: dict[str, str | FileAttachment]
-    ) -> dict[str, str]:
+    def _process_file_uploads_sync(self, values: dict[str, str | FileAttachment]) -> dict[str, str]:
         """
         Process file uploads and return values with S3 keys (synchronous version).
 

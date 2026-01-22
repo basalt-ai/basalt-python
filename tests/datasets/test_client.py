@@ -3,6 +3,7 @@
 These tests were converted from unittest to pytest. They keep the same
 behaviour but use pytest fixtures, parametrization and asyncio support.
 """
+
 from unittest.mock import patch
 
 import pytest
@@ -33,23 +34,25 @@ def test_list_sync_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({"datasets": [
+        mock_fetch.return_value = make_response(
             {
-                "slug": "dataset-1",
-                "name": "Dataset 1",
-                "columns": [
-                    {"name": "col1", "type": "text"},
-                    {"name": "col2", "type": "text"}
-                ],
-            },
-            {
-                "slug": "dataset-2",
-                "name": "Dataset 2",
-                "columns": [
-                    {"name": "col3", "type": "number"}
-                ],
-            },
-        ]})
+                "datasets": [
+                    {
+                        "slug": "dataset-1",
+                        "name": "Dataset 1",
+                        "columns": [
+                            {"name": "col1", "type": "text"},
+                            {"name": "col2", "type": "text"},
+                        ],
+                    },
+                    {
+                        "slug": "dataset-2",
+                        "name": "Dataset 2",
+                        "columns": [{"name": "col3", "type": "number"}],
+                    },
+                ]
+            }
+        )
 
         datasets = client.list_sync()
 
@@ -83,24 +86,26 @@ def test_get_sync_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({
-            "warning": "Some rows contained columns that do not exist in the dataset and were omitted.",
-            "dataset": {
-                "slug": "test-dataset",
-                "name": "Test Dataset",
-                "columns": [
-                    {"name": "input", "type": "text"},
-                    {"name": "output", "type": "text"}
-                ],
-                "rows": [
-                    {
-                        "values": {"input": "hello", "output": "world"},
-                        "idealOutput": "This is the expected output",
-                        "metadata": {"source": "user"},
-                    }
-                ],
-            },
-        })
+        mock_fetch.return_value = make_response(
+            {
+                "warning": "Some rows contained columns that do not exist in the dataset and were omitted.",
+                "dataset": {
+                    "slug": "test-dataset",
+                    "name": "Test Dataset",
+                    "columns": [
+                        {"name": "input", "type": "text"},
+                        {"name": "output", "type": "text"},
+                    ],
+                    "rows": [
+                        {
+                            "values": {"input": "hello", "output": "world"},
+                            "idealOutput": "This is the expected output",
+                            "metadata": {"source": "user"},
+                        }
+                    ],
+                },
+            }
+        )
 
         dataset = client.get_sync("test-dataset")
 
@@ -146,15 +151,17 @@ def test_add_row_sync_success(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({
-            "datasetRow": {
-                "values": {"col1": "value1", "col2": "value2"},
-                "name": "test-row",
-                "idealOutput": "expected",
-                "metadata": {"key": "value"},
-            },
-            "warning": None,
-        })
+        mock_fetch.return_value = make_response(
+            {
+                "datasetRow": {
+                    "values": {"col1": "value1", "col2": "value2"},
+                    "name": "test-row",
+                    "idealOutput": "expected",
+                    "metadata": {"key": "value"},
+                },
+                "warning": None,
+            }
+        )
 
         row = client.add_row_sync(
             slug="test-dataset",
@@ -186,12 +193,14 @@ def test_add_row_sync_with_warning(common_client):
     client = common_client["client"]
 
     with patch("basalt.datasets.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({
-            "datasetRow": {"values": {"col1": "value1"}},
-            "warning": "Some warning message",
-        })
+        mock_fetch.return_value = make_response(
+            {
+                "datasetRow": {"values": {"col1": "value1"}},
+                "warning": "Some warning message",
+            }
+        )
 
-        with patch.object(client._logger, 'warning') as mock_logger:
+        with patch.object(client._logger, "warning") as mock_logger:
             client.add_row_sync(
                 slug="test-dataset",
                 values={"col1": "value1"},
@@ -259,16 +268,20 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = make_response({"datasets": [
+            mock_fetch.return_value = make_response(
                 {
-                    "slug": "ds1",
-                    "name": "Dataset 1",
-                    "columns": [
-                        {"name": "a", "type": "text"},
-                        {"name": "b", "type": "text"}
-                    ],
-                },
-            ]})
+                    "datasets": [
+                        {
+                            "slug": "ds1",
+                            "name": "Dataset 1",
+                            "columns": [
+                                {"name": "a", "type": "text"},
+                                {"name": "b", "type": "text"},
+                            ],
+                        },
+                    ]
+                }
+            )
 
             datasets = await client.list()
 
@@ -285,17 +298,17 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = make_response({
-                "warning": None,
-                "dataset": {
-                    "slug": "test",
-                    "name": "Test",
-                    "columns": [
-                        {"name": "col1", "type": "text"}
-                    ],
-                    "rows": [],
-                },
-            })
+            mock_fetch.return_value = make_response(
+                {
+                    "warning": None,
+                    "dataset": {
+                        "slug": "test",
+                        "name": "Test",
+                        "columns": [{"name": "col1", "type": "text"}],
+                        "rows": [],
+                    },
+                }
+            )
 
             dataset = await client.get("test")
 
@@ -312,10 +325,9 @@ class TestDatasetsClientAsync:
         client = common_client["client"]
 
         with patch("basalt.datasets.client.HTTPClient.fetch") as mock_fetch:
-            mock_fetch.return_value = make_response({
-                "datasetRow": {"values": {"col1": "val1"}},
-                "warning": None
-            })
+            mock_fetch.return_value = make_response(
+                {"datasetRow": {"values": {"col1": "val1"}}, "warning": None}
+            )
 
             row = await client.add_row("test", {"col1": "val1"})
 

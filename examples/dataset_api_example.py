@@ -152,7 +152,7 @@ def example_4_add_dataset_row(client: DatasetsClient) -> None:
             values=values,
             name="Example Row",
             ideal_output="expected_output",
-            metadata={"source": "example_script"}
+            metadata={"source": "example_script"},
         )
 
         logging.info("Row added successfully")
@@ -253,7 +253,7 @@ async def example_8_async_add_row(client: DatasetsClient) -> None:
             slug=dataset_slug,
             values=values,
             name="Async Example Row",
-            metadata={"source": "async_example"}
+            metadata={"source": "async_example"},
         )
 
         logging.info("Row added asynchronously")
@@ -312,7 +312,9 @@ async def example_9_concurrent_operations(client: DatasetsClient) -> None:
     except BasaltAPIError as e:
         logging.error(f"Basalt API error during concurrent operations: {e}", exc_info=True)
     except Exception as e:
-        logging.error(f"Unexpected error during concurrent operations: {type(e).__name__}: {e}", exc_info=True)
+        logging.error(
+            f"Unexpected error during concurrent operations: {type(e).__name__}: {e}", exc_info=True
+        )
 
 
 async def run_async_examples(client: DatasetsClient) -> None:

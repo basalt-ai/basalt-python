@@ -5,6 +5,7 @@ This package exposes the PromptsClient and related models for interacting
 with the Basalt Prompts API. The client is lazily imported to avoid
 circular imports during initialization.
 """
+
 from typing import TYPE_CHECKING, Any
 
 from .models import (

@@ -9,7 +9,7 @@
 				"cwd": "packages/py-sdk",
 				"commands": [
 					"rm -rf ../../dist/packages/py-sdk",
-					"BASALT_BUILD=production python3 -m build --outdir ../../dist/packages/py-sdk"
+					"BASALT_BUILD=production hatch build --outdir ../../dist/packages/py-sdk"
 				]
 			}
 		},
@@ -18,8 +18,8 @@
 			"executor": "nx:run-commands",
 			"dependsOn": ["build"],
 			"options": {
-				"cwd": "dist/packages/py-sdk",
-				"command": "python3 -m twine upload ./*"
+				"cwd": "packages/py-sdk",
+				"command": "hatch publish ../../dist/packages/py-sdk"
 			}
 		}
 	}

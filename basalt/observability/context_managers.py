@@ -227,7 +227,9 @@ class SpanHandle:
     ):
         self._span = span
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
-        self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
+        self._parent_span = (
+            parent_span if parent_span and parent_span.get_span_context().is_valid else None
+        )
         self._evaluators: dict[str, EvaluatorAttachment] = {}
         self._evaluator_config: EvaluationConfig | None = None
         self._hydrate_existing_evaluators()
@@ -341,7 +343,9 @@ class SpanHandle:
             if trace_content_enabled():
                 _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, variables)
                 if self._parent_span:
-                    _set_serialized_attribute(self._parent_span, semconv.BasaltSpan.VARIABLES, variables)
+                    _set_serialized_attribute(
+                        self._parent_span, semconv.BasaltSpan.VARIABLES, variables
+                    )
 
     def _io_snapshot(self) -> dict[str, Any]:
         """Return a shallow copy of the tracked IO payload."""
@@ -349,7 +353,6 @@ class SpanHandle:
         if snapshot["variables"] is not None:
             snapshot["variables"] = dict(snapshot["variables"])
         return snapshot
-
 
     def add_evaluator(
         self,
@@ -378,10 +381,12 @@ class SpanHandle:
                 Each key should contain a dict with 'id' (required) and 'name' (optional).
 
         Example:
-            >>> span.set_identity({
-            ...     "user": {"id": "user-123", "name": "John Doe"},
-            ...     "organization": {"id": "org-456", "name": "ACME Corp"}
-            ... })
+            >>> span.set_identity(
+            ...     {
+            ...         "user": {"id": "user-123", "name": "John Doe"},
+            ...         "organization": {"id": "org-456", "name": "ACME Corp"},
+            ...     }
+            ... )
         """
         if identity is None:
             return
@@ -498,7 +503,9 @@ class StartSpanHandle(SpanHandle):
         """
         if isinstance(config, EvaluationConfig):
             self._evaluator_config = config
-            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict())
+            _set_serialized_attribute(
+                self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict()
+            )
         elif isinstance(config, Mapping):
             config_dict = dict(config)
             self._evaluator_config = EvaluationConfig(**config_dict)
@@ -594,9 +601,10 @@ class RetrievalSpanHandle(SpanHandle):
         """Set the number of results returned."""
         self.set_attribute(semconv.BasaltRetrieval.RESULTS_COUNT, count)
 
-    def set_top_k(self, top_k: int) -> None:
+    def set_top_k(self, top_k: float) -> None:
         """Set the top-K parameter for retrieval."""
-        self.set_attribute(semconv.BasaltRetrieval.TOP_K, top_k)
+        value = int(top_k) if isinstance(top_k, float) else top_k
+        self.set_attribute(semconv.BasaltRetrieval.TOP_K, value)
 
 
 class FunctionSpanHandle(SpanHandle):
@@ -688,7 +696,9 @@ def _with_span_handle(
     defaults = _current_trace_defaults()
 
     parent_span = trace.get_current_span()
-    if parent_span and (not parent_span.get_span_context().is_valid or not parent_span.is_recording()):
+    if parent_span and (
+        not parent_span.get_span_context().is_valid or not parent_span.is_recording()
+    ):
         parent_span = None
 
     # Prepare context tokens for user/org propagation
@@ -767,6 +777,7 @@ def _with_span_handle(
             # Inject prompt context if available
             try:
                 from basalt.prompts.models import _current_prompt_context
+
                 prompt_ctx = _current_prompt_context.get()
                 if prompt_ctx:
                     from .utils import apply_prompt_context_attributes
@@ -781,6 +792,7 @@ def _with_span_handle(
             # Apply metadata if provided
             if metadata:
                 from .utils import apply_span_metadata
+
                 apply_span_metadata(span, metadata)
 
             if span_type:
@@ -802,7 +814,7 @@ def _with_span_handle(
                 handle.set_io(variables=variables)
             if evaluators:
                 handle.add_evaluators(*evaluators)
-            yield handle  # type: ignore[misc]
+            yield handle
             if output_payload is not None:
                 handle.set_output(output_payload)
 

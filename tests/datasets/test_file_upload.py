@@ -90,9 +90,7 @@ class TestFileAttachment:
     def test_from_bytesio_without_name(self):
         """Test creating FileAttachment from BytesIO without name attribute."""
         bio = io.BytesIO(b"content")
-        with pytest.raises(
-            FileValidationError, match="filename is required for file-like objects"
-        ):
+        with pytest.raises(FileValidationError, match="filename is required for file-like objects"):
             FileAttachment(source=bio)
 
     def test_explicit_content_type(self, temp_file):
@@ -150,17 +148,13 @@ class TestContentTypeDetection:
 
     def test_explicit_content_type_valid(self):
         """Test explicit valid content type."""
-        attachment = FileAttachment(
-            source=b"content", filename="test", content_type="image/png"
-        )
+        attachment = FileAttachment(source=b"content", filename="test", content_type="image/png")
         content_type = _detect_content_type(attachment)
         assert content_type == "image/png"
 
     def test_explicit_content_type_invalid(self):
         """Test explicit invalid content type raises error."""
-        attachment = FileAttachment(
-            source=b"content", filename="test", content_type="text/plain"
-        )
+        attachment = FileAttachment(source=b"content", filename="test", content_type="text/plain")
         with pytest.raises(FileValidationError, match="not allowed"):
             _detect_content_type(attachment)
 
@@ -292,9 +286,7 @@ class TestFileUploadHandler:
         """Test successful file validation."""
         attachment = FileAttachment(source=temp_file, content_type="image/png")
 
-        file_bytes, content_type, filename = file_upload_handler.validate_file(
-            attachment
-        )
+        file_bytes, content_type, filename = file_upload_handler.validate_file(attachment)
 
         assert file_bytes == b"fake png content"
         assert content_type == "image/png"
@@ -334,9 +326,7 @@ class TestFileUploadHandler:
         )
         http_client.fetch = AsyncMock(return_value=mock_response)
 
-        result = await file_upload_handler.request_presigned_url(
-            "test.jpg", "image/jpeg"
-        )
+        result = await file_upload_handler.request_presigned_url("test.jpg", "image/jpeg")
 
         assert isinstance(result, PresignedUploadResponse)
         assert result.file_key == "datasets/ws/uuid.jpg"
@@ -356,9 +346,7 @@ class TestFileUploadHandler:
         )
         http_client.fetch_sync = Mock(return_value=mock_response)
 
-        result = file_upload_handler.request_presigned_url_sync(
-            "test.jpg", "image/jpeg"
-        )
+        result = file_upload_handler.request_presigned_url_sync("test.jpg", "image/jpeg")
 
         assert isinstance(result, PresignedUploadResponse)
         assert result.file_key == "datasets/ws/uuid.jpg"
@@ -425,9 +413,7 @@ class TestFileUploadHandler:
             )
 
     @pytest.mark.asyncio
-    async def test_upload_file_complete_workflow(
-        self, file_upload_handler, http_client, temp_file
-    ):
+    async def test_upload_file_complete_workflow(self, file_upload_handler, http_client, temp_file):
         """Test complete file upload workflow."""
         # Mock presigned URL request
         presigned_response = HTTPResponse(
@@ -477,9 +463,7 @@ class TestDatasetsClientFileUpload:
         ) as mock_upload:
             mock_upload.return_value = "datasets/ws/uuid.png"
 
-            with patch.object(
-                client._http_client, "fetch", new_callable=AsyncMock
-            ) as mock_fetch:
+            with patch.object(client._http_client, "fetch", new_callable=AsyncMock) as mock_fetch:
                 mock_fetch.return_value = HTTPResponse(
                     status_code=200,
                     data={
@@ -507,9 +491,7 @@ class TestDatasetsClientFileUpload:
 
     def test_add_row_with_file_sync(self, client, temp_file):
         """Test add_row_sync with FileAttachment."""
-        with patch.object(
-            client._file_upload_handler, "upload_file_sync"
-        ) as mock_upload:
+        with patch.object(client._file_upload_handler, "upload_file_sync") as mock_upload:
             mock_upload.return_value = "datasets/ws/uuid.png"
 
             with patch.object(client._http_client, "fetch_sync") as mock_fetch:
@@ -536,9 +518,7 @@ class TestDatasetsClientFileUpload:
 
     def test_add_row_with_mixed_values(self, client, temp_file):
         """Test add_row with both string and file values."""
-        with patch.object(
-            client._file_upload_handler, "upload_file_sync"
-        ) as mock_upload:
+        with patch.object(client._file_upload_handler, "upload_file_sync") as mock_upload:
             mock_upload.return_value = "datasets/ws/uuid.png"
 
             with patch.object(client._http_client, "fetch_sync") as mock_fetch:
@@ -577,9 +557,7 @@ class TestDatasetsClientFileUpload:
         file2 = tmp_path / "file2.jpg"
         file2.write_bytes(b"content2")
 
-        with patch.object(
-            client._file_upload_handler, "upload_file_sync"
-        ) as mock_upload:
+        with patch.object(client._file_upload_handler, "upload_file_sync") as mock_upload:
             mock_upload.side_effect = ["datasets/ws/uuid1.png", "datasets/ws/uuid2.jpg"]
 
             with patch.object(client._http_client, "fetch_sync") as mock_fetch:
@@ -611,9 +589,7 @@ class TestDatasetsClientFileUpload:
 
     def test_add_row_file_upload_error_propagates(self, client, temp_file):
         """Test that file upload errors are propagated."""
-        with patch.object(
-            client._file_upload_handler, "upload_file_sync"
-        ) as mock_upload:
+        with patch.object(client._file_upload_handler, "upload_file_sync") as mock_upload:
             mock_upload.side_effect = FileUploadError("S3 upload failed")
 
             with pytest.raises(FileUploadError, match="S3 upload failed"):

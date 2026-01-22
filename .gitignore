@@ -11,3 +11,10 @@ venv/
 .env*
 requirements*
 .serena
+.hatch/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+coverage.xml
+.coverage
+htmlcov/

@@ -2,6 +2,7 @@
 
 These tests follow the same pattern as the prompts and datasets tests.
 """
+
 from unittest.mock import patch
 
 import pytest
@@ -40,12 +41,14 @@ def test_create_sync_success(common_client):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({
-            "id": "123",
-            "name": "My Experiment",
-            "featureSlug": "my-feature",
-            "createdAt": "2024-03-20T12:00:00Z",
-        })
+        mock_fetch.return_value = make_response(
+            {
+                "id": "123",
+                "name": "My Experiment",
+                "featureSlug": "my-feature",
+                "createdAt": "2024-03-20T12:00:00Z",
+            }
+        )
 
         experiment = client.create_sync(
             feature_slug="my-feature",
@@ -120,12 +123,14 @@ async def test_create_async_success(common_client):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch") as mock_fetch:
-        mock_fetch.return_value = make_response({
-            "id": "456",
-            "name": "Async Experiment",
-            "featureSlug": "async-feature",
-            "createdAt": "2024-03-21T10:30:00Z",
-        })
+        mock_fetch.return_value = make_response(
+            {
+                "id": "456",
+                "name": "Async Experiment",
+                "featureSlug": "async-feature",
+                "createdAt": "2024-03-21T10:30:00Z",
+            }
+        )
 
         experiment = await client.create(
             feature_slug="async-feature",
@@ -222,12 +227,14 @@ def test_create_sync_parameter_combinations(common_client, feature_slug, name):
     client: ExperimentsClient = common_client["client"]
 
     with patch("basalt.experiments.client.HTTPClient.fetch_sync") as mock_fetch:
-        mock_fetch.return_value = make_response({
-            "id": "123",
-            "name": name,
-            "featureSlug": feature_slug,
-            "createdAt": "2024-03-20T12:00:00Z",
-        })
+        mock_fetch.return_value = make_response(
+            {
+                "id": "123",
+                "name": name,
+                "featureSlug": feature_slug,
+                "createdAt": "2024-03-20T12:00:00Z",
+            }
+        )
 
         experiment = client.create_sync(feature_slug=feature_slug, name=name)
 
@@ -263,10 +270,12 @@ def test_experiment_model_from_dict_with_empty_dict():
 
 def test_experiment_model_from_dict_with_partial_data():
     """Test Experiment.from_dict with partial data."""
-    experiment = Experiment.from_dict({
-        "id": "123",
-        "name": "Test",
-    })
+    experiment = Experiment.from_dict(
+        {
+            "id": "123",
+            "name": "Test",
+        }
+    )
 
     assert experiment.id == "123"
     assert experiment.name == "Test"
@@ -276,12 +285,14 @@ def test_experiment_model_from_dict_with_partial_data():
 
 def test_experiment_model_from_dict_with_wrong_types():
     """Test Experiment.from_dict handles wrong types gracefully."""
-    experiment = Experiment.from_dict({
-        "id": 123,  # Should be string
-        "name": None,  # Should be string
-        "featureSlug": ["not", "a", "string"],  # Should be string
-        "createdAt": True,  # Should be string
-    })
+    experiment = Experiment.from_dict(
+        {
+            "id": 123,  # Should be string
+            "name": None,  # Should be string
+            "featureSlug": ["not", "a", "string"],  # Should be string
+            "createdAt": True,  # Should be string
+        }
+    )
 
     # All values should be converted to empty strings due to type checking
     assert experiment.id == ""

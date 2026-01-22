@@ -4,7 +4,7 @@ import functools
 import inspect
 from collections.abc import Callable, Sequence
 from contextlib import ContextDecorator
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from opentelemetry.trace import StatusCode
 
@@ -113,7 +113,9 @@ def _resolve_kind_str(kind: ObserveKind | str) -> str:
     kind_str = str(kind).lower()
     valid_kinds = {k.value for k in ObserveKind}
     if kind_str not in valid_kinds:
-        raise ValueError(f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}")
+        raise ValueError(
+            f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}"
+        )
     return kind_str
 
 
@@ -244,7 +246,9 @@ class StartObserve(ContextDecorator):
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 bound = resolve_bound_arguments(func, args, kwargs)
-                user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
+                user_identity, org_identity = resolve_identity_payload(
+                    self.identity_resolver, bound
+                )
                 pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
 
                 span_name = self.name
@@ -381,7 +385,9 @@ class Observe(ContextDecorator):
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning("Observe used without a preceding start_observe. This may lead to missing trace context.")
+            logger.warning(
+                "Observe used without a preceding start_observe. This may lead to missing trace context."
+            )
 
         self._ctx_manager = _with_span_handle(
             name=span_name,
@@ -421,28 +427,32 @@ class Observe(ContextDecorator):
 
         # Use defaults if not provided
         input_resolver = self.input_resolver if self.input_resolver is not None else default_input
-        variables_resolver = self.variables_resolver if self.variables_resolver is not None else default_vars
+        variables_resolver = (
+            self.variables_resolver if self.variables_resolver is not None else default_vars
+        )
 
         # Process prompt parameter if provided
         prompt_metadata = {}
         if self.prompt is not None:
             import json
 
+            prompt = cast("Prompt", self.prompt)
+
             # Override input resolver with prompt.text
             def input_resolver(bound):
-                return self.prompt.text
+                return prompt.text
 
             # Prepare prompt metadata for span attributes
             prompt_metadata = {
-                "basalt.prompt.slug": self.prompt.slug,
-                "basalt.prompt.version": self.prompt.version,
-                "basalt.prompt.model.provider": self.prompt.model.provider,
-                "basalt.prompt.model.model": self.prompt.model.model,
+                "basalt.prompt.slug": prompt.slug,
+                "basalt.prompt.version": prompt.version,
+                "basalt.prompt.model.provider": prompt.model.provider,
+                "basalt.prompt.model.model": prompt.model.model,
             }
 
             # Store prompt.variables separately if available (must serialize to JSON for OpenTelemetry)
-            if self.prompt.variables:
-                prompt_metadata["basalt.prompt.variables"] = json.dumps(self.prompt.variables)
+            if prompt.variables:
+                prompt_metadata["basalt.prompt.variables"] = json.dumps(prompt.variables)
 
         def prepare_call_data(args, kwargs):
             computed_metadata = resolve_attributes(self._metadata, args, kwargs)
@@ -480,8 +490,8 @@ class Observe(ContextDecorator):
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            computed_metadata, bound, input_payload, variables_payload, pre_evaluators = prepare_call_data(
-                args, kwargs
+            computed_metadata, bound, input_payload, variables_payload, pre_evaluators = (
+                prepare_call_data(args, kwargs)
             )
 
             with _with_span_handle(
@@ -516,8 +526,8 @@ class Observe(ContextDecorator):
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
-                computed_metadata, bound, input_payload, variables_payload, pre_evaluators = prepare_call_data(
-                    args, kwargs
+                computed_metadata, bound, input_payload, variables_payload, pre_evaluators = (
+                    prepare_call_data(args, kwargs)
                 )
 
                 with _with_span_handle(
@@ -537,7 +547,9 @@ class Observe(ContextDecorator):
                     try:
                         result = await func(*args, **kwargs)
 
-                        transformed = self.output_resolver(result) if self.output_resolver else result
+                        transformed = (
+                            self.output_resolver(result) if self.output_resolver else result
+                        )
                         span.set_output(transformed)
 
                         if apply_post:
@@ -555,7 +567,9 @@ class Observe(ContextDecorator):
     # Static Domain Methods
 
     @staticmethod
-    def _identify(user: str | dict[str, Any] | None = None, organization: str | dict[str, Any] | None = None) -> None:
+    def _identify(
+        user: str | dict[str, Any] | None = None, organization: str | dict[str, Any] | None = None
+    ) -> None:
         """Set the user and/or organization identity for the current context."""
         if user:
             if isinstance(user, str):
@@ -567,7 +581,9 @@ class Observe(ContextDecorator):
             if isinstance(organization, str):
                 _set_trace_organization(organization_id=organization)
             elif isinstance(organization, dict):
-                _set_trace_organization(organization_id=organization.get("id", "unknown"), name=organization.get("name"))
+                _set_trace_organization(
+                    organization_id=organization.get("id", "unknown"), name=organization.get("name")
+                )
 
     @staticmethod
     def _root_span() -> StartSpanHandle | None:
@@ -664,7 +680,9 @@ class Observe(ContextDecorator):
         """Set input, output, and variables for the current span."""
         handle = get_current_span_handle()
         if handle:
-            handle.set_io(input_payload=input_payload, output_payload=output_payload, variables=variables)
+            handle.set_io(
+                input_payload=input_payload, output_payload=output_payload, variables=variables
+            )
 
     @staticmethod
     def inject_for_auto_instrumentation(
@@ -706,7 +724,7 @@ class Observe(ContextDecorator):
             Observe.inject_for_auto_instrumentation(
                 input_payload={"query": "What is AI?"},
                 prompt=my_prompt,
-                metadata={"session_id": "abc123"}
+                metadata={"session_id": "abc123"},
             )
 
             # Next auto-instrumented call will have this data attached
@@ -806,10 +824,12 @@ class Observe(ContextDecorator):
                 Each key should contain a dict with 'id' (required) and 'name' (optional).
 
         Example:
-            >>> Observe.set_identity({
-            ...     "user": {"id": "user-123", "name": "John Doe"},
-            ...     "organization": {"id": "org-456", "name": "ACME Corp"}
-            ... })
+            >>> Observe.set_identity(
+            ...     {
+            ...         "user": {"id": "user-123", "name": "John Doe"},
+            ...         "organization": {"id": "org-456", "name": "ACME Corp"},
+            ...     }
+            ... )
         """
         handle = get_current_span_handle()
         if handle:
@@ -1094,7 +1114,9 @@ class AsyncObserve:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning("AsyncObserve used without a preceding async_start_observe. This may lead to missing trace context.")
+            logger.warning(
+                "AsyncObserve used without a preceding async_start_observe. This may lead to missing trace context."
+            )
 
         self._ctx_manager = _async_with_span_handle(
             name=span_name,

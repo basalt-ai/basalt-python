@@ -4,6 +4,7 @@ Data models for the Prompts API.
 This module contains all data models and data transfer objects used
 by the PromptsClient.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,8 +15,7 @@ from typing import Any
 
 # Context variable for prompt data injection into child spans
 _current_prompt_context: ContextVar[dict[str, Any] | None] = ContextVar(
-    '_current_prompt_context',
-    default=None
+    "_current_prompt_context", default=None
 )
 
 
@@ -25,6 +25,7 @@ class PromptModelParameters:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     temperature: float
     max_length: int
     response_format: str
@@ -60,10 +61,14 @@ class PromptModelParameters:
         top_p = float(top_p) if isinstance(top_p, (int, float)) else None
 
         frequency_penalty = data.get("frequencyPenalty")
-        frequency_penalty = float(frequency_penalty) if isinstance(frequency_penalty, (int, float)) else None
+        frequency_penalty = (
+            float(frequency_penalty) if isinstance(frequency_penalty, (int, float)) else None
+        )
 
         presence_penalty = data.get("presencePenalty")
-        presence_penalty = float(presence_penalty) if isinstance(presence_penalty, (int, float)) else None
+        presence_penalty = (
+            float(presence_penalty) if isinstance(presence_penalty, (int, float)) else None
+        )
 
         json_object = data.get("jsonObject")
         json_object = dict(json_object) if isinstance(json_object, Mapping) else None
@@ -86,6 +91,7 @@ class PromptModel:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     provider: str
     model: str
     version: str
@@ -106,7 +112,9 @@ class PromptModel:
         version = data.get("version") if isinstance(data.get("version"), str) else ""
 
         parameters_data = data.get("parameters")
-        parameters = PromptModelParameters.from_dict(parameters_data if isinstance(parameters_data, Mapping) else None)
+        parameters = PromptModelParameters.from_dict(
+            parameters_data if isinstance(parameters_data, Mapping) else None
+        )
 
         return cls(
             provider=str(provider),
@@ -119,6 +127,7 @@ class PromptModel:
 @dataclass
 class PromptParams:
     """Parameters for creating a new prompt instance."""
+
     slug: str
     text: str
     model: PromptModel
@@ -141,7 +150,7 @@ class Prompt:
         prompt = basalt.prompts.get(
             slug="qa-prompt",
             version="2.1.0",
-            variables={"context": "Paris is the capital of France"}
+            variables={"context": "Paris is the capital of France"},
         )
 
         # Access prompt properties
@@ -149,6 +158,7 @@ class Prompt:
         print(prompt.model.provider)
         ```
     """
+
     slug: str
     text: str
     raw_text: str
@@ -410,6 +420,7 @@ class PromptResponse:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     text: str
     slug: str
     version: str
@@ -457,7 +468,9 @@ def _parse_prompt_descriptor_fields(
     description = data.get("description") if isinstance(data.get("description"), str) else ""
 
     available_versions_raw = data.get("availableVersions")
-    available_versions = list(available_versions_raw) if isinstance(available_versions_raw, list) else []
+    available_versions = (
+        list(available_versions_raw) if isinstance(available_versions_raw, list) else []
+    )
 
     available_tags_raw = data.get("availableTags")
     available_tags = list(available_tags_raw) if isinstance(available_tags_raw, list) else []
@@ -478,6 +491,7 @@ class DescribePromptResponse:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     slug: str
     status: str
     name: str
@@ -501,7 +515,7 @@ class DescribePromptResponse:
             available_tags,
         ) = _parse_prompt_descriptor_fields(data)
 
-        variables_raw = data.get("variables")
+        variables_raw = data.get("variables") if data else None
         variables = list(variables_raw) if isinstance(variables_raw, list) else []
 
         return cls(
@@ -521,6 +535,7 @@ class PromptListResponse:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     slug: str
     status: str
     name: str
@@ -559,6 +574,7 @@ class PublishPromptResponse:
 
     Immutable and uses slots to reduce per-instance memory overhead.
     """
+
     id: str
     label: str
 
@@ -575,7 +591,9 @@ class PublishPromptResponse:
         deployment_tag = data.get("deploymentTag")
         if isinstance(deployment_tag, Mapping):
             id_val = deployment_tag.get("id") if isinstance(deployment_tag.get("id"), str) else ""
-            label_val = deployment_tag.get("label") if isinstance(deployment_tag.get("label"), str) else ""
+            label_val = (
+                deployment_tag.get("label") if isinstance(deployment_tag.get("label"), str) else ""
+            )
         else:
             id_val = data.get("id") if isinstance(data.get("id"), str) else ""
             label_val = data.get("label") if isinstance(data.get("label"), str) else ""

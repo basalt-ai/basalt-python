@@ -6,6 +6,7 @@ Example of using Basalt with Google's Gemini AI for a complete RAG workflow:
 
 Demonstrates both decorator-based and manual context manager instrumentation.
 """
+
 import asyncio
 import logging
 import os
@@ -19,7 +20,14 @@ except ImportError:
     genai = None
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability import AsyncObserve, EvaluationConfig, ObserveKind, evaluate, observe, start_observe
+from basalt.observability import (
+    AsyncObserve,
+    EvaluationConfig,
+    ObserveKind,
+    evaluate,
+    observe,
+    start_observe,
+)
 
 # --- Constants ---
 # specific model version to ensure consistency across execution and telemetry
@@ -49,7 +57,10 @@ def build_custom_exporter_client() -> Basalt:
     # Note: insecure=True is used here for local/demo purposes.
     # Use secure credentials for production.
     exporter = OTLPSpanExporter(
-        endpoint=otlp_endpoint, headers={"authorization": f"Bearer {api_key}"}, insecure=True, timeout=10
+        endpoint=otlp_endpoint,
+        headers={"authorization": f"Bearer {api_key}"},
+        insecure=True,
+        timeout=10,
     )
 
     telemetry = TelemetryConfig(
@@ -177,11 +188,13 @@ async def embed_joke_summary(summary: str) -> dict | None:
             span.set_attribute("gen_ai.embeddings.dimension.count", dimension_count)
 
             # Set metadata for Basalt tracking
-            span.set_metadata({
-                "embedding.dimension": dimension_count,
-                "embedding.status": "success",
-                "embedding.model": GEMINI_EMBEDDING_MODEL,
-            })
+            span.set_metadata(
+                {
+                    "embedding.dimension": dimension_count,
+                    "embedding.status": "success",
+                    "embedding.model": GEMINI_EMBEDDING_MODEL,
+                }
+            )
 
             # Set output (partial vector only - don't log full 768-dim vector)
             output_data = {
@@ -199,14 +212,18 @@ async def embed_joke_summary(summary: str) -> dict | None:
 
         except Exception as exc:
             logging.error(f"Embedding error: {exc}")
-            span.set_metadata({
-                "embedding.status": "error",
-                "embedding.error": str(exc),
-            })
-            span.set_output({
-                "status": "error",
-                "error": str(exc),
-            })
+            span.set_metadata(
+                {
+                    "embedding.status": "error",
+                    "embedding.error": str(exc),
+                }
+            )
+            span.set_output(
+                {
+                    "status": "error",
+                    "error": str(exc),
+                }
+            )
             raise
 
 
@@ -243,7 +260,10 @@ async def start_workflow() -> None:
             logging.info(f"Gemini summary: {gemini_result}")
 
             observe.set_metadata(
-                {"gemini.status": "success", "gemini.response_length": len(gemini_result) if gemini_result else 0}
+                {
+                    "gemini.status": "success",
+                    "gemini.response_length": len(gemini_result) if gemini_result else 0,
+                }
             )
 
             # Use the constant to ensure attributes match the actual model used
@@ -265,16 +285,20 @@ async def start_workflow() -> None:
                         f"sample: {embedding_data['sample_values'][:3]}"
                     )
 
-                    observe.set_metadata({
-                        "embedding.dimension": embedding_data["dimension"],
-                        "embedding.generated": True,
-                    })
+                    observe.set_metadata(
+                        {
+                            "embedding.dimension": embedding_data["dimension"],
+                            "embedding.generated": True,
+                        }
+                    )
                 except Exception as exc:
                     logging.error(f"Failed to generate embeddings: {exc}")
-                    observe.set_metadata({
-                        "embedding.generated": False,
-                        "embedding.error": str(exc),
-                    })
+                    observe.set_metadata(
+                        {
+                            "embedding.generated": False,
+                            "embedding.error": str(exc),
+                        }
+                    )
                     # Don't re-raise - allow workflow to continue even if embeddings fail
 
     except Exception as exc:

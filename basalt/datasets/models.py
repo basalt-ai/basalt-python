@@ -4,6 +4,7 @@ Data models for the Datasets API.
 This module contains all data models and data transfer objects used
 by the DatasetsClient.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -35,6 +36,7 @@ class DatasetColumn:
         col_type = data.get("type") if isinstance(data.get("type"), str) else None
         return cls(name=str(name), type=col_type)
 
+
 @dataclass(slots=True)
 class DatasetRow:
     """
@@ -46,6 +48,7 @@ class DatasetRow:
         ideal_output: Optional ideal output for evaluation.
         metadata: Optional metadata dictionary.
     """
+
     # store as a plain dict internally for fast access; accept Mapping inputs
     values: dict[str, str]
     name: str | None = None
@@ -105,6 +108,7 @@ class Dataset:
         columns: List of column names in the dataset.
         rows: List of rows in the dataset.
     """
+
     slug: str
     name: str
     # public attributes; rows kept mutable, columns are immutable objects
@@ -150,4 +154,6 @@ class Dataset:
         slug_val = data.get("slug") if isinstance(data.get("slug"), str) else ""
         name_val = data.get("name") if isinstance(data.get("name"), str) else ""
 
-        return cls(slug=str(slug_val), name=str(name_val), columns=column_definitions, rows=rows_list)
+        return cls(
+            slug=str(slug_val), name=str(name_val), columns=column_definitions, rows=rows_list
+        )

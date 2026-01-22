@@ -74,7 +74,9 @@ class FileAttachment:
                 # File-like object with name attribute
                 self.filename = os.path.basename(str(self.source.name))
             else:
-                raise FileValidationError("filename is required for file-like objects without a name attribute")
+                raise FileValidationError(
+                    "filename is required for file-like objects without a name attribute"
+                )
 
 
 @dataclass
@@ -318,9 +320,7 @@ class FileUploadHandler:
 
         return PresignedUploadResponse.from_dict(response.data)
 
-    async def upload_to_s3(
-        self, presigned_url: str, file_bytes: bytes, content_type: str
-    ) -> None:
+    async def upload_to_s3(self, presigned_url: str, file_bytes: bytes, content_type: str) -> None:
         """
         Upload file to S3 using presigned URL.
 
@@ -369,9 +369,7 @@ class FileUploadHandler:
         except Exception as e:
             raise FileUploadError(f"Unexpected error during upload: {e}") from e
 
-    def upload_to_s3_sync(
-        self, presigned_url: str, file_bytes: bytes, content_type: str
-    ) -> None:
+    def upload_to_s3_sync(self, presigned_url: str, file_bytes: bytes, content_type: str) -> None:
         """
         Upload file to S3 using presigned URL (synchronous version).
 

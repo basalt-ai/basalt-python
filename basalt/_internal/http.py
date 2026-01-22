@@ -187,13 +187,15 @@ class HTTPClient:
             except (BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError):
                 # Don't retry client errors
                 raise
-            except (httpx.TimeoutException, asyncio.TimeoutError, httpx.TransportError) as e:
+            except (TimeoutError, httpx.TimeoutException, httpx.TransportError) as e:
                 # Retry on transient errors
                 if attempt == self.max_retries - 1:
-                    raise NetworkError(f"Request failed after {self.max_retries} attempts: {e}") from e
+                    raise NetworkError(
+                        f"Request failed after {self.max_retries} attempts: {e}"
+                    ) from e
 
                 # Exponential backoff
-                wait_time = self.retry_backoff_factor * (2 ** attempt)
+                wait_time = self.retry_backoff_factor * (2**attempt)
                 await asyncio.sleep(wait_time)
             except Exception as e:
                 raise NetworkError(str(e)) from e
@@ -251,10 +253,12 @@ class HTTPClient:
             except (httpx.TimeoutException, httpx.TransportError) as e:
                 # Retry on transient errors
                 if attempt == self.max_retries - 1:
-                    raise NetworkError(f"Request failed after {self.max_retries} attempts: {e}") from e
+                    raise NetworkError(
+                        f"Request failed after {self.max_retries} attempts: {e}"
+                    ) from e
 
                 # Exponential backoff
-                wait_time = self.retry_backoff_factor * (2 ** attempt)
+                wait_time = self.retry_backoff_factor * (2**attempt)
                 time.sleep(wait_time)
             except Exception as e:
                 raise NetworkError(str(e)) from e
@@ -274,9 +278,7 @@ class HTTPClient:
         headers_obj = getattr(response, "headers", {})
         if isinstance(headers_obj, Mapping):
             raw_content_type = (
-                headers_obj.get("content-type")
-                or headers_obj.get("Content-Type")
-                or ""
+                headers_obj.get("content-type") or headers_obj.get("Content-Type") or ""
             )
         else:
             raw_content_type = str(headers_obj or "")

@@ -48,8 +48,10 @@ def apply_span_metadata(span: Any, metadata: Mapping[str, Any] | None) -> None:
     except Exception:
         # Fallback: try to serialize with str() for non-serializable values
         try:
-            safe_merged = {k: v if isinstance(v, (str, bool, int, float, type(None))) else str(v)
-                          for k, v in merged.items()}
+            safe_merged = {
+                k: v if isinstance(v, (str, bool, int, float, type(None))) else str(v)
+                for k, v in merged.items()
+            }
             span.set_attribute(semconv.BasaltSpan.METADATA, json.dumps(safe_merged))
         except Exception:
             pass
@@ -124,7 +126,11 @@ def resolve_payload_from_bound(
 
 
 def resolve_variables_payload(
-    resolver: dict[str, Any] | Callable[[inspect.BoundArguments | None], Mapping[str, Any]] | Sequence[str] | Mapping[str, Any] | None,
+    resolver: dict[str, Any]
+    | Callable[[inspect.BoundArguments | None], Mapping[str, Any]]
+    | Sequence[str]
+    | Mapping[str, Any]
+    | None,
     bound: inspect.BoundArguments | None,
 ) -> Mapping[str, Any] | None:
     """Resolve variables payload."""
@@ -138,7 +144,7 @@ def resolve_variables_payload(
             return None
         return payload
     if isinstance(resolver, Mapping):
-        return resolver
+        return {str(key): value for key, value in resolver.items()}
     if isinstance(resolver, Sequence) and not isinstance(resolver, (str, bytes)):
         if not bound:
             return None
@@ -218,10 +224,12 @@ def resolve_identity_payload(
     if payload is None:
         return None, None
 
-    def _from_mapping(mapping: Mapping[str, Any]) -> tuple[
-        TraceIdentity | dict[str, Any] | None, TraceIdentity | dict[str, Any] | None
-    ]:
-        lowered = {str(key).lower(): value for key, value in mapping.items() if isinstance(key, str)}
+    def _from_mapping(
+        mapping: Mapping[str, Any],
+    ) -> tuple[TraceIdentity | dict[str, Any] | None, TraceIdentity | dict[str, Any] | None]:
+        lowered = {
+            str(key).lower(): value for key, value in mapping.items() if isinstance(key, str)
+        }
 
         user_spec: Any | None = None
         org_spec: Any | None = None

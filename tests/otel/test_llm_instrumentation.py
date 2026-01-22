@@ -376,17 +376,21 @@ def test_instrumentation_initialization(provider_name: str, otel_exporter: InMem
         # Check if the instrumentor was registered
         if provider_name not in manager._provider_instrumentors:
             # Instrumentation package not installed - skip test
-            pkg_name = instrumentation_packages.get(provider_name, f"opentelemetry-instrumentation-{provider_name}")
+            pkg_name = instrumentation_packages.get(
+                provider_name, f"opentelemetry-instrumentation-{provider_name}"
+            )
             pytest.skip(f"Instrumentation package not installed: {pkg_name}")
 
         instrumentor = manager._provider_instrumentors[provider_name]
         assert instrumentor is not None, f"Instrumentor for {provider_name} is None"
 
         # Verify the instrumentor has the expected interface
-        assert hasattr(instrumentor, 'instrument'), \
+        assert hasattr(instrumentor, "instrument"), (
             f"Instrumentor for {provider_name} missing instrument() method"
-        assert hasattr(instrumentor, 'uninstrument'), \
+        )
+        assert hasattr(instrumentor, "uninstrument"), (
             f"Instrumentor for {provider_name} missing uninstrument() method"
+        )
 
     finally:
         # Clean up instrumentation
@@ -443,17 +447,21 @@ def test_instrumentation_span_attrs_real_provider(
         assert "gen_ai.request.model" in attrs, f"Missing gen_ai.request.model for {provider_name}"
 
         # With real calls, we should definitely have these
-        assert (
-            "gen_ai.usage.input_tokens" in attrs or "gen_ai.usage.prompt_tokens" in attrs
-        ), f"Missing input token count for {provider_name} (real call)"
+        assert "gen_ai.usage.input_tokens" in attrs or "gen_ai.usage.prompt_tokens" in attrs, (
+            f"Missing input token count for {provider_name} (real call)"
+        )
 
-        assert (
-            "gen_ai.usage.output_tokens" in attrs or "gen_ai.usage.completion_tokens" in attrs
-        ), f"Missing output token count for {provider_name} (real call)"
+        assert "gen_ai.usage.output_tokens" in attrs or "gen_ai.usage.completion_tokens" in attrs, (
+            f"Missing output token count for {provider_name} (real call)"
+        )
 
         # Verify token counts are positive integers
-        input_tokens = attrs.get("gen_ai.usage.input_tokens") or attrs.get("gen_ai.usage.prompt_tokens")
-        output_tokens = attrs.get("gen_ai.usage.output_tokens") or attrs.get("gen_ai.usage.completion_tokens")
+        input_tokens = attrs.get("gen_ai.usage.input_tokens") or attrs.get(
+            "gen_ai.usage.prompt_tokens"
+        )
+        output_tokens = attrs.get("gen_ai.usage.output_tokens") or attrs.get(
+            "gen_ai.usage.completion_tokens"
+        )
 
         assert input_tokens > 0, f"Input tokens should be > 0 for {provider_name}"
         assert output_tokens > 0, f"Output tokens should be > 0 for {provider_name}"
@@ -524,7 +532,9 @@ def test_otlp_json_conversion_helpers():
 
     # Validate resource
     assert "resource" in resource_span
-    resource_attrs = {item["key"]: item["value"] for item in resource_span["resource"]["attributes"]}
+    resource_attrs = {
+        item["key"]: item["value"] for item in resource_span["resource"]["attributes"]
+    }
     assert resource_attrs["service.name"]["stringValue"] == "test-service"
 
     # Validate scope
@@ -742,21 +752,27 @@ def test_llm_span_otlp_json_with_mocks(provider_name: str, otel_exporter: InMemo
     # Verify token usage attributes
     # Different instrumentors use different attribute names
     has_input_tokens = "gen_ai.usage.input_tokens" in attrs or "gen_ai.usage.prompt_tokens" in attrs
-    has_output_tokens = "gen_ai.usage.output_tokens" in attrs or "gen_ai.usage.completion_tokens" in attrs
+    has_output_tokens = (
+        "gen_ai.usage.output_tokens" in attrs or "gen_ai.usage.completion_tokens" in attrs
+    )
 
     assert has_input_tokens, f"Missing input token count for {provider_name}"
     assert has_output_tokens, f"Missing output token count for {provider_name}"
 
     # Verify token counts are positive integers (from mocked response)
     input_tokens = get_int("gen_ai.usage.input_tokens") or get_int("gen_ai.usage.prompt_tokens")
-    output_tokens = get_int("gen_ai.usage.output_tokens") or get_int("gen_ai.usage.completion_tokens")
+    output_tokens = get_int("gen_ai.usage.output_tokens") or get_int(
+        "gen_ai.usage.completion_tokens"
+    )
 
     assert input_tokens and input_tokens > 0, f"Input tokens should be > 0 for {provider_name}"
     assert output_tokens and output_tokens > 0, f"Output tokens should be > 0 for {provider_name}"
 
     # ---- Validate Resource Attributes ----
 
-    resource_attrs_dict = {item["key"]: item["value"] for item in resource_span["resource"]["attributes"]}
+    resource_attrs_dict = {
+        item["key"]: item["value"] for item in resource_span["resource"]["attributes"]
+    }
 
     # Verify key resource attributes exist
     assert "service.name" in resource_attrs_dict, "Missing service.name"
@@ -765,9 +781,9 @@ def test_llm_span_otlp_json_with_mocks(provider_name: str, otel_exporter: InMemo
 
     # Verify resource attributes have correct types
     assert resource_attrs_dict["service.name"].get("stringValue"), "service.name should be a string"
-    assert (
-        resource_attrs_dict["telemetry.sdk.language"].get("stringValue") == "python"
-    ), "telemetry.sdk.language should be 'python'"
+    assert resource_attrs_dict["telemetry.sdk.language"].get("stringValue") == "python", (
+        "telemetry.sdk.language should be 'python'"
+    )
 
     # Optional: Print OTLP JSON for debugging or TS test fixture generation
     # Uncomment to see the full JSON output:

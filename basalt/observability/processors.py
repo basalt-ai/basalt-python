@@ -71,19 +71,13 @@ def _set_default_metadata(span: Span, defaults: _TraceContextConfig) -> None:
         hasattr(parent_ctx, "is_valid") and not parent_ctx.is_valid
     )
 
-    experiment = (
-        defaults.experiment
-        if isinstance(defaults.experiment, TraceExperiment)
-        else None
-    )
+    experiment = defaults.experiment if isinstance(defaults.experiment, TraceExperiment) else None
     if experiment and is_root_span:
         span.set_attribute(semconv.BasaltExperiment.ID, experiment.id)
         if experiment.name:
             span.set_attribute(semconv.BasaltExperiment.NAME, experiment.name)
         if experiment.feature_slug:
-            span.set_attribute(
-                semconv.BasaltExperiment.FEATURE_SLUG, experiment.feature_slug
-            )
+            span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, experiment.feature_slug)
 
     for key, value in (defaults.observe_metadata or {}).items():
         span.set_attribute(f"{semconv.BASALT_META_PREFIX}{key}", value)
@@ -127,7 +121,7 @@ def _apply_feature_slug_from_context(span: Span, parent_context: Any | None = No
 class BasaltContextProcessor(SpanProcessor):
     """Apply Basalt trace defaults to every started span."""
 
-    def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
+    def on_start(self, span: Span, parent_context: Any | None = None) -> None:
         if not span.is_recording():
             return
         defaults = _current_trace_defaults()
@@ -137,13 +131,13 @@ class BasaltContextProcessor(SpanProcessor):
         # Apply feature_slug from OpenTelemetry context (enables propagation to child spans)
         _apply_feature_slug_from_context(span, parent_context)
 
-    def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
+    def on_end(self, span: ReadableSpan) -> None:
         return
 
-    def shutdown(self) -> None:  # type: ignore[override]
+    def shutdown(self) -> None:
         return
 
-    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[override]
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
         return True
 
 
@@ -153,7 +147,7 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
     def __init__(self, context_key: str = EVALUATOR_CONTEXT_KEY) -> None:
         self._context_key = context_key
 
-    def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
+    def on_start(self, span: Span, parent_context: Any | None = None) -> None:
         if not span.is_recording():
             return
 
@@ -182,15 +176,11 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Failed to normalize call evaluators: %s", exc)
             else:
-                slugs = [
-                    attachment.slug for attachment in attachments if attachment.slug
-                ]
+                slugs = [attachment.slug for attachment in attachments if attachment.slug]
                 _merge_evaluators(span, slugs)
 
         # Attach evaluator config from context
-        context_config = otel_context.get_value(
-            EVALUATOR_CONFIG_CONTEXT_KEY, parent_context
-        )
+        context_config = otel_context.get_value(EVALUATOR_CONFIG_CONTEXT_KEY, parent_context)
         if context_config and isinstance(context_config, EvaluationConfig):
             try:
                 import json
@@ -202,13 +192,13 @@ class BasaltCallEvaluatorProcessor(SpanProcessor):
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Failed to set evaluator config: %s", exc)
 
-    def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
+    def on_end(self, span: ReadableSpan) -> None:
         return
 
-    def shutdown(self) -> None:  # type: ignore[override]
+    def shutdown(self) -> None:
         return
 
-    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[override]
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
         return True
 
 
@@ -221,7 +211,7 @@ class BasaltShouldEvaluateProcessor(SpanProcessor):
     should_evaluate value, enabling trace-level sampling for evaluators.
     """
 
-    def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
+    def on_start(self, span: Span, parent_context: Any | None = None) -> None:
         if not span.is_recording():
             return
 
@@ -235,33 +225,35 @@ class BasaltShouldEvaluateProcessor(SpanProcessor):
         if should_evaluate is not None:
             span.set_attribute(semconv.BasaltSpan.SHOULD_EVALUATE, bool(should_evaluate))
 
-    def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
+    def on_end(self, span: ReadableSpan) -> None:
         return
 
-    def shutdown(self) -> None:  # type: ignore[override]
+    def shutdown(self) -> None:
         return
 
-    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[override]
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
         return True
 
 
 # Known auto-instrumentation scope names
-KNOWN_AUTO_INSTRUMENTATION_SCOPES: Final[frozenset[str]] = frozenset({
-    "opentelemetry.instrumentation.openai",
-    "opentelemetry.instrumentation.openai.v1",  # OpenAI SDK v1+
-    "opentelemetry.instrumentation.anthropic",
-    "opentelemetry.instrumentation.google_genai",
-    "opentelemetry.instrumentation.google_generativeai",
-    "opentelemetry.instrumentation.bedrock",
-    "opentelemetry.instrumentation.vertexai",
-    "opentelemetry.instrumentation.ollama",
-    "opentelemetry.instrumentation.mistralai",
-    "opentelemetry.instrumentation.langchain",
-    "opentelemetry.instrumentation.llamaindex",
-    "opentelemetry.instrumentation.chromadb",
-    "opentelemetry.instrumentation.pinecone",
-    "opentelemetry.instrumentation.qdrant",
-})
+KNOWN_AUTO_INSTRUMENTATION_SCOPES: Final[frozenset[str]] = frozenset(
+    {
+        "opentelemetry.instrumentation.openai",
+        "opentelemetry.instrumentation.openai.v1",  # OpenAI SDK v1+
+        "opentelemetry.instrumentation.anthropic",
+        "opentelemetry.instrumentation.google_genai",
+        "opentelemetry.instrumentation.google_generativeai",
+        "opentelemetry.instrumentation.bedrock",
+        "opentelemetry.instrumentation.vertexai",
+        "opentelemetry.instrumentation.ollama",
+        "opentelemetry.instrumentation.mistralai",
+        "opentelemetry.instrumentation.langchain",
+        "opentelemetry.instrumentation.llamaindex",
+        "opentelemetry.instrumentation.chromadb",
+        "opentelemetry.instrumentation.pinecone",
+        "opentelemetry.instrumentation.qdrant",
+    }
+)
 
 
 # Mapping of instrumentation scope names to Basalt span kinds
@@ -298,7 +290,7 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
     after being applied to ensure single-use semantics.
     """
 
-    def on_start(self, span: Span, parent_context: Any | None = None) -> None:  # type: ignore[override]
+    def on_start(self, span: Span, parent_context: Any | None = None) -> None:
         """
         Called when a span starts.
 
@@ -331,13 +323,19 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         # Read and apply input
         input_payload = otel_context.get_value(PENDING_INJECT_INPUT_KEY, ctx)
         if input_payload is not None:
-            serialized = json.dumps(input_payload) if not isinstance(input_payload, str) else input_payload
+            serialized = (
+                json.dumps(input_payload) if not isinstance(input_payload, str) else input_payload
+            )
             span.set_attribute(semconv.BasaltSpan.INPUT, serialized)
 
         # Read and apply output
         output_payload = otel_context.get_value(PENDING_INJECT_OUTPUT_KEY, ctx)
         if output_payload is not None:
-            serialized = json.dumps(output_payload) if not isinstance(output_payload, str) else output_payload
+            serialized = (
+                json.dumps(output_payload)
+                if not isinstance(output_payload, str)
+                else output_payload
+            )
             span.set_attribute(semconv.BasaltSpan.OUTPUT, serialized)
 
         # Read and apply variables
@@ -349,27 +347,44 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         metadata = otel_context.get_value(PENDING_INJECT_METADATA_KEY, ctx)
         if metadata:
             from .utils import apply_span_metadata
+
             if isinstance(metadata, dict):
-                apply_span_metadata(span, metadata)
+                metadata_map = {str(key): value for key, value in metadata.items()}
+                apply_span_metadata(span, metadata_map)
             else:
                 # Non-dict metadata: store at basalt.metadata
-                span.set_attribute(semconv.BasaltSpan.METADATA, json.dumps(metadata) if not isinstance(metadata, str) else metadata)
+                span.set_attribute(
+                    semconv.BasaltSpan.METADATA,
+                    json.dumps(metadata) if not isinstance(metadata, str) else metadata,
+                )
 
         # Read and apply prompt metadata
         prompt_data = otel_context.get_value(PENDING_INJECT_PROMPT_KEY, ctx)
-        if prompt_data:
+        if isinstance(prompt_data, dict):
             # Apply prompt attributes (slug, version, provider, model)
             for key, value in prompt_data.items():
-                span.set_attribute(f"basalt.prompt.{key}", value)
+                if value is None:
+                    continue
+                if isinstance(value, (str, int, float)):
+                    safe_value = value
+                elif isinstance(value, (list, tuple)) and all(
+                    isinstance(item, (str, int, float)) for item in value
+                ):
+                    safe_value = list(value)
+                else:
+                    safe_value = json.dumps(value)
+                span.set_attribute(f"basalt.prompt.{key}", safe_value)
         else:
             # If no explicit injection, try to read from ContextVar
             # This allows auto-instrumented spans to inherit prompt context
             # from the parent prompt context manager
             try:
                 from basalt.prompts.models import _current_prompt_context
+
                 prompt_ctx = _current_prompt_context.get()
                 if prompt_ctx:
                     import logging
+
                     logger = logging.getLogger(__name__)
                     logger.debug(
                         f"✓ Injecting prompt context from ContextVar for span '{scope.name}': "
@@ -380,10 +395,14 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
                     apply_prompt_context_attributes(span, prompt_ctx)
                 else:
                     import logging
+
                     logger = logging.getLogger(__name__)
-                    logger.debug(f"✗ No prompt context found in ContextVar for auto-instrumented span '{scope.name}'")
+                    logger.debug(
+                        f"✗ No prompt context found in ContextVar for auto-instrumented span '{scope.name}'"
+                    )
             except (ImportError, LookupError) as e:
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.debug(f"✗ Failed to read prompt context for span '{scope.name}': {e}")
                 # Prompts module not available or no context set - skip injection
@@ -399,11 +418,11 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         new_ctx = otel_context.set_value(PENDING_INJECT_PROMPT_KEY, None, new_ctx)
         attach(new_ctx)
 
-    def on_end(self, span: ReadableSpan) -> None:  # type: ignore[override]
+    def on_end(self, span: ReadableSpan) -> None:
         return
 
-    def shutdown(self) -> None:  # type: ignore[override]
+    def shutdown(self) -> None:
         return
 
-    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[override]
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
         return True

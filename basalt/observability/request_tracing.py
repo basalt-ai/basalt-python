@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from .api import observe
 from .spans import BasaltRequestSpan
@@ -16,8 +16,9 @@ def _build_request_output(span_data: BasaltRequestSpan, result: T) -> dict[str, 
     # Type-safe output formatting for PromptRequestSpan
     from basalt.prompts.client import PromptRequestSpan
 
-    if isinstance(span_data, PromptRequestSpan):
-        return span_data.format_output(result)
+    if isinstance(span_data, PromptRequestSpan) and isinstance(result, dict):
+        response_data = cast(dict[str, Any], result)
+        return span_data.format_output(response_data)
     status_code = getattr(result, "status_code", None)
     return {"status_code": status_code}
 

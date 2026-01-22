@@ -1,6 +1,8 @@
 import os
 
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as GRPCSpanExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+    OTLPSpanExporter as GRPCSpanExporter,
+)
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
 from basalt import Basalt, TelemetryConfig
@@ -33,8 +35,8 @@ telemetry_config = TelemetryConfig(
     environment="production",
     exporter=[
         basalt_exporter,  # Export to Basalt for advanced features
-        local_exporter,   # Export to local collector
-        console_exporter, # Export to console for debugging
+        local_exporter,  # Export to local collector
+        console_exporter,  # Export to console for debugging
     ],
 )
 

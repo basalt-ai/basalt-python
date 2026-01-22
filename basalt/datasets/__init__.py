@@ -5,6 +5,7 @@ This package exposes the DatasetsClient and related models for interacting
 with the Basalt Datasets API. The client is lazily imported to avoid
 module-level circular dependencies during initialization.
 """
+
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover
