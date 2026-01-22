@@ -813,3 +813,125 @@ def test_publish_prompt_sync_parameter_combinations(common_client, slug, new_tag
             assert body["tag"] == tag
         else:
             assert "tag" not in body
+
+
+def test_get_sync_with_tools(common_client):
+    """Test that tools field is properly parsed and included in the Prompt."""
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
+            "text": "Hello {{name}}",
+            "slug": "test-slug",
+            "version": "1.0.0",
+            "tag": "prod",
+            "systemText": "You are a helpful assistant",
+            "model": {
+                "provider": "openai",
+                "model": "gpt-4",
+                "version": "1.0",
+                "parameters": {
+                    "temperature": 0.7,
+                    "maxLength": 100,
+                    "responseFormat": "text",
+                    "tools": {
+                        "tools": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "get_weather",
+                                    "description": "Get the current weather",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "location": {"type": "string"}
+                                        }
+                                    }
+                                }
+                            }
+                        ],
+                        "toolChoice": {"type": "auto"}
+                    }
+                }
+            }
+        }})
+
+        prompt = client.get_sync("test-slug")
+
+        assert prompt.tools is not None
+        assert len(prompt.tools.tools) == 1
+        assert prompt.tools.tools[0]["type"] == "function"
+        assert prompt.tools.tools[0]["function"]["name"] == "get_weather"
+        assert prompt.tools.tool_choice is not None
+        assert prompt.tools.tool_choice["type"] == "auto"
+
+
+def test_get_sync_without_tools(common_client):
+    """Test that prompts without tools field work correctly."""
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch_sync") as mock_fetch:
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
+            "text": "Hello",
+            "slug": "test-slug",
+            "version": "1.0.0",
+            "tag": "prod",
+            "systemText": "You are a helpful assistant",
+            "model": {
+                "provider": "openai",
+                "model": "gpt-4",
+                "version": "1.0",
+                "parameters": {
+                    "temperature": 0.7,
+                    "maxLength": 100,
+                    "responseFormat": "text",
+                }
+            }
+        }})
+
+        prompt = client.get_sync("test-slug")
+
+        assert prompt.tools is None
+
+
+@pytest.mark.asyncio
+async def test_get_async_with_tools(common_client):
+    """Test that tools field is properly parsed in async get."""
+    client: PromptsClient = common_client["client"]
+
+    with patch("basalt.prompts.client.HTTPClient.fetch") as mock_fetch:
+        mock_fetch.return_value = make_response({"warning": "", "prompt": {
+            "text": "Hello {{name}}",
+            "slug": "test-slug",
+            "version": "1.0.0",
+            "tag": "prod",
+            "systemText": "You are a helpful assistant",
+            "model": {
+                "provider": "openai",
+                "model": "gpt-4",
+                "version": "1.0",
+                "parameters": {
+                    "temperature": 0.7,
+                    "maxLength": 100,
+                    "responseFormat": "text",
+                    "tools": {
+                        "tools": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "search",
+                                    "description": "Search the web",
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }})
+
+        prompt = await client.get("test-slug")
+
+        assert prompt.tools is not None
+        assert len(prompt.tools.tools) == 1
+        assert prompt.tools.tools[0]["function"]["name"] == "search"
+        assert prompt.tools.tool_choice is None
