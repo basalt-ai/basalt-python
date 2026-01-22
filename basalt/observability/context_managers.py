@@ -769,18 +769,9 @@ def _with_span_handle(
                 from basalt.prompts.models import _current_prompt_context
                 prompt_ctx = _current_prompt_context.get()
                 if prompt_ctx:
-                    # Inject prompt attributes into this span
-                    import json
-                    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
-                    if prompt_ctx.get("version"):
-                        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
-                    if prompt_ctx.get("tag"):
-                        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
-                    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
-                    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
-                    if prompt_ctx.get("variables"):
-                        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
-                    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
+                    from .utils import apply_prompt_context_attributes
+
+                    apply_prompt_context_attributes(span, prompt_ctx)
             except ImportError:
                 # Prompts module not available, skip injection
                 pass
@@ -854,149 +845,24 @@ async def _async_with_span_handle(
     so this async context manager still calls sync OTel APIs internally.
     The async support is primarily for use with async with statements.
     """
-    tracer = get_tracer(tracer_name)
-    defaults = _current_trace_defaults()
-
-    parent_span = trace.get_current_span()
-    if parent_span and (not parent_span.get_span_context().is_valid or not parent_span.is_recording()):
-        parent_span = None
-
-    # Prepare context tokens for user/org propagation
-    tokens = []
-    if user is not None:
-        from .trace_context import _coerce_identity
-
-        user_identity = _coerce_identity(user)
-        if user_identity:
-            tokens.append(attach(set_value(USER_CONTEXT_KEY, user_identity)))
-
-    if organization is not None:
-        from .trace_context import _coerce_identity
-
-        org_identity = _coerce_identity(organization)
-        if org_identity:
-            tokens.append(attach(set_value(ORGANIZATION_CONTEXT_KEY, org_identity)))
-
-    if feature_slug is not None:
-        from .trace_context import FEATURE_SLUG_CONTEXT_KEY
-
-        tokens.append(attach(set_value(FEATURE_SLUG_CONTEXT_KEY, feature_slug)))
-
-    # If this is a root span (no parent), store it in context
-    is_root = parent_span is None
-    root_span_token = None
-
-    # Check if we're inside a basalt trace
-    in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
-
-    # Make trace-level sampling decision
-    should_evaluate_token = None
-    if is_root:
-        # Root span: make new sampling decision
-        # If experiment is attached, ALWAYS evaluate (should_evaluate=True)
-        if experiment is not None:
-            should_evaluate = True
-        else:
-            # Get sample_rate from evaluate_config if provided, otherwise use global default
-            if evaluate_config is not None:
-                effective_sample_rate = evaluate_config.sample_rate
-            else:
-                effective_sample_rate = defaults.sample_rate
-            should_evaluate = random.random() < effective_sample_rate
-        should_evaluate_token = attach(set_value(SHOULD_EVALUATE_CONTEXT_KEY, should_evaluate))
-    else:
-        # Check if should_evaluate already exists in context
-        existing_should_evaluate = otel_context.get_value(SHOULD_EVALUATE_CONTEXT_KEY)
-        if existing_should_evaluate is None:
-            # Orphan span without root - make its own decision
-            # If experiment is attached, ALWAYS evaluate
-            if experiment is not None:
-                should_evaluate = True
-            else:
-                if evaluate_config is not None:
-                    effective_sample_rate = evaluate_config.sample_rate
-                else:
-                    effective_sample_rate = defaults.sample_rate
-                should_evaluate = random.random() < effective_sample_rate
-            should_evaluate_token = attach(set_value(SHOULD_EVALUATE_CONTEXT_KEY, should_evaluate))
-
-    try:
-        with tracer.start_as_current_span(name) as span:
-            # Store root span in context for retrieval from nested spans
-            if is_root:
-                root_span_token = attach(set_value(ROOT_SPAN_CONTEXT_KEY, span))
-                # Set basalt.root attribute
-                span.set_attribute("basalt.root", True)
-            elif in_basalt_trace:
-                # Child span inside a basalt trace
-                span.set_attribute("basalt.trace", True)
-
-            # Mark all basalt spans with basalt.in_trace
-            span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
-
-            # Inject prompt context if available
-            try:
-                from basalt.prompts.models import _current_prompt_context
-                prompt_ctx = _current_prompt_context.get()
-                if prompt_ctx:
-                    # Inject prompt attributes into this span
-                    import json
-                    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
-                    if prompt_ctx.get("version"):
-                        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
-                    if prompt_ctx.get("tag"):
-                        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
-                    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
-                    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
-                    if prompt_ctx.get("variables"):
-                        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
-                    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
-            except ImportError:
-                # Prompts module not available, skip injection
-                pass
-
-            _attach_attributes(span, attributes)
-
-            # Apply metadata if provided
-            if metadata:
-                from .utils import apply_span_metadata
-                apply_span_metadata(span, metadata)
-
-            if span_type:
-                span.set_attribute(SPAN_TYPE_ATTRIBUTE, span_type)
-
-            # Apply user/org from context (either explicit or inherited from parent)
-            apply_user_from_context(span, user)
-            apply_organization_from_context(span, organization)
-
-            if is_root and handle_cls == SpanHandle:
-                actual_handle_cls = StartSpanHandle
-            else:
-                actual_handle_cls = handle_cls
-
-            handle = actual_handle_cls(span, parent_span, defaults)
-            if input_payload is not None:
-                handle.set_input(input_payload)
-            if variables:
-                handle.set_io(variables=variables)
-            if evaluators:
-                handle.add_evaluators(*evaluators)
-            yield handle  # type: ignore[misc]
-            if output_payload is not None:
-                handle.set_output(output_payload)
-
-    finally:
-        # Detach should_evaluate token if it was set
-        if should_evaluate_token is not None:
-            detach(should_evaluate_token)
-
-        # Detach root span token if it was set
-        if root_span_token is not None:
-            detach(root_span_token)
-
-        # Detach context tokens in reverse order
-        for token in reversed(tokens):
-            detach(token)
+    with _with_span_handle(
+        name=name,
+        attributes=attributes,
+        tracer_name=tracer_name,
+        handle_cls=handle_cls,
+        span_type=span_type,
+        input_payload=input_payload,
+        output_payload=output_payload,
+        variables=variables,
+        evaluators=evaluators,
+        user=user,
+        organization=organization,
+        feature_slug=feature_slug,
+        metadata=metadata,
+        evaluate_config=evaluate_config,
+        experiment=experiment,
+    ) as handle:
+        yield handle
 
 
 def _set_trace_user(user_id: str, name: str | None = None) -> None:

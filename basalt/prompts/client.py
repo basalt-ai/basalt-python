@@ -78,6 +78,13 @@ class PromptsClient(BaseServiceClient):
         # Cache responses for 5 minutes
         self._cache_duration = 5 * 60
 
+    @staticmethod
+    def _prompt_response_from_api(response: Any) -> PromptResponse:
+        if response is None or response.body is None:
+            raise BasaltAPIError("Empty response from get prompt API")
+        prompt_data = response.get("prompt", {})
+        return PromptResponse.from_dict(prompt_data)
+
     async def _request_async(
         self,
         operation: str,
@@ -211,10 +218,7 @@ class PromptsClient(BaseServiceClient):
                 span_variables=variables,
             )
 
-            if response is None or response.body is None:
-                raise BasaltAPIError("Empty response from get prompt API")
-            prompt_data = response.get("prompt", {})
-            prompt_response = PromptResponse.from_dict(prompt_data)
+            prompt_response = self._prompt_response_from_api(response)
 
             # Store in both caches
             if cache_enabled:
@@ -315,10 +319,7 @@ class PromptsClient(BaseServiceClient):
                 span_variables=variables,
             )
 
-            if response is None or response.body is None:
-                raise BasaltAPIError("Empty response from get prompt API")
-            prompt_data = response.get("prompt", {})
-            prompt_response = PromptResponse.from_dict(prompt_data)
+            prompt_response = self._prompt_response_from_api(response)
 
             # Store in both caches
             if cache_enabled:

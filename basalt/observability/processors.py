@@ -371,18 +371,13 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
                 if prompt_ctx:
                     import logging
                     logger = logging.getLogger(__name__)
-                    logger.debug(f"✓ Injecting prompt context from ContextVar for span '{scope.name}': slug='{prompt_ctx['slug']}'")
-                    # Inject prompt attributes from ContextVar
-                    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
-                    if prompt_ctx.get("version"):
-                        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
-                    if prompt_ctx.get("tag"):
-                        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
-                    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
-                    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
-                    if prompt_ctx.get("variables"):
-                        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
-                    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
+                    logger.debug(
+                        f"✓ Injecting prompt context from ContextVar for span '{scope.name}': "
+                        f"slug='{prompt_ctx['slug']}'"
+                    )
+                    from .utils import apply_prompt_context_attributes
+
+                    apply_prompt_context_attributes(span, prompt_ctx)
                 else:
                     import logging
                     logger = logging.getLogger(__name__)

@@ -55,6 +55,19 @@ def apply_span_metadata(span: Any, metadata: Mapping[str, Any] | None) -> None:
             pass
 
 
+def apply_prompt_context_attributes(span: Any, prompt_ctx: Mapping[str, Any]) -> None:
+    span.set_attribute("basalt.prompt.slug", prompt_ctx["slug"])
+    if prompt_ctx.get("version"):
+        span.set_attribute("basalt.prompt.version", prompt_ctx["version"])
+    if prompt_ctx.get("tag"):
+        span.set_attribute("basalt.prompt.tag", prompt_ctx["tag"])
+    span.set_attribute("basalt.prompt.model.provider", prompt_ctx["provider"])
+    span.set_attribute("basalt.prompt.model.model", prompt_ctx["model"])
+    if prompt_ctx.get("variables"):
+        span.set_attribute("basalt.prompt.variables", json.dumps(prompt_ctx["variables"]))
+    span.set_attribute("basalt.prompt.from_cache", prompt_ctx["from_cache"])
+
+
 def resolve_attributes(
     attributes: Any,
     args: tuple[Any, ...],

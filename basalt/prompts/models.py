@@ -277,17 +277,7 @@ class PromptContextManager(_PromptContextMixin):
 
         This allows child spans to automatically receive prompt attributes.
         """
-        # Store prompt metadata in context
-        prompt_ctx = {
-            "slug": self._slug,
-            "version": self._version,
-            "tag": self._tag,
-            "provider": self._prompt.model.provider,
-            "model": self._prompt.model.model,
-            "variables": self._variables,
-            "from_cache": self._from_cache,
-        }
-        self._context_token = _current_prompt_context.set(prompt_ctx)
+        self._enter_prompt_context()
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
@@ -296,8 +286,7 @@ class PromptContextManager(_PromptContextMixin):
             # Any cleanup logic
             pass
         finally:
-            if self._context_token is not None:
-                _current_prompt_context.reset(self._context_token)
+            self._exit_prompt_context()
 
         # Don't suppress exceptions
         return False
@@ -313,6 +302,23 @@ class PromptContextManager(_PromptContextMixin):
     def compile_variables(self, variables: dict[str, Any]) -> Prompt:
         """Forward compile_variables to wrapped Prompt."""
         return self._prompt.compile_variables(variables)
+
+    def _enter_prompt_context(self) -> None:
+        # Store prompt metadata in context for child spans.
+        prompt_ctx = {
+            "slug": self._slug,
+            "version": self._version,
+            "tag": self._tag,
+            "provider": self._prompt.model.provider,
+            "model": self._prompt.model.model,
+            "variables": self._variables,
+            "from_cache": self._from_cache,
+        }
+        self._context_token = _current_prompt_context.set(prompt_ctx)
+
+    def _exit_prompt_context(self) -> None:
+        if self._context_token is not None:
+            _current_prompt_context.reset(self._context_token)
 
 
 class AsyncPromptContextManager(_PromptContextMixin):
@@ -371,17 +377,7 @@ class AsyncPromptContextManager(_PromptContextMixin):
 
         This allows child spans to automatically receive prompt attributes.
         """
-        # Store prompt metadata in context
-        prompt_ctx = {
-            "slug": self._slug,
-            "version": self._version,
-            "tag": self._tag,
-            "provider": self._prompt.model.provider,
-            "model": self._prompt.model.model,
-            "variables": self._variables,
-            "from_cache": self._from_cache,
-        }
-        self._context_token = _current_prompt_context.set(prompt_ctx)
+        self._enter_prompt_context()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
@@ -390,8 +386,7 @@ class AsyncPromptContextManager(_PromptContextMixin):
             # Any cleanup logic
             pass
         finally:
-            if self._context_token is not None:
-                _current_prompt_context.reset(self._context_token)
+            self._exit_prompt_context()
 
         # Don't suppress exceptions
         return False
@@ -450,6 +445,33 @@ class PromptResponse:
         )
 
 
+def _parse_prompt_descriptor_fields(
+    data: Mapping[str, Any] | None,
+) -> tuple[str, str, str, str, list[str], list[str]]:
+    if data is None:
+        data = {}
+
+    slug = data.get("slug") if isinstance(data.get("slug"), str) else ""
+    status = data.get("status") if isinstance(data.get("status"), str) else ""
+    name = data.get("name") if isinstance(data.get("name"), str) else ""
+    description = data.get("description") if isinstance(data.get("description"), str) else ""
+
+    available_versions_raw = data.get("availableVersions")
+    available_versions = list(available_versions_raw) if isinstance(available_versions_raw, list) else []
+
+    available_tags_raw = data.get("availableTags")
+    available_tags = list(available_tags_raw) if isinstance(available_tags_raw, list) else []
+
+    return (
+        str(slug),
+        str(status),
+        str(name),
+        str(description),
+        available_versions,
+        available_tags,
+    )
+
+
 @dataclass(slots=True, frozen=True)
 class DescribePromptResponse:
     """Response from the Describe Prompt API endpoint.
@@ -470,28 +492,23 @@ class DescribePromptResponse:
 
         Robust against missing keys or wrong types. Copies mutable inputs.
         """
-        if data is None:
-            data = {}
-
-        slug = data.get("slug") if isinstance(data.get("slug"), str) else ""
-        status = data.get("status") if isinstance(data.get("status"), str) else ""
-        name = data.get("name") if isinstance(data.get("name"), str) else ""
-        description = data.get("description") if isinstance(data.get("description"), str) else ""
-
-        available_versions_raw = data.get("availableVersions")
-        available_versions = list(available_versions_raw) if isinstance(available_versions_raw, list) else []
-
-        available_tags_raw = data.get("availableTags")
-        available_tags = list(available_tags_raw) if isinstance(available_tags_raw, list) else []
+        (
+            slug,
+            status,
+            name,
+            description,
+            available_versions,
+            available_tags,
+        ) = _parse_prompt_descriptor_fields(data)
 
         variables_raw = data.get("variables")
         variables = list(variables_raw) if isinstance(variables_raw, list) else []
 
         return cls(
-            slug=str(slug),
-            status=str(status),
-            name=str(name),
-            description=str(description),
+            slug=slug,
+            status=status,
+            name=name,
+            description=description,
             available_versions=available_versions,
             available_tags=available_tags,
             variables=variables,
@@ -517,25 +534,20 @@ class PromptListResponse:
 
         Robust against missing keys or wrong types. Copies mutable inputs.
         """
-        if data is None:
-            data = {}
-
-        slug = data.get("slug") if isinstance(data.get("slug"), str) else ""
-        status = data.get("status") if isinstance(data.get("status"), str) else ""
-        name = data.get("name") if isinstance(data.get("name"), str) else ""
-        description = data.get("description") if isinstance(data.get("description"), str) else ""
-
-        available_versions_raw = data.get("availableVersions")
-        available_versions = list(available_versions_raw) if isinstance(available_versions_raw, list) else []
-
-        available_tags_raw = data.get("availableTags")
-        available_tags = list(available_tags_raw) if isinstance(available_tags_raw, list) else []
+        (
+            slug,
+            status,
+            name,
+            description,
+            available_versions,
+            available_tags,
+        ) = _parse_prompt_descriptor_fields(data)
 
         return cls(
-            slug=str(slug),
-            status=str(status),
-            name=str(name),
-            description=str(description),
+            slug=slug,
+            status=status,
+            name=name,
+            description=description,
             available_versions=available_versions,
             available_tags=available_tags,
         )

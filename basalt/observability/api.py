@@ -50,6 +50,73 @@ from .utils import (
 F = TypeVar("F", bound=Callable[..., Any])
 
 
+def _resolve_experiment_id(experiment: str | Experiment | None) -> str | None:
+    """Resolve an experiment identifier from supported experiment types."""
+    if not experiment:
+        return None
+    if isinstance(experiment, str):
+        return experiment
+    exp_id = getattr(experiment, "id", None)
+    if isinstance(exp_id, str) and exp_id:
+        return exp_id
+    return None
+
+
+def _get_observe_config_for_kind(kind_str: str):
+    """Return handle class, tracer name, and default resolvers for the kind."""
+    if kind_str == "generation":
+        return (
+            LLMSpanHandle,
+            "basalt.observability.generation",
+            default_generation_input,
+            default_generation_variables,
+        )
+    if kind_str == "retrieval":
+        return (
+            RetrievalSpanHandle,
+            "basalt.observability.retrieval",
+            default_retrieval_input,
+            default_retrieval_variables,
+        )
+    if kind_str == "tool":
+        return (
+            ToolSpanHandle,
+            "basalt.observability.tool",
+            None,
+            None,
+        )
+    if kind_str == "function":
+        return (
+            FunctionSpanHandle,
+            "basalt.observability.function",
+            None,
+            None,
+        )
+    if kind_str == "event":
+        return (
+            EventSpanHandle,
+            "basalt.observability.event",
+            None,
+            None,
+        )
+    return (
+        SpanHandle,
+        "basalt.observability",
+        None,
+        None,
+    )
+
+
+def _resolve_kind_str(kind: ObserveKind | str) -> str:
+    if isinstance(kind, ObserveKind):
+        return kind.value
+    kind_str = str(kind).lower()
+    valid_kinds = {k.value for k in ObserveKind}
+    if kind_str not in valid_kinds:
+        raise ValueError(f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}")
+    return kind_str
+
+
 class StartObserve(ContextDecorator):
     """
     Entry point for Basalt observability.
@@ -223,18 +290,10 @@ class StartObserve(ContextDecorator):
         Supports either a string experiment ID or an
         `Experiment` dataclass instance from `basalt.experiments.models`.
         """
-        if span is None or not self.experiment:
+        if span is None:
             return
 
-        exp_id: str | None = None
-
-        # Handle string ID case
-        if isinstance(self.experiment, str):
-            exp_id = self.experiment
-        # Check if it's an Experiment dataclass by looking for the 'id' attribute
-        # (avoid isinstance to prevent circular import at runtime)
-        elif hasattr(self.experiment, "id"):
-            exp_id = self.experiment.id  # type: ignore[attr-defined]
+        exp_id = _resolve_experiment_id(self.experiment)
 
         if not exp_id:
             return  # Must have an id to attach
@@ -282,61 +341,12 @@ class Observe(ContextDecorator):
 
     @staticmethod
     def _get_config_for_kind(kind_str: str):
-        """Return handle class, tracer name, and default resolvers for the kind."""
-        if kind_str == "generation":
-            return (
-                LLMSpanHandle,
-                "basalt.observability.generation",
-                default_generation_input,
-                default_generation_variables,
-            )
-        elif kind_str == "retrieval":
-            return (
-                RetrievalSpanHandle,
-                "basalt.observability.retrieval",
-                default_retrieval_input,
-                default_retrieval_variables,
-            )
-        elif kind_str == "tool":
-            return (
-                ToolSpanHandle,
-                "basalt.observability.tool",
-                None,
-                None,
-            )
-        elif kind_str == "function":
-            return (
-                FunctionSpanHandle,
-                "basalt.observability.function",
-                None,
-                None,
-            )
-        elif kind_str == "event":
-            return (
-                EventSpanHandle,
-                "basalt.observability.event",
-                None,
-                None,
-            )
-        else:
-            return (
-                SpanHandle,
-                "basalt.observability",
-                None,
-                None,
-            )
+        return _get_observe_config_for_kind(kind_str)
 
     def __enter__(self) -> SpanHandle:
         span_name = self.name
 
-        if isinstance(self.kind, ObserveKind):
-            kind_str = self.kind.value
-        else:
-            kind_str = str(self.kind).lower()
-            # Validate that the string kind is valid
-            valid_kinds = {k.value for k in ObserveKind}
-            if kind_str not in valid_kinds:
-                raise ValueError(f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}")
+        kind_str = _resolve_kind_str(self.kind)
 
         # Reject ROOT kind
         if kind_str == ObserveKind.ROOT.value:
@@ -434,8 +444,7 @@ class Observe(ContextDecorator):
             if self.prompt.variables:
                 prompt_metadata["basalt.prompt.variables"] = json.dumps(self.prompt.variables)
 
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def prepare_call_data(args, kwargs):
             computed_metadata = resolve_attributes(self._metadata, args, kwargs)
             bound = resolve_bound_arguments(func, args, kwargs)
             input_payload = resolve_payload_from_bound(input_resolver, bound)
@@ -453,19 +462,27 @@ class Observe(ContextDecorator):
                     "Observe used without a preceding start_observe. This may lead to missing trace context."
                 )
 
-            # Pre-hooks
-            def apply_pre(span, bound):
-                if kind_str == "generation" and isinstance(span, LLMSpanHandle):
-                    apply_llm_request_metadata(span, bound)
-                elif kind_str == "retrieval" and isinstance(span, RetrievalSpanHandle):
-                    query = resolve_payload_from_bound(input_resolver, bound)
-                    if isinstance(query, str):
-                        span.set_query(query)
+            return computed_metadata, bound, input_payload, variables_payload, pre_evaluators
 
-            # Post-hooks
-            def apply_post(span, result):
-                if kind_str == "generation" and isinstance(span, LLMSpanHandle):
-                    apply_llm_response_metadata(span, result)
+        # Pre-hooks
+        def apply_pre(span, bound):
+            if kind_str == "generation" and isinstance(span, LLMSpanHandle):
+                apply_llm_request_metadata(span, bound)
+            elif kind_str == "retrieval" and isinstance(span, RetrievalSpanHandle):
+                query = resolve_payload_from_bound(input_resolver, bound)
+                if isinstance(query, str):
+                    span.set_query(query)
+
+        # Post-hooks
+        def apply_post(span, result):
+            if kind_str == "generation" and isinstance(span, LLMSpanHandle):
+                apply_llm_response_metadata(span, result)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            computed_metadata, bound, input_payload, variables_payload, pre_evaluators = prepare_call_data(
+                args, kwargs
+            )
 
             with _with_span_handle(
                 name=self.name,
@@ -499,36 +516,9 @@ class Observe(ContextDecorator):
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
-                computed_metadata = resolve_attributes(self._metadata, args, kwargs)
-                bound = resolve_bound_arguments(func, args, kwargs)
-                input_payload = resolve_payload_from_bound(input_resolver, bound)
-                variables_payload = resolve_variables_payload(variables_resolver, bound)
-                pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
-
-                # Check for root span
-                from opentelemetry import context as otel_context
-
-                if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
-                    import logging
-
-                    logger = logging.getLogger(__name__)
-                    logger.warning(
-                        "Observe used without a preceding start_observe. This may lead to missing trace context."
-                    )
-
-                # Pre-hooks (same as sync)
-                def apply_pre(span, bound):
-                    if kind_str == "generation" and isinstance(span, LLMSpanHandle):
-                        apply_llm_request_metadata(span, bound)
-                    elif kind_str == "retrieval" and isinstance(span, RetrievalSpanHandle):
-                        query = resolve_payload_from_bound(input_resolver, bound)
-                        if isinstance(query, str):
-                            span.set_query(query)
-
-                # Post-hooks (same as sync)
-                def apply_post(span, result):
-                    if kind_str == "generation" and isinstance(span, LLMSpanHandle):
-                        apply_llm_response_metadata(span, result)
+                computed_metadata, bound, input_payload, variables_payload, pre_evaluators = prepare_call_data(
+                    args, kwargs
+                )
 
                 with _with_span_handle(
                     name=self.name,
@@ -1008,17 +998,10 @@ class AsyncStartObserve:
 
     def _apply_experiment(self, span: StartSpanHandle | None) -> None:
         """Apply experiment metadata to the provided span."""
-        if span is None or not self.experiment:
+        if span is None:
             return
 
-        exp_id: str | None = None
-
-        # Handle string ID case
-        if isinstance(self.experiment, str):
-            exp_id = self.experiment
-        # Check if it's an Experiment dataclass by looking for the 'id' attribute
-        elif hasattr(self.experiment, "id"):
-            exp_id = self.experiment.id  # type: ignore[attr-defined]
+        exp_id = _resolve_experiment_id(self.experiment)
 
         if not exp_id:
             return  # Must have an id to attach
@@ -1066,61 +1049,12 @@ class AsyncObserve:
 
     @staticmethod
     def _get_config_for_kind(kind_str: str):
-        """Return handle class, tracer name, and default resolvers for the kind."""
-        if kind_str == "generation":
-            return (
-                LLMSpanHandle,
-                "basalt.observability.generation",
-                default_generation_input,
-                default_generation_variables,
-            )
-        elif kind_str == "retrieval":
-            return (
-                RetrievalSpanHandle,
-                "basalt.observability.retrieval",
-                default_retrieval_input,
-                default_retrieval_variables,
-            )
-        elif kind_str == "tool":
-            return (
-                ToolSpanHandle,
-                "basalt.observability.tool",
-                None,
-                None,
-            )
-        elif kind_str == "function":
-            return (
-                FunctionSpanHandle,
-                "basalt.observability.function",
-                None,
-                None,
-            )
-        elif kind_str == "event":
-            return (
-                EventSpanHandle,
-                "basalt.observability.event",
-                None,
-                None,
-            )
-        else:
-            return (
-                SpanHandle,
-                "basalt.observability",
-                None,
-                None,
-            )
+        return _get_observe_config_for_kind(kind_str)
 
     async def __aenter__(self) -> SpanHandle:
         span_name = self.name
 
-        if isinstance(self.kind, ObserveKind):
-            kind_str = self.kind.value
-        else:
-            kind_str = str(self.kind).lower()
-            # Validate that the string kind is valid
-            valid_kinds = {k.value for k in ObserveKind}
-            if kind_str not in valid_kinds:
-                raise ValueError(f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}")
+        kind_str = _resolve_kind_str(self.kind)
 
         # Reject ROOT kind
         if kind_str == ObserveKind.ROOT.value:

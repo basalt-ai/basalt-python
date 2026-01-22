@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import time
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from .api import observe
 from .spans import BasaltRequestSpan
 
 T = TypeVar("T")
+
+
+def _build_request_output(span_data: BasaltRequestSpan, result: T) -> dict[str, Any]:
+    # Type-safe output formatting for PromptRequestSpan
+    from basalt.prompts.client import PromptRequestSpan
+
+    if isinstance(span_data, PromptRequestSpan):
+        return span_data.format_output(result)
+    status_code = getattr(result, "status_code", None)
+    return {"status_code": status_code}
 
 
 async def trace_async_request(
@@ -51,13 +61,7 @@ async def trace_async_request(
             )
             raise
 
-        # Type-safe output formatting for PromptRequestSpan
-        from basalt.prompts.client import PromptRequestSpan
-        if isinstance(span_data, PromptRequestSpan):
-            output = span_data.format_output(result)
-        else:
-            status_code = getattr(result, "status_code", None)
-            output = {"status_code": status_code}
+        output = _build_request_output(span_data, result)
 
         observe.set_output(output)
         status_code = getattr(result, "status_code", None)
@@ -109,13 +113,7 @@ def trace_sync_request(
             )
             raise
 
-        # Type-safe output formatting for PromptRequestSpan
-        from basalt.prompts.client import PromptRequestSpan
-        if isinstance(span_data, PromptRequestSpan):
-            output = span_data.format_output(result)
-        else:
-            status_code = getattr(result, "status_code", None)
-            output = {"status_code": status_code}
+        output = _build_request_output(span_data, result)
 
         observe.set_output(output)
         status_code = getattr(result, "status_code", None)

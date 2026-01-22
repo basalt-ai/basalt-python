@@ -81,20 +81,22 @@ class Trace:
         current_user, current_org = _get_current_identity_from_span(span)
 
         if user is not None:
-            new_user = _parse_identity_input(user)
-            merged_user = _merge_identity(current_user, new_user)
-            if 'id' in merged_user:
-                span.set_attribute(semconv.BasaltUser.ID, merged_user['id'])
-            if 'name' in merged_user:
-                span.set_attribute(semconv.BasaltUser.NAME, merged_user['name'])
+            _apply_identity_attributes(
+                span=span,
+                current=current_user,
+                incoming=user,
+                id_attr=semconv.BasaltUser.ID,
+                name_attr=semconv.BasaltUser.NAME,
+            )
 
         if organization is not None:
-            new_org = _parse_identity_input(organization)
-            merged_org = _merge_identity(current_org, new_org)
-            if 'id' in merged_org:
-                span.set_attribute(semconv.BasaltOrganization.ID, merged_org['id'])
-            if 'name' in merged_org:
-                span.set_attribute(semconv.BasaltOrganization.NAME, merged_org['name'])
+            _apply_identity_attributes(
+                span=span,
+                current=current_org,
+                incoming=organization,
+                id_attr=semconv.BasaltOrganization.ID,
+                name_attr=semconv.BasaltOrganization.NAME,
+            )
 
 
 def _get_current_identity_from_span(span: Span) -> tuple[dict[str, str], dict[str, str]]:
@@ -139,6 +141,22 @@ def _parse_identity_input(value: str | dict[str, Any] | None) -> dict[str, str]:
 def _merge_identity(existing: dict[str, str], new: dict[str, str]) -> dict[str, str]:
     """Merge new identity values into existing, overriding keys present in new."""
     return {**existing, **new}
+
+
+def _apply_identity_attributes(
+    *,
+    span: Span,
+    current: dict[str, str],
+    incoming: str | dict[str, Any] | None,
+    id_attr: str,
+    name_attr: str,
+) -> None:
+    new_identity = _parse_identity_input(incoming)
+    merged_identity = _merge_identity(current, new_identity)
+    if "id" in merged_identity:
+        span.set_attribute(id_attr, merged_identity["id"])
+    if "name" in merged_identity:
+        span.set_attribute(name_attr, merged_identity["name"])
 
 
 # Singleton instance
