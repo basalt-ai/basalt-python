@@ -204,6 +204,16 @@ class Prompt:
     variables: dict[str, Any] | None = None
     tag: str | None = None
 
+    @property
+    def tools(self) -> PromptTools | None:
+        """
+        Convenience property to access tools from model.parameters.tools.
+
+        Returns:
+            The PromptTools object if configured, otherwise None.
+        """
+        return self.model.parameters.tools
+
     def compile_variables(self, variables: dict[str, Any]) -> Prompt:
         """
         Compile the prompt variables and render the text and system_text templates.
@@ -301,6 +311,7 @@ class PromptContextManager(_PromptContextMixin):
     raw_system_text: str | None
     variables: dict[str, Any] | None
     tag: str | None
+    tools: PromptTools | None
 
     def __init__(
         self,
@@ -389,6 +400,7 @@ class AsyncPromptContextManager(_PromptContextMixin):
     raw_system_text: str | None
     variables: dict[str, Any] | None
     tag: str | None
+    tools: PromptTools | None
 
     def __init__(
         self,
