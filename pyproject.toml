@@ -132,12 +132,6 @@ dev = [
 
 
 # Pytest configuration
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-
 # A recommended configuration for Ruff, the modern linter/formatter
 [tool.ruff]
 line-length = 160
