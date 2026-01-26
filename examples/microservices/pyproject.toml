@@ -26,7 +26,7 @@ dependencies = [
     "opentelemetry-instrumentation-openai~=0.51.0",
     # "opentelemetry-instrumentation-google-genai~=0.5b0",  # NEW Google GenAI SDK (from google import genai)
     "opentelemetry-instrumentation-google-generativeai~=0.51.0",
-    "opentelemetry.instrumentation.fastapi",
+    "opentelemetry-instrumentation-fastapi",
     # OTLP Exporter for local telemetry collection
     "opentelemetry-exporter-otlp-proto-grpc~=1.39.1",
 ]
