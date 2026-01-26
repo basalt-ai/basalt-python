@@ -403,6 +403,14 @@ class InstrumentationManager:
 
             # Try to import the instrumentor
             instrumentor_cls = _safe_import(module_name, class_name)
+            if not instrumentor_cls and provider_key == "google_generativeai":
+                # Fallback: some environments use the GenAI SDK under the same provider name.
+                instrumentor_cls = _safe_import(
+                    "opentelemetry.instrumentation.google_genai",
+                    "GoogleGenAiSdkInstrumentor",
+                )
+                if instrumentor_cls:
+                    module_name = "opentelemetry.instrumentation.google_genai"
             if not instrumentor_cls:
                 logger.debug(
                     f"Provider '{provider_key}' instrumentor not available. "

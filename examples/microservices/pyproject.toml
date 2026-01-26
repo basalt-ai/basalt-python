@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "basalt-microservices-example"
+version = "0.1.0"
+description = "Microservices example demonstrating Basalt observability across HTTP communication"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.hatch.envs.default]
+detached = true
+dependencies = [
+    # Web framework dependencies
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "httpx>=0.25.0",
+
+    # LLM SDKs
+    "openai==2.15.0",
+    "google-genai==1.60.0",
+
+    # LLM Auto-instrumentation (FastAPI instrumentation removed due to conflicts with Basalt)
+    "opentelemetry-instrumentation-openai~=0.51.0",
+    # "opentelemetry-instrumentation-google-genai~=0.5b0",  # NEW Google GenAI SDK (from google import genai)
+    "opentelemetry-instrumentation-google-generativeai~=0.51.0",
+    "opentelemetry-instrumentation-fastapi",
+    # OTLP Exporter for local telemetry collection
+    "opentelemetry-exporter-otlp-proto-grpc~=1.39.1",
+]
+
+[tool.hatch.envs.default.scripts]
+service-a = "uvicorn service_a.main:app --host 0.0.0.0 --port 8001"
+service-b = "uvicorn service_b.main:app --host 0.0.0.0 --port 8002"

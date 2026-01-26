@@ -725,12 +725,31 @@ def _with_span_handle(
 
         tokens.append(attach(set_value(FEATURE_SLUG_CONTEXT_KEY, feature_slug)))
 
-    # If this is a root span (no parent), store it in context
-    is_root = parent_span is None
+    # Determine if this should be treated as a Basalt root span
+    # A span is a Basalt root if:
+    # 1. There's no parent span at all (true root), OR
+    # 2. This is a start_observe (span_type="basalt_trace") AND the parent is NOT a Basalt span
+    #    (e.g., parent is from FastAPI, httpx, or other instrumentation)
     root_span_token = None
 
-    # Check if we're inside a basalt trace
+    # Check if we're already inside a basalt trace
     in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
+
+    # Determine root status
+    if parent_span is None:
+        # No parent at all - this is a true root
+        is_root = True
+    elif span_type == "basalt_trace" and not in_basalt_trace:
+        # Parent exists but it's NOT a Basalt span (e.g., FastAPI HTTP span)
+        # AND this is a start_observe call (basalt_trace type)
+        # -> Treat as Basalt root (allows start_observe to work inside FastAPI handlers)
+        is_root = True
+    else:
+        # Parent exists and either:
+        # - We're already in a Basalt trace, OR
+        # - This is not a start_observe call
+        # -> Treat as nested span
+        is_root = False
 
     # Make trace-level sampling decision
     should_evaluate_token = None
