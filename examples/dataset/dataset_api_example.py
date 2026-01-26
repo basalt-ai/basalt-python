@@ -27,8 +27,8 @@ from basalt.types.exceptions import (
     UnauthorizedError,
 )
 
-# Add parent directory to path to import basalt
-project_root = Path(__file__).parent.parent
+# Add repo root to path to import basalt
+project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root))
 
 os.environ["BASALT_BUILD"] = "development"

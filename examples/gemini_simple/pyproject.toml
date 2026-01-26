@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "basalt-gemini-simple-example"
+version = "0.1.0"
+description = "Simple Gemini example demonstrating Basalt observability"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.hatch.envs.default]
+detached = true
+dependencies = [
+    "google-genai==1.60.0",
+    "httpx>=0.25.0",
+    "opentelemetry-exporter-otlp-proto-grpc~=1.39.1",
+]
+
+[tool.hatch.envs.default.scripts]
+run = "python gemini_random_data_example.py"
