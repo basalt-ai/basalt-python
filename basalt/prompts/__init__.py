@@ -18,6 +18,7 @@ from .models import (
     PromptModelParameters,
     PromptParams,
     PromptResponse,
+    PromptTools,
     PublishPromptResponse,
 )
 
@@ -33,6 +34,7 @@ __all__ = [
     "PromptModelParameters",
     "PromptParams",
     "PromptResponse",
+    "PromptTools",
     "DescribePromptResponse",
     "PromptListResponse",
     "PublishPromptResponse",

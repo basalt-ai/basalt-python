@@ -21,6 +21,36 @@ _current_prompt_context: ContextVar[dict[str, Any] | None] = ContextVar(
 
 
 @dataclass(slots=True, frozen=True)
+class PromptTools:
+    """Tools configuration for a prompt.
+
+    Immutable and uses slots to reduce per-instance memory overhead.
+    """
+    tools: list[dict[str, Any]]
+    tool_choice: dict[str, Any] | None = None
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any] | None) -> PromptTools | None:
+        """Create instance from API response mapping.
+
+        Robust against missing keys or wrong types.
+        """
+        if data is None:
+            return None
+
+        tools_raw = data.get("tools")
+        tools = list(tools_raw) if isinstance(tools_raw, list) else []
+
+        tool_choice_raw = data.get("toolChoice")
+        tool_choice = dict(tool_choice_raw) if isinstance(tool_choice_raw, Mapping) else None
+
+        return cls(
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+
+
+@dataclass(slots=True, frozen=True)
 class PromptModelParameters:
     """Model parameters for a prompt.
 
@@ -35,6 +65,7 @@ class PromptModelParameters:
     frequency_penalty: float | None = None
     presence_penalty: float | None = None
     json_object: dict | None = None
+    tools: PromptTools | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any] | None) -> PromptModelParameters:
@@ -74,6 +105,10 @@ class PromptModelParameters:
         json_object = data.get("jsonObject")
         json_object = dict(json_object) if isinstance(json_object, Mapping) else None
 
+        # Parse tools from parameters.tools
+        tools_data = data.get("tools")
+        tools = PromptTools.from_dict(tools_data if isinstance(tools_data, Mapping) else None)
+
         return cls(
             temperature=temperature,
             top_k=top_k,
@@ -83,6 +118,7 @@ class PromptModelParameters:
             max_length=max_length,
             response_format=response_format,
             json_object=json_object,
+            tools=tools,
         )
 
 
@@ -123,8 +159,6 @@ class PromptModel:
             version=str(version),
             parameters=parameters,
         )
-
-
 @dataclass
 class PromptParams:
     """Parameters for creating a new prompt instance."""
@@ -169,6 +203,16 @@ class Prompt:
     raw_system_text: str | None = None
     variables: dict[str, Any] | None = None
     tag: str | None = None
+
+    @property
+    def tools(self) -> PromptTools | None:
+        """
+        Convenience property to access tools from model.parameters.tools.
+
+        Returns:
+            The PromptTools object if configured, otherwise None.
+        """
+        return self.model.parameters.tools
 
     def compile_variables(self, variables: dict[str, Any]) -> Prompt:
         """
@@ -267,6 +311,7 @@ class PromptContextManager(_PromptContextMixin):
     raw_system_text: str | None
     variables: dict[str, Any] | None
     tag: str | None
+    tools: PromptTools | None
 
     def __init__(
         self,
@@ -355,6 +400,7 @@ class AsyncPromptContextManager(_PromptContextMixin):
     raw_system_text: str | None
     variables: dict[str, Any] | None
     tag: str | None
+    tools: PromptTools | None
 
     def __init__(
         self,

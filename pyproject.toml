@@ -130,6 +130,7 @@ dev = [
 ]
 
 
+# Pytest configuration
 # A recommended configuration for Ruff, the modern linter/formatter
 [tool.ruff]
 line-length = 160
