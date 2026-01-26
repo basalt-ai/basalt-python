@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "basalt-openai-simple-example"
+version = "0.1.0"
+description = "Simple OpenAI example demonstrating Basalt observability"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.hatch.envs.default]
+detached = true
+dependencies = [
+    "openai==2.15.0",
+    "opentelemetry-exporter-otlp-proto-grpc~=1.39.1",
+]
+
+[tool.hatch.envs.default.scripts]
+run = "python openai_example.py"

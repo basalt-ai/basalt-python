@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "basalt-dataset-example"
+version = "0.1.0"
+description = "Dataset API examples for Basalt"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.hatch.envs.default]
+detached = true
+dependencies = [
+    "httpx>=0.25.0",
+]
+
+[tool.hatch.envs.default.scripts]
+run = "python dataset_api_example.py"

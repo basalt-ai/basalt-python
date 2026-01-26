@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "basalt-multi-exporter-example"
+version = "0.1.0"
+description = "Multi-exporter example demonstrating Basalt observability"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.hatch.envs.default]
+detached = true
+dependencies = [
+    "opentelemetry-exporter-otlp-proto-grpc~=1.39.1",
+    "opentelemetry-sdk~=1.39.1",
+]
+
+[tool.hatch.envs.default.scripts]
+run = "python multi_exporter_example.py"
