@@ -572,3 +572,57 @@ async def test_async_observe_has_in_trace_attribute(setup_tracing):
         assert root_span._span.attributes.get("basalt.in_trace") is True
         async with AsyncObserve(kind=ObserveKind.GENERATION, name="async_child") as child_span:
             assert child_span._span.attributes.get("basalt.in_trace") is True
+
+
+def test_start_observe_with_external_parent_span(setup_tracing):
+    """
+    Test that start_observe treats itself as a Basalt root when there's
+    a non-Basalt parent span (e.g., from FastAPI, httpx, or other instrumentation).
+    
+    This verifies the scenario where:
+    1. An external (non-Basalt) span exists as the current span
+    2. ROOT_SPAN_CONTEXT_KEY is not set (indicating no Basalt trace)
+    3. start_observe is called
+    4. The new span should be treated as a Basalt root
+    5. ROOT_SPAN_CONTEXT_KEY should be attached
+    """
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+
+    from basalt.observability import StartObserve
+
+    # Get or create a tracer provider
+    provider = trace.get_tracer_provider()
+    if not isinstance(provider, TracerProvider):
+        provider = TracerProvider()
+        trace.set_tracer_provider(provider)
+
+    # Create an external (non-Basalt) parent span to simulate FastAPI/httpx
+    external_tracer = provider.get_tracer("external.instrumentation")
+    external_span = external_tracer.start_span("external_http_request")
+    
+    # Attach the external span to the context WITHOUT setting ROOT_SPAN_CONTEXT_KEY
+    # This simulates a non-Basalt parent span (e.g., from FastAPI or httpx)
+    external_context = trace.set_span_in_context(external_span)
+    token = otel_context.attach(external_context)
+    
+    try:
+        # Verify preconditions: we have a parent span but no Basalt root
+        assert trace.get_current_span() == external_span
+        assert otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is None
+        
+        # Use start_observe, which should treat itself as a Basalt root
+        # because the parent is not a Basalt span
+        with StartObserve(name="test_basalt_root", feature_slug="test_feature") as span:
+            # Assert that this span is treated as a Basalt root
+            assert span._span.attributes.get("basalt.root") is True
+            assert span._span.attributes.get("basalt.in_trace") is True
+            
+            # Assert that ROOT_SPAN_CONTEXT_KEY is now set in the context
+            root_span_from_context = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY)
+            assert root_span_from_context is not None
+            assert root_span_from_context == span._span
+    finally:
+        # Clean up: end the external span and detach the context
+        external_span.end()
+        otel_context.detach(token)
