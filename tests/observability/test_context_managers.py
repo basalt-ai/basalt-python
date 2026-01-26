@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from opentelemetry import context as otel_context
+from opentelemetry import trace
 from opentelemetry.trace import Span
 
 from basalt.observability.context_managers import (
@@ -586,18 +587,10 @@ def test_start_observe_with_external_parent_span(setup_tracing):
     4. The new span should be treated as a Basalt root
     5. ROOT_SPAN_CONTEXT_KEY should be attached
     """
-    from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-
     from basalt.observability import StartObserve
 
-    # Get or create a tracer provider
-    provider = trace.get_tracer_provider()
-    if not isinstance(provider, TracerProvider):
-        provider = TracerProvider()
-        trace.set_tracer_provider(provider)
-
     # Create an external (non-Basalt) parent span to simulate FastAPI/httpx
+    provider = trace.get_tracer_provider()
     external_tracer = provider.get_tracer("external.instrumentation")
     external_span = external_tracer.start_span("external_http_request")
     
