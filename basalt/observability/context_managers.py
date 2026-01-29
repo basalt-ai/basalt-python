@@ -744,6 +744,17 @@ def _with_span_handle(
         # AND this is a start_observe call (basalt_trace type)
         # -> Treat as Basalt root (allows start_observe to work inside FastAPI handlers)
         is_root = True
+
+        # Retroactively apply basalt trace metadata to the parent span
+        # This ensures the entire trace tree has consistent basalt attributes
+        if parent_span is not None and parent_span.is_recording():
+            parent_span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
+
+            parent_span.set_attribute(semconv.BasaltSpan.KIND, "span")
+
+            # Also propagate feature_slug to parent if available
+            if feature_slug is not None:
+                parent_span.set_attribute(semconv.BasaltSpan.FEATURE_SLUG, feature_slug)
     else:
         # Parent exists and either:
         # - We're already in a Basalt trace, OR

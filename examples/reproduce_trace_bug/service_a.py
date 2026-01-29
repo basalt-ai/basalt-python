@@ -41,7 +41,7 @@ def build_basalt_client() -> Basalt:
     telemetry_config = TelemetryConfig(service_name="service-a",
                                        trace_content=True,
                                        enabled_providers=["google_generativeai"],
-                                      # exporter=[exporter]
+                                       exporter=[exporter]
                                        )
     basalt_client = Basalt(api_key=BASALT_API_KEY, telemetry_config=telemetry_config)
     return basalt_client

@@ -301,23 +301,31 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         if not span.is_recording():
             return
 
-        # Get context
-        ctx = parent_context or otel_context.get_current()
-
         # ========================================================================
         # SECTION A: Universal trace metadata propagation
         # Apply to ALL spans within a basalt trace, regardless of instrumentation scope
         # ========================================================================
         from .context_managers import ROOT_SPAN_CONTEXT_KEY
 
-        in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY, ctx) is not None
+        # Check for basalt trace context in both parent_context and current context
+        # This ensures we catch the ROOT_SPAN_CONTEXT_KEY regardless of how it's propagated
+        in_basalt_trace = False
+        if parent_context is not None:
+            in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY, parent_context) is not None
+        
+        if not in_basalt_trace:
+            # Also check current context as fallback
+            in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
 
         if in_basalt_trace:
             # Mark ALL spans within a basalt trace with basalt.in_trace
             span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
 
             # Propagate feature_slug to ALL spans within a basalt trace
-            _apply_feature_slug_from_context(span, ctx)
+            _apply_feature_slug_from_context(span, parent_context)
+
+            # Do not set basalt.span.kind for unknown scopes.
+            # Known auto-instrumentation scopes set the kind in Section B.
 
         # ========================================================================
         # SECTION B: Auto-instrumentation-specific logic
@@ -328,6 +336,9 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
             # Not a known auto-instrumented span, but it still received
             # universal trace metadata above if in a basalt trace
             return
+
+        # Get context for injection data
+        ctx = parent_context or otel_context.get_current()
 
         # Automatically set span kind based on instrumentation scope
         span_kind = INSTRUMENTATION_SCOPE_KINDS.get(scope.name)

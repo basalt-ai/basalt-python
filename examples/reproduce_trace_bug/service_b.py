@@ -42,7 +42,7 @@ def build_basalt_client()-> Basalt:
         service_name="service-b",
         enabled_providers=["google_generativeai"],  # NEW Google GenAI SDK (from google import genai)
         trace_content=True,  # Capture prompt and completion content
-      #  exporter=[exporter],  # Use custom local exporter
+        exporter=[exporter],  # Use custom local exporter
     )
 
     basalt_client = Basalt(api_key=BASALT_API_KEY, telemetry_config=telemetry)
