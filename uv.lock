@@ -217,9 +217,9 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-pinecone", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-pinecone", marker = "extra == 'pinecone'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-pinecone", marker = "extra == 'vector-all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'qdrant'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'vector-all'", specifier = "~=0.51.0" },
+    { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'all'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'qdrant'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'vector-all'", specifier = "~=0.52.1" },
     { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'dev'" },
     { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'llm-all'", specifier = "~=0.51.0" },
@@ -1542,7 +1542,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-qdrant"
-version = "0.51.0"
+version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1550,9 +1550,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b1/49/1e2043565bcaecc12650593449806eabf6cf36c9779d7c55406a49901fde/opentelemetry_instrumentation_qdrant-0.51.0.tar.gz", hash = "sha256:431f672cbd4f155fe76f872c7fb915469830f8dc4bdc8031b4b989757a827fdb", size = 69315, upload-time = "2026-01-20T11:42:12.574Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/c8/c2cc2f9b8dd0cf209cf41ebdf11622f6273bda95d5fad6dbef7703152f0d/opentelemetry_instrumentation_qdrant-0.52.1.tar.gz", hash = "sha256:71ae621c9ee4b294b807775b2a67acd91161daa630bec08fb0caaf083330d40f", size = 75046, upload-time = "2026-02-02T09:23:22.362Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f7/72/6c63d0382b3ee0660fdae5f1bac22338a162932ddc706150b4317da61879/opentelemetry_instrumentation_qdrant-0.51.0-py3-none-any.whl", hash = "sha256:653c5025878986631cd161ae25c15e3d3c7f85d6b25351f8a60532d4313fd56c", size = 6282, upload-time = "2026-01-20T11:41:40.354Z" },
+    { url = "https://files.pythonhosted.org/packages/24/b1/f6c81cdbc5dda6b90d76474b81307a7046aa99ae3c297a5c82b1b2381080/opentelemetry_instrumentation_qdrant-0.52.1-py3-none-any.whl", hash = "sha256:bc81565864950b78ec8520851a7bdab97f93eb5adc778df12a52e083786b2bac", size = 6284, upload-time = "2026-02-02T09:22:46.885Z" },
 ]
 
 [[package]]
