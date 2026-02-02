@@ -70,7 +70,7 @@ chromadb = [
     "opentelemetry-instrumentation-chromadb~=0.51.0",
 ]
 pinecone = [
-    "opentelemetry-instrumentation-pinecone~=0.51.0",
+    "opentelemetry-instrumentation-pinecone~=0.52.1",
 ]
 qdrant = [
     "opentelemetry-instrumentation-qdrant~=0.51.0",
