@@ -47,7 +47,7 @@ anthropic = [
     "opentelemetry-instrumentation-anthropic~=0.52.1",
 ]
 google-generativeai = [
-    "opentelemetry-instrumentation-google-generativeai~=0.51.0",
+    "opentelemetry-instrumentation-google-generativeai~=0.52.1",
 ]
 # google-genai = [
 #     "opentelemetry-instrumentation-google-genai~=0.5b0",
