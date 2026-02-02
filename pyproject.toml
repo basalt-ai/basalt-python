@@ -81,7 +81,7 @@ langchain = [
     "opentelemetry-instrumentation-langchain~=0.51.0",
 ]
 llamaindex = [
-    "opentelemetry-instrumentation-llamaindex~=0.51.0",
+    "opentelemetry-instrumentation-llamaindex~=0.52.1",
 ]
 
 # Mising Framework Instrumentation
