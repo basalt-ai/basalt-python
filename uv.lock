@@ -220,10 +220,10 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'qdrant'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-qdrant", marker = "extra == 'vector-all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'all'", specifier = "~=0.51.0" },
+    { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'all'", specifier = "~=0.52.1" },
     { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'dev'" },
-    { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'llm-all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'vertex-ai'", specifier = "~=0.51.0" },
+    { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'llm-all'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-vertexai", marker = "extra == 'vertex-ai'", specifier = "~=0.52.1" },
     { name = "opentelemetry-sdk", specifier = "~=1.39.1" },
     { name = "opentelemetry-semantic-conventions", specifier = "~=0.59b0" },
     { name = "parameterized", marker = "extra == 'dev'" },
@@ -1557,7 +1557,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-vertexai"
-version = "0.51.0"
+version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1565,9 +1565,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/68/8d9345a6f9b5abb707e778e80218462a5e5225582ab8d6b128b2d5dab396/opentelemetry_instrumentation_vertexai-0.51.0.tar.gz", hash = "sha256:28ed0d92d67ab640ee714d0193b6dd222004e9f6e8bab807916492dac39c7393", size = 73890, upload-time = "2026-01-20T11:42:16.823Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/d7/ceaea1c2d8af57f60c5598306bce64ded2e68a054866eea468d56e18e8b9/opentelemetry_instrumentation_vertexai-0.52.1.tar.gz", hash = "sha256:90dac441376d6bc1fcca72d2442fc586b1afb0543d2870a02fd1752d4b2b2a05", size = 79155, upload-time = "2026-02-02T09:23:27.767Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/78/c348733b45a463c8b0f710c02f1865bb158d55147fbcb332f6e693921b03/opentelemetry_instrumentation_vertexai-0.51.0-py3-none-any.whl", hash = "sha256:09ad736bbbaafed9df250dd478306e39d1385192a9ff266eec36e1fe75d13fc1", size = 10811, upload-time = "2026-01-20T11:41:45.465Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/37/b8999286bca5419022844d0447131273e087f4f5ae44f1899d0345e3ad87/opentelemetry_instrumentation_vertexai-0.52.1-py3-none-any.whl", hash = "sha256:411685157318845e9b5500771ee4c340b0e07c3bd4adfa3a015f611cb951a835", size = 10814, upload-time = "2026-02-02T09:22:53.163Z" },
 ]
 
 [[package]]
