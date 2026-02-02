@@ -207,9 +207,9 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'framework-all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'llamaindex'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'llm-all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'mistralai'", specifier = "~=0.51.0" },
+    { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'all'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'llm-all'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-mistralai", marker = "extra == 'mistralai'", specifier = "~=0.52.1" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'dev'" },
     { name = "opentelemetry-instrumentation-openai", marker = "extra == 'llm-all'", specifier = "~=0.51.0" },
@@ -1497,7 +1497,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-mistralai"
-version = "0.51.0"
+version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1505,9 +1505,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fb/29/eb7354a5caafdf704f2f1c9806f302dc4fe88bb6409b5c4e5f786fbee653/opentelemetry_instrumentation_mistralai-0.51.0.tar.gz", hash = "sha256:5ecef5d42046ab4b3c4f36bd9a92f9137aa3ec501a3983b2193ccbee7c6085e8", size = 101040, upload-time = "2026-01-20T11:42:05.798Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/1a/44e2ef71cfe0f1e341689462c963dbe0e527622c30f58ba6f67a3e07a118/opentelemetry_instrumentation_mistralai-0.52.1.tar.gz", hash = "sha256:397124632f80eb0ef926dee20a9ce82bd3d70d5e55d20d4ca6c22ba964d206d7", size = 101040, upload-time = "2026-02-02T09:23:16.931Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/82/01890a2619ec7cbd22916f8ef5219e28e6dfe9f82fe11649aa93dccf2ac2/opentelemetry_instrumentation_mistralai-0.51.0-py3-none-any.whl", hash = "sha256:0ec2ca723ca933a7246f4c911415e7b000db036d8358ce8f46df887e114a6d73", size = 8896, upload-time = "2026-01-20T11:41:34.467Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/c6/ff974baad31047ad595c5825406e0c07a9a9ea80246c13749e5e6ad3d80d/opentelemetry_instrumentation_mistralai-0.52.1-py3-none-any.whl", hash = "sha256:fdbf8b471588cd8c145ae849372b0cf54509ed4f1421e34f1fda46d7bccc2942", size = 8898, upload-time = "2026-02-02T09:22:41.489Z" },
 ]
 
 [[package]]
