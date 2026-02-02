@@ -67,7 +67,7 @@ mistralai = [
 
 # Vector Database Instrumentations
 chromadb = [
-    "opentelemetry-instrumentation-chromadb~=0.51.0",
+    "opentelemetry-instrumentation-chromadb~=0.52.1",
 ]
 pinecone = [
     "opentelemetry-instrumentation-pinecone~=0.51.0",

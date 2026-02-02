@@ -192,9 +192,9 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'bedrock'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'llm-all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'chromadb'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'vector-all'", specifier = "~=0.51.0" },
+    { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'all'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'chromadb'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'vector-all'", specifier = "~=0.52.1" },
     { name = "opentelemetry-instrumentation-google-genai", marker = "extra == 'dev'" },
     { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'dev'" },
@@ -1405,7 +1405,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-chromadb"
-version = "0.51.0"
+version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1413,9 +1413,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/fa/16ec00e13dfda6365d4924cab0ae6a9fd45e48f3a01b6046d8b2dcdefdaa/opentelemetry_instrumentation_chromadb-0.51.0.tar.gz", hash = "sha256:4754732da6cd802909c0ed27a2bed969a1579e33981e3ce6c178a067b42a69df", size = 132125, upload-time = "2026-01-20T11:41:54.017Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/13/7a4b60add2370a10bd2751f238ba9d2743a50eb396cce07c047ff1f8560e/opentelemetry_instrumentation_chromadb-0.52.1.tar.gz", hash = "sha256:0f2268bc3e37cb6375321203a180ae77c5e2c8d6b23de152c83faff875d6af34", size = 142119, upload-time = "2026-02-02T09:23:04.709Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/82/ff77260300b66051e403c439b92d82324e0d9182b642b031486acd2a2214/opentelemetry_instrumentation_chromadb-0.51.0-py3-none-any.whl", hash = "sha256:6d3259a31eb3fdcd1114f063d87ef9bf9bfb98ebcf517491207177d7cc589547", size = 6420, upload-time = "2026-01-20T11:41:18.042Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/2d/f73e441cd031dd1a2c2844f742ac990b6cd596018a7b2ffaebb26914e35a/opentelemetry_instrumentation_chromadb-0.52.1-py3-none-any.whl", hash = "sha256:d9438b83380b26f647652a554d34a96c2f62fdfdb1ed121396ef8bc52368d1a4", size = 6423, upload-time = "2026-02-02T09:22:26.369Z" },
 ]
 
 [[package]]
