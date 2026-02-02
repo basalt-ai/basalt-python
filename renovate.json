@@ -10,5 +10,18 @@
     ],
     "assignees": [
         "corentings"
+    ],
+    "packageRules": [
+        {
+            "groupName": "opentelemetry non-major dependencies",
+            "groupSlug": "opentelemetry-minor-patch",
+            "matchUpdateTypes": [
+                "minor",
+                "patch"
+            ],
+            "matchPackageNames": [
+                "opentelemetry-*"
+            ]
+        }
     ]
 }
