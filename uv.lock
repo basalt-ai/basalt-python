@@ -189,9 +189,9 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-anthropic", marker = "extra == 'anthropic'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-anthropic", marker = "extra == 'dev'" },
     { name = "opentelemetry-instrumentation-anthropic", marker = "extra == 'llm-all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'bedrock'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'llm-all'", specifier = "~=0.51.0" },
+    { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'all'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'bedrock'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-bedrock", marker = "extra == 'llm-all'", specifier = "~=0.52.1" },
     { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'chromadb'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-chromadb", marker = "extra == 'vector-all'", specifier = "~=0.51.0" },
@@ -1388,7 +1388,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-bedrock"
-version = "0.51.0"
+version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
@@ -1398,9 +1398,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions-ai" },
     { name = "tokenizers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/55/1e/282514de84e73c32f81102308208eee794063f750c3f74459ead07dc2025/opentelemetry_instrumentation_bedrock-0.51.0.tar.gz", hash = "sha256:7711991d589d4ec880ab9d676d3f94c3ba55f5c8c9283e8f1e844d4ed91eb7da", size = 149890, upload-time = "2026-01-20T11:41:52.636Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/73/b6c610e30784d355effad05b509b858dbf7ce1fd7638f014d70688e3b275/opentelemetry_instrumentation_bedrock-0.52.1.tar.gz", hash = "sha256:0e5ea23f6352ee45a0ff12b0f89040d63f95faa6b6c2c68680cb581e163ed37e", size = 149892, upload-time = "2026-02-02T09:23:03.788Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/71/9717637e434757f3418f037c602d61f0fbc5acd61d204d5a3137f5d03b9b/opentelemetry_instrumentation_bedrock-0.51.0-py3-none-any.whl", hash = "sha256:e961ca6baa16fc522b9dde23efddd697a4ed928f485b75816d1f45f0c66c88a9", size = 19363, upload-time = "2026-01-20T11:41:16.559Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/eb/7aa3cc2540637ecb1a0b698a5318e718bb44ca110df80dec78d359a8c470/opentelemetry_instrumentation_bedrock-0.52.1-py3-none-any.whl", hash = "sha256:2694d4daa405eaa9650dfdd9d9c9a5abc7eeefcc10985f9a7610a472c3117649", size = 19364, upload-time = "2026-02-02T09:22:24.904Z" },
 ]
 
 [[package]]
