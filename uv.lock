@@ -201,9 +201,9 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'google-generativeai'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-google-generativeai", marker = "extra == 'llm-all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-httpx", specifier = "~=0.59b0" },
-    { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'framework-all'", specifier = "~=0.51.0" },
-    { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'langchain'", specifier = "~=0.51.0" },
+    { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'all'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'framework-all'", specifier = "~=0.52.1" },
+    { name = "opentelemetry-instrumentation-langchain", marker = "extra == 'langchain'", specifier = "~=0.52.1" },
     { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'framework-all'", specifier = "~=0.51.0" },
     { name = "opentelemetry-instrumentation-llamaindex", marker = "extra == 'llamaindex'", specifier = "~=0.51.0" },
@@ -1466,7 +1466,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-langchain"
-version = "0.51.0"
+version = "0.52.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1474,9 +1474,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-semantic-conventions-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d4/d4/d25274d21334ace74f6b2e14657c22d523f89ece94cf71d012abb2823830/opentelemetry_instrumentation_langchain-0.51.0.tar.gz", hash = "sha256:c1715f53f1c44ca7590f0977ecf58043650d089919445f321d9c59dc4db466b6", size = 370507, upload-time = "2026-01-20T11:42:01.075Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/ee/6db327369cdcd0a5712c3f07876387e600ac1e1071210be08c919d6bd92b/opentelemetry_instrumentation_langchain-0.52.1.tar.gz", hash = "sha256:6f5496efe314899a87754d19dc59cdc8925712132ae00b8aa4a4adf78e3e7b25", size = 370522, upload-time = "2026-02-02T09:23:10.975Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ee/ed/b81f847fb75e02bb62e7350e4a3dbe6a93a16816510c95057e9ce90eff6f/opentelemetry_instrumentation_langchain-0.51.0-py3-none-any.whl", hash = "sha256:e0dbfb7ea28044795d4ce0349d080f1c5412ec221e5a639fe34520ec822e5418", size = 18859, upload-time = "2026-01-20T11:41:25.576Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/f1/9dedf55bc1c247dbf2a1fb76cc3afd28a346d3c7e499696d31d8f76ce2db/opentelemetry_instrumentation_langchain-0.52.1-py3-none-any.whl", hash = "sha256:44e8dd2e1bec178c4bbf5226fb983d40e4d8f69118b4da18cde2edc2839ac1ca", size = 18859, upload-time = "2026-02-02T09:22:35.327Z" },
 ]
 
 [[package]]
