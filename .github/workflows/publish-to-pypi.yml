@@ -92,7 +92,7 @@ jobs:
       env:
         HATCH_INDEX_USER: __token__
         HATCH_INDEX_AUTH: ${{ secrets.PYPI_API_TOKEN }}
-      run: hatch publish
+      run: hatch publish --no-prompt
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
