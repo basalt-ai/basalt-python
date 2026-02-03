@@ -2,44 +2,35 @@
 
 Ce document explique comment publier une nouvelle version de basalt-sdk sur PyPI.
 
-## Processus Automatique (Recommandé)
+## Méthode Recommandée: Script de Release
 
-Le projet utilise GitHub Actions pour automatiser la publication sur PyPI lors de la création d'un tag.
+Le projet fournit un script automatisé qui gère l'ensemble du processus de release avec hatch:
 
-### Étapes pour publier une nouvelle version:
+```bash
+# Pour une version patch (1.1.2 -> 1.1.3)
+./scripts/release.sh patch
 
-1. **Mettez à jour la version**
+# Pour une version minor (1.1.2 -> 1.2.0)
+./scripts/release.sh minor
 
-   ```bash
-   # Pour une version patch (1.1.1 -> 1.1.2)
-   hatch version patch
+# Pour une version major (1.1.2 -> 2.0.0)
+./scripts/release.sh major
 
-   # Pour une version minor (1.1.1 -> 1.2.0)
-   hatch version minor
+# Pour une version spécifique
+./scripts/release.sh 1.2.3
+```
 
-   # Pour une version major (1.1.1 -> 2.0.0)
-   hatch version major
+Le script automatise toutes les étapes:
+1. ✅ Vérifie que vous êtes sur master avec un working directory propre
+2. ✅ Pull les derniers changements
+3. ✅ Exécute les tests avec `hatch run test`
+4. ✅ Bump la version avec `hatch version`
+5. ✅ Demande confirmation
+6. ✅ Commit et push les changements
+7. ✅ Crée et push le tag
+8. ✅ GitHub Actions publie automatiquement sur PyPI
 
-   # Ou définissez une version spécifique
-   hatch version 1.2.0
-   ```
-
-2. **Committez le changement de version**
-
-   ```bash
-   git add basalt/_version.py
-   git commit -m "chore: bump version to $(hatch version)"
-   git push origin master
-   ```
-
-3. **Créez et poussez un tag**
-
-   ```bash
-   # Le tag doit commencer par 'v' et correspondre à la version
-   VERSION=$(hatch version)
-   git tag -a "v${VERSION}" -m "Release version ${VERSION}"
-   git push origin "v${VERSION}"
-   ```
+## Processus Manuel (Alternative)
 
 4. **Automatique!** 🎉
 
