@@ -314,3 +314,114 @@ def test_auto_instrumentation_processor_prompt_context_with_optional_fields():
     finally:
         _current_prompt_context.reset(cv_token)
         otel_context.detach(otel_token)
+
+
+def test_auto_instrumentation_processor_propagates_to_unknown_scopes():
+    """Test that unknown instrumentation scopes receive basalt.in_trace and feature_slug."""
+    from opentelemetry import context as otel_context
+
+    from basalt.observability import semconv
+    from basalt.observability.context_managers import ROOT_SPAN_CONTEXT_KEY
+    from basalt.observability.trace_context import FEATURE_SLUG_CONTEXT_KEY
+
+    # Create a mock span with an UNKNOWN instrumentation scope (e.g., httpx)
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+    mock_scope = MagicMock()
+    mock_scope.name = "opentelemetry.instrumentation.httpx"  # Not in KNOWN_AUTO_INSTRUMENTATION_SCOPES
+    mock_span.instrumentation_scope = mock_scope
+
+    # Create a basalt trace context with feature_slug
+    mock_root_span = MagicMock()
+    ctx = otel_context.set_value(ROOT_SPAN_CONTEXT_KEY, mock_root_span)
+    ctx = otel_context.set_value(FEATURE_SLUG_CONTEXT_KEY, "test-feature", ctx)
+    token = otel_context.attach(ctx)
+
+    try:
+        # Create processor and call on_start
+        processor = processors.BasaltAutoInstrumentationProcessor()
+        processor.on_start(mock_span, None)
+
+        # Verify that basalt.in_trace was set to True
+        mock_span.set_attribute.assert_any_call(semconv.BasaltSpan.IN_TRACE, True)
+        # Verify that feature_slug was propagated
+        mock_span.set_attribute.assert_any_call(
+            semconv.BasaltSpan.FEATURE_SLUG, "test-feature"
+        )
+
+        # Verify that basalt.span.kind was NOT set (only for known scopes)
+        calls = mock_span.set_attribute.call_args_list
+        kind_calls = [call for call in calls if call[0][0] == semconv.BasaltSpan.KIND]
+        assert len(kind_calls) == 0, "Unknown scopes should not receive span.kind"
+    finally:
+        otel_context.detach(token)
+
+
+def test_auto_instrumentation_processor_propagates_feature_slug_to_known_scopes():
+    """Test that known instrumentation scopes receive both in_trace and feature_slug."""
+    from opentelemetry import context as otel_context
+
+    from basalt.observability import semconv
+    from basalt.observability.context_managers import ROOT_SPAN_CONTEXT_KEY
+    from basalt.observability.trace_context import FEATURE_SLUG_CONTEXT_KEY
+
+    # Create a mock span with OpenAI v1 instrumentation scope
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+    mock_scope = MagicMock()
+    mock_scope.name = "opentelemetry.instrumentation.openai.v1"
+    mock_span.instrumentation_scope = mock_scope
+
+    # Create a basalt trace context with feature_slug
+    mock_root_span = MagicMock()
+    ctx = otel_context.set_value(ROOT_SPAN_CONTEXT_KEY, mock_root_span)
+    ctx = otel_context.set_value(FEATURE_SLUG_CONTEXT_KEY, "openai-feature", ctx)
+    token = otel_context.attach(ctx)
+
+    try:
+        # Create processor and call on_start
+        processor = processors.BasaltAutoInstrumentationProcessor()
+        processor.on_start(mock_span, None)
+
+        # Verify that basalt.in_trace was set
+        mock_span.set_attribute.assert_any_call(semconv.BasaltSpan.IN_TRACE, True)
+        # Verify that feature_slug was propagated
+        mock_span.set_attribute.assert_any_call(
+            semconv.BasaltSpan.FEATURE_SLUG, "openai-feature"
+        )
+        # Verify that basalt.span.kind was set (for known scopes)
+        mock_span.set_attribute.assert_any_call(semconv.BasaltSpan.KIND, "generation")
+    finally:
+        otel_context.detach(token)
+
+
+def test_auto_instrumentation_processor_skips_spans_outside_basalt_trace():
+    """Test that spans outside a basalt trace do not receive basalt attributes."""
+    from opentelemetry import context as otel_context
+
+    from basalt.observability import semconv
+
+    # Create a mock span with an unknown instrumentation scope
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+    mock_scope = MagicMock()
+    mock_scope.name = "opentelemetry.instrumentation.httpx"
+    mock_span.instrumentation_scope = mock_scope
+
+    # DO NOT set ROOT_SPAN_CONTEXT_KEY - simulating a span outside basalt trace
+    ctx = otel_context.get_current()
+    token = otel_context.attach(ctx)
+
+    try:
+        # Create processor and call on_start
+        processor = processors.BasaltAutoInstrumentationProcessor()
+        processor.on_start(mock_span, None)
+
+        # Verify that NO basalt attributes were set
+        calls = mock_span.set_attribute.call_args_list
+        basalt_calls = [call for call in calls if "basalt." in str(call[0][0])]
+        assert (
+            len(basalt_calls) == 0
+        ), "Spans outside basalt trace should not receive basalt attributes"
+    finally:
+        otel_context.detach(token)

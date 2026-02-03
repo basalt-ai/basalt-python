@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from google import genai
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
@@ -26,7 +27,22 @@ BASALT_API_KEY = os.getenv("BASALT_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def build_basalt_client() -> Basalt:
-    telemetry_config = TelemetryConfig(service_name="service-a", trace_content=True,enabled_providers=["google_generativeai"])
+    # Use environment variable for OTLP endpoint or default to localhost
+    otlp_endpoint = os.getenv("BASALT_OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+
+    # Create custom exporter with authentication headers
+    # Note: insecure=True is used for local/demo purposes
+    exporter = OTLPSpanExporter(
+        endpoint=otlp_endpoint,
+        headers={"authorization": f"Bearer {BASALT_API_KEY}"},
+        insecure=True,
+        timeout=10,
+    )
+    telemetry_config = TelemetryConfig(service_name="service-a",
+                                       trace_content=True,
+                                       enabled_providers=["google_generativeai"],
+                                       exporter=[exporter]
+                                       )
     basalt_client = Basalt(api_key=BASALT_API_KEY, telemetry_config=telemetry_config)
     return basalt_client
 

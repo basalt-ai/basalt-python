@@ -294,31 +294,56 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         """
         Called when a span starts.
 
-        Detects auto-instrumented spans and applies pending injection data.
-        Also automatically sets basalt.span.kind based on the instrumentation scope.
+        Applies basalt trace metadata to ALL spans within a basalt trace,
+        then applies auto-instrumentation-specific attributes to known scopes.
         """
         # Check if this is a recording span
         if not span.is_recording():
             return
 
-        # Get instrumentation scope
+        # ========================================================================
+        # SECTION A: Universal trace metadata propagation
+        # Apply to ALL spans within a basalt trace, regardless of instrumentation scope
+        # ========================================================================
+        from .context_managers import ROOT_SPAN_CONTEXT_KEY
+
+        # Check for basalt trace context in both parent_context and current context
+        # This ensures we catch the ROOT_SPAN_CONTEXT_KEY regardless of how it's propagated
+        in_basalt_trace = False
+        if parent_context is not None:
+            in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY, parent_context) is not None
+        
+        if not in_basalt_trace:
+            # Also check current context as fallback
+            in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
+
+        if in_basalt_trace:
+            # Mark ALL spans within a basalt trace with basalt.in_trace
+            span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
+
+            # Propagate feature_slug to ALL spans within a basalt trace
+            _apply_feature_slug_from_context(span, parent_context)
+
+            # Do not set basalt.span.kind for unknown scopes.
+            # Known auto-instrumentation scopes set the kind in Section B.
+
+        # ========================================================================
+        # SECTION B: Auto-instrumentation-specific logic
+        # Apply only to spans from known auto-instrumentation libraries
+        # ========================================================================
         scope = span.instrumentation_scope
         if not scope or scope.name not in KNOWN_AUTO_INSTRUMENTATION_SCOPES:
+            # Not a known auto-instrumented span, but it still received
+            # universal trace metadata above if in a basalt trace
             return
+
+        # Get context for injection data
+        ctx = parent_context or otel_context.get_current()
 
         # Automatically set span kind based on instrumentation scope
         span_kind = INSTRUMENTATION_SCOPE_KINDS.get(scope.name)
         if span_kind:
             span.set_attribute(semconv.BasaltSpan.KIND, span_kind)
-
-        # Mark auto-instrumented spans within a basalt trace
-        from .context_managers import ROOT_SPAN_CONTEXT_KEY
-
-        if otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None:
-            span.set_attribute(semconv.BasaltSpan.IN_TRACE, True)
-
-        # Get context
-        ctx = parent_context or otel_context.get_current()
 
         # Read and apply input
         input_payload = otel_context.get_value(PENDING_INJECT_INPUT_KEY, ctx)
