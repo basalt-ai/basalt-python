@@ -22,7 +22,16 @@ from basalt.observability.semconv import BasaltSpan
 @pytest.fixture(scope="function")
 def setup_feature_slug_tracer():
     """Install Basalt processors + in-memory exporter for feature_slug propagation tests."""
-    original_provider = trace.get_tracer_provider()
+    # Save the current tracer provider and directly manipulate the global state
+    import opentelemetry.trace as trace_module
+    
+    original_provider = getattr(trace_module, '_TRACER_PROVIDER', None)
+    original_set_once = getattr(trace_module, '_TRACER_PROVIDER_SET_ONCE', None)
+    
+    # Create a new Once object to allow setting a new provider
+    from opentelemetry.util._once import Once
+    trace_module._TRACER_PROVIDER_SET_ONCE = Once()
+    trace_module._TRACER_PROVIDER = None
 
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
@@ -36,11 +45,20 @@ def setup_feature_slug_tracer():
 
     yield exporter
 
+    # Clean up
     exporter.clear()
     provider.shutdown()
-
+    
+    # Restore original state
+    trace_module._TRACER_PROVIDER_SET_ONCE = Once()
+    trace_module._TRACER_PROVIDER = None
+    
     if original_provider and not isinstance(original_provider, trace.ProxyTracerProvider):
         trace.set_tracer_provider(original_provider)
+    
+    # Restore the original set_once object if it existed
+    if original_set_once is not None:
+        trace_module._TRACER_PROVIDER_SET_ONCE = original_set_once
 
 
 def test_feature_slug_propagates_to_basalt_fastapi_and_autoinstrumented_spans(
