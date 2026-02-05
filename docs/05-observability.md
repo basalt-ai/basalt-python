@@ -144,6 +144,32 @@ observe.set_input({"query": "hello"})
 observe.set_output("world")
 ```
 
+You can also record input and output on the **first span of the current trace** (for example, an HTTP
+server span created by FastAPI auto-instrumentation, or the `start_observe` root span) from anywhere
+in your code:
+
+```python
+from basalt.observability import observe, start_observe
+
+
+@start_observe(feature_slug="api-handler", name="API Handler")
+def handle_request(user_id: str, payload: dict):
+    # Attach high-level I/O to the first span in the trace
+    observe.trace_set_input({"user_id": user_id, "payload": payload})
+
+    authenticate(user_id)
+    result = process_data(payload)
+
+    observe.trace_set_output({"status": "ok", "result": result})
+    return result
+```
+
+`observe.trace_set_input` / `observe.trace_set_output` follow this precedence:
+
+1. **Parent of the Basalt root span** (e.g., FastAPI HTTP server span) when present.
+2. The **Basalt root span** created via `start_observe`.
+3. The **current span** when no Basalt root span exists.
+
 
 ### Evaluators
 

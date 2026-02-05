@@ -643,6 +643,50 @@ class Observe(ContextDecorator):
             handle.set_output(data)
 
     @staticmethod
+    def _trace_target_handle() -> SpanHandle | None:
+        """Return the preferred span handle for trace-level input/output.
+
+        Preference order:
+        1. Parent of the Basalt root span (e.g., FastAPI HTTP span)
+        2. Basalt root span created via start_observe
+        3. Current span as a fallback
+        """
+        root = Observe._root_span()
+        if root is not None:
+            # Prefer a valid parent span above the Basalt root (e.g., HTTP server span)
+            parent_span = getattr(root, "_parent_span", None)
+            if parent_span is not None:
+                span_context = parent_span.get_span_context()
+                if span_context is not None and getattr(span_context, "is_valid", False) and parent_span.is_recording():
+                    return SpanHandle(parent_span)
+            return root
+
+        # No Basalt root span in context; fall back to the current span
+        return get_current_span_handle()
+
+    @staticmethod
+    def trace_set_input(data: JSONValue) -> None:
+        """Set input data on the first span of the current trace.
+
+        Prefer the parent of the Basalt root span (e.g., HTTP server span),
+        then the Basalt root span itself, and finally the current span.
+        """
+        handle = Observe._trace_target_handle()
+        if handle:
+            handle.set_input(data)
+
+    @staticmethod
+    def trace_set_output(data: JSONValue) -> None:
+        """Set output data on the first span of the current trace.
+
+        Prefer the parent of the Basalt root span (e.g., HTTP server span),
+        then the Basalt root span itself, and finally the current span.
+        """
+        handle = Observe._trace_target_handle()
+        if handle:
+            handle.set_output(data)
+
+    @staticmethod
     def evaluate(evaluator: Sequence[str]) -> None:
         """Attach an evaluator to the current span."""
         handle = get_current_span_handle()

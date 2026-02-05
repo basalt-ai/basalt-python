@@ -11,7 +11,7 @@ from typing import Any, TypedDict
 try:
     from typing import Unpack
 except ImportError:  # pragma: no cover - fallback for Python < 3.11
-    from typing_extensions import Unpack
+    from typing_extensions import Unpack  # noqa: UP035
 
 from .http import HTTPClient, HTTPResponse
 

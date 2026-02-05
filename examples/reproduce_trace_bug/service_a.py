@@ -17,7 +17,7 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability import start_observe
+from basalt.observability import observe, start_observe
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
@@ -41,7 +41,7 @@ def build_basalt_client() -> Basalt:
     telemetry_config = TelemetryConfig(service_name="service-a",
                                        trace_content=True,
                                        enabled_providers=["google_generativeai"],
-                                       exporter=[exporter]
+                                       # exporter=[exporter]
                                        )
     basalt_client = Basalt(api_key=BASALT_API_KEY, telemetry_config=telemetry_config)
     return basalt_client
@@ -79,6 +79,15 @@ async def call_service_b():
         span_ctx.is_valid,
     )
 
+    # Attach a high-level view of the request input to the first span
+    # of the trace (FastAPI HTTP span when instrumentation is enabled).
+    observe.trace_set_input(
+        {
+            "service": "service-a",
+            "endpoint": "/call-service-b",
+        }
+    )
+
     # Simple Gemini call in Service A
     client = genai.Client(api_key=GEMINI_API_KEY)
     gemini_response = client.models.generate_content(
@@ -97,12 +106,25 @@ async def call_service_b():
             sent_traceparent,
         )
 
-        return {
+        response_payload = {
             "service_a_trace_id": format(span_ctx.trace_id, "032x"),
             "service_a_gemini": gemini_text_a,
             "sent_traceparent": sent_traceparent,
             "service_b_response": response.json(),
         }
+
+        # Attach a high-level view of the output to the first span
+        # of the trace (FastAPI HTTP span when instrumentation is enabled).
+        observe.trace_set_output(
+            {
+                "service": "service-a",
+                "endpoint": "/call-service-b",
+                "service_a_gemini": gemini_text_a,
+                "service_b_status_code": response.status_code,
+            }
+        )
+
+        return response_payload
 
 
 if __name__ == "__main__":

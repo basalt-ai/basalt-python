@@ -16,7 +16,7 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from basalt import Basalt, TelemetryConfig
-from basalt.observability import start_observe
+from basalt.observability import observe, start_observe
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
@@ -42,7 +42,7 @@ def build_basalt_client()-> Basalt:
         service_name="service-b",
         enabled_providers=["google_generativeai"],  # NEW Google GenAI SDK (from google import genai)
         trace_content=True,  # Capture prompt and completion content
-        exporter=[exporter],  # Use custom local exporter
+        # exporter=[exporter],  # Use custom local exporter
     )
 
     basalt_client = Basalt(api_key=BASALT_API_KEY, telemetry_config=telemetry)
@@ -83,6 +83,16 @@ async def endpoint(request: Request):
         tracestate,
     )
 
+    # Attach a high-level view of the incoming request to the first span
+    # of the trace (FastAPI HTTP span when instrumentation is enabled).
+    observe.trace_set_input(
+        {
+            "service": "service-b",
+            "endpoint": "/endpoint",
+            "incoming_traceparent": traceparent,
+        }
+    )
+
     # Log current OTel context (set by @start_observe)
     current_span = trace.get_current_span()
     span_ctx = current_span.get_span_context()
@@ -119,13 +129,26 @@ async def endpoint(request: Request):
     gemini_text_b = gemini_response.text.strip() if gemini_response.text else None
     logger.info("Service B - Gemini response: %s", gemini_text_b)
 
-    return {
+    response_payload = {
         "incoming_traceparent": traceparent,
         "service_b_trace_id": current_trace_id,
         "service_b_gemini": gemini_text_b,
         "traces_match": traces_match,
         "bug_reproduced": not traces_match,
     }
+
+    # Attach a high-level view of the response to the first span
+    # of the trace (FastAPI HTTP span when instrumentation is enabled).
+    observe.trace_set_output(
+        {
+            "service": "service-b",
+            "endpoint": "/endpoint",
+            "service_b_gemini": gemini_text_b,
+            "traces_match": traces_match,
+        }
+    )
+
+    return response_payload
 
 
 if __name__ == "__main__":

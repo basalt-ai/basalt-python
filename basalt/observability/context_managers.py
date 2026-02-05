@@ -39,6 +39,7 @@ EVALUATOR_CONTEXT_KEY: Final[str] = "basalt.context.evaluators"
 EVALUATOR_CONFIG_CONTEXT_KEY: Final[str] = "basalt.context.evaluator_config"
 EVALUATOR_METADATA_CONTEXT_KEY: Final[str] = "basalt.context.evaluator_metadata"
 ROOT_SPAN_CONTEXT_KEY: Final[str] = "basalt.context.root_span"
+ROOT_PARENT_SPAN_CONTEXT_KEY: Final[str] = "basalt.context.root_parent_span"
 logger = logging.getLogger(__name__)
 
 
@@ -213,7 +214,10 @@ def get_root_span_handle() -> StartSpanHandle | None:
     """
     root_span = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY)
     if root_span and isinstance(root_span, Span):
-        return StartSpanHandle(root_span)
+        parent_span = otel_context.get_value(ROOT_PARENT_SPAN_CONTEXT_KEY)
+        if not isinstance(parent_span, Span):
+            parent_span = None
+        return StartSpanHandle(root_span, parent_span)
     return None
 
 
@@ -731,6 +735,7 @@ def _with_span_handle(
     # 2. This is a start_observe (span_type="basalt_trace") AND the parent is NOT a Basalt span
     #    (e.g., parent is from FastAPI, httpx, or other instrumentation)
     root_span_token = None
+    root_parent_span_token = None
 
     # Check if we're already inside a basalt trace
     in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
@@ -798,6 +803,11 @@ def _with_span_handle(
             # Store root span in context for retrieval from nested spans
             if is_root:
                 root_span_token = attach(set_value(ROOT_SPAN_CONTEXT_KEY, span))
+                # Also store the parent span (if any) for trace-level helpers
+                if parent_span is not None:
+                    root_parent_span_token = attach(
+                        set_value(ROOT_PARENT_SPAN_CONTEXT_KEY, parent_span)
+                    )
                 # Set basalt.root attribute
                 span.set_attribute("basalt.root", True)
             elif in_basalt_trace:
@@ -856,7 +866,9 @@ def _with_span_handle(
         if should_evaluate_token is not None:
             detach(should_evaluate_token)
 
-        # Detach root span token if it was set
+        # Detach root span tokens if they were set
+        if root_parent_span_token is not None:
+            detach(root_parent_span_token)
         if root_span_token is not None:
             detach(root_span_token)
 
