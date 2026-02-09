@@ -398,6 +398,11 @@ class Observe(ContextDecorator):
                 "Observe used without a preceding start_observe. This may lead to missing trace context."
             )
 
+        # Inherit feature_slug from parent context if available
+        from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+
+        current_feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY)
+
         self._ctx_manager = _with_span_handle(
             name=span_name,
             attributes=prompt_attrs,
@@ -406,6 +411,7 @@ class Observe(ContextDecorator):
             span_type=kind_str,
             evaluators=self.evaluators,
             metadata=self._metadata,
+            feature_slug=current_feature_slug,
             # In context manager mode, we don't auto-resolve input/vars from args
             # User must call observe.input() or pass explicit input_payload if we added it to __init__
             # But __init__ has resolvers, not values.
@@ -517,6 +523,13 @@ class Observe(ContextDecorator):
                 prepare_call_data(args, kwargs)
             )
 
+            # Inherit feature_slug from parent context if available
+            from opentelemetry import context as otel_context
+
+            from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+
+            current_feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY)
+
             with _with_span_handle(
                 name=self.name,
                 attributes=prompt_metadata if prompt_metadata else None,
@@ -527,6 +540,7 @@ class Observe(ContextDecorator):
                 variables=variables_payload,
                 evaluators=pre_evaluators,
                 metadata=computed_metadata,
+                feature_slug=current_feature_slug,
             ) as span:
                 if apply_pre:
                     apply_pre(span, bound)
@@ -560,6 +574,12 @@ class Observe(ContextDecorator):
                     prepare_call_data(args, kwargs)
                 )
 
+                # Inherit feature_slug from parent context if available
+                from opentelemetry import context as otel_context
+                from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+
+                current_feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY)
+
                 with _with_span_handle(
                     name=self.name,
                     attributes=prompt_metadata if prompt_metadata else None,
@@ -570,6 +590,7 @@ class Observe(ContextDecorator):
                     variables=variables_payload,
                     evaluators=pre_evaluators,
                     metadata=computed_metadata,
+                    feature_slug=current_feature_slug,
                 ) as span:
                     if apply_pre:
                         apply_pre(span, bound)
