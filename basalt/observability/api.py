@@ -426,6 +426,10 @@ class Observe(ContextDecorator):
         return None
 
     def __call__(self, func: F) -> F:
+        # Import context module once for all nested functions
+        from opentelemetry import context as otel_context
+        from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+
         if isinstance(self.kind, ObserveKind):
             kind_str = self.kind.value
         else:
@@ -491,8 +495,6 @@ class Observe(ContextDecorator):
             pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
 
             # Check for root span
-            from opentelemetry import context as otel_context
-
             if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
                 import logging
 
@@ -524,9 +526,11 @@ class Observe(ContextDecorator):
             )
 
             # Inherit feature_slug from parent context if available
+
             from opentelemetry import context as otel_context
 
             from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+ 
 
             current_feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY)
 
@@ -575,9 +579,6 @@ class Observe(ContextDecorator):
                 )
 
                 # Inherit feature_slug from parent context if available
-                from opentelemetry import context as otel_context
-                from .trace_context import FEATURE_SLUG_CONTEXT_KEY
-
                 current_feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY)
 
                 with _with_span_handle(
