@@ -61,7 +61,7 @@ def build_basalt_client() -> Basalt:
         service_name="service-b-analysis",
         enabled_providers=["google_generativeai"],  # NEW Google GenAI SDK (from google import genai)
         trace_content=True,  # Capture prompt and completion content
-     #   exporter=[exporter],  # Use custom local exporter
+        #   exporter=[exporter],  # Use custom local exporter
     )
 
     return Basalt(api_key=basalt_key, telemetry_config=telemetry)
@@ -127,7 +127,7 @@ async def perform_retrieval(query: str) -> dict:
 async def analyze_with_prompt(ticket_data: dict, context: dict) -> dict:
     """
     Analyze ticket using Gemini LLM with the joke-analyzer prompt.
-    
+
     This function demonstrates auto-instrumented Gemini calls:
     - GENERATION spans created automatically
     - Token usage captured automatically
@@ -137,19 +137,12 @@ async def analyze_with_prompt(ticket_data: dict, context: dict) -> dict:
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
         logger.warning("GEMINI_API_KEY not set. Using fallback.")
-        return {
-            "analysis": "Fallback analysis (API key not set)",
-            "error": "GEMINI_API_KEY not configured"
-        }
+        return {"analysis": "Fallback analysis (API key not set)", "error": "GEMINI_API_KEY not configured"}
 
     try:
         # Retrieve prompt from Basalt
         prompt_cm = await basalt_client.prompts.get(
-            slug="joke-analyzer",
-            variables={
-                "ticket_id": ticket_data.get("ticket_id", "unknown"),
-                "context_count": context["count"]
-            }
+            slug="joke-analyzer", variables={"ticket_id": ticket_data.get("ticket_id", "unknown"), "context_count": context["count"]}
         )
 
         async with prompt_cm as prompt:
@@ -171,7 +164,7 @@ Provide:
 3. Brief analysis (2-3 sentences)
 
 Context: {context.get("results", [])}
-"""
+""",
                 )
 
             # Extract response and metadata
@@ -184,7 +177,7 @@ Context: {context.get("results", [])}
                 tokens_used = {
                     "prompt_tokens": getattr(usage_metadata, "prompt_token_count", 0),
                     "completion_tokens": getattr(usage_metadata, "candidates_token_count", 0),
-                    "total_tokens": getattr(usage_metadata, "total_token_count", 0)
+                    "total_tokens": getattr(usage_metadata, "total_token_count", 0),
                 }
 
             return {
@@ -210,14 +203,19 @@ async def analyze_ticket():
     Main endpoint for ticket analysis.
 
     This demonstrates:
-    1. start_observe with feature_slug="support-ticket"
-    2. Nested observe span with kind=RETRIEVAL
-    3. Prompt retrieval using the prompts API
-    4. Proper input/output tracking
+    1. Get prompt BEFORE start_observe (tests feature_slug propagation fix)
+    2. start_observe with feature_slug="support-ticket"
+    3. Nested observe span with kind=RETRIEVAL
+    4. Prompt retrieval using the prompts API
+    5. Proper input/output tracking
     """
-    async with async_start_observe(
-        name="analyze_support_ticket", feature_slug="support-ticket"
-    ) as root_span:
+    # Get prompt BEFORE start_observe - this tests that feature_slug propagates
+    # correctly to the prompt request span even without an active trace context
+    pre_prompt_cm = await basalt_client.prompts.get(slug="joke-analyzer", variables={"request_type": "ticket_analysis"})
+    async with pre_prompt_cm as pre_prompt:
+        logger.info(f"Pre-trace prompt retrieved: {pre_prompt.slug}")
+
+    async with async_start_observe(name="analyze_support_ticket", feature_slug="support-ticket") as root_span:
         # Set input for observability
         ticket_data = {"ticket_id": "DEMO-001", "request_type": "analysis"}
         root_span.set_input(ticket_data)

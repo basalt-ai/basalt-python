@@ -68,7 +68,7 @@ def build_basalt_client() -> Basalt:
         service_name="service-a-orchestrator",
         enabled_providers=["openai"],  # Auto-instrument OpenAI SDK calls
         trace_content=True,  # Capture prompt and completion content
-   #     exporter=[exporter],  # Use custom local exporter
+        #     exporter=[exporter],  # Use custom local exporter
     )
 
     return Basalt(api_key=basalt_key, telemetry_config=telemetry)
@@ -100,15 +100,15 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down Service A...")
-    
+
     # Close OpenAI client
     if openai_client:
         await openai_client.close()
         logger.info("OpenAI client closed")
-    
+
     # Uninstrument httpx
     HTTPXClientInstrumentor().uninstrument()
-    
+
     if basalt_client:
         logger.info("Flushing telemetry...")
         basalt_client.shutdown()
@@ -120,7 +120,7 @@ app = FastAPI(title="Service A - Primary Service", lifespan=lifespan)
 
 # Auto-instrument FastAPI for incoming HTTP requests (distributed tracing!)
 # This now works with Basalt thanks to the smart root detection fix
-FastAPIInstrumentor.instrument_app(app)
+# FastAPIInstrumentor.instrument_app(app)
 logger.info("FastAPI instrumentation enabled - distributed tracing active")
 
 
@@ -158,7 +158,7 @@ async def call_service_b() -> dict:
 async def summarize_with_llm(service_b_response: dict) -> dict:
     """
     Use OpenAI to generate a summary of Service B's analysis.
-    
+
     This function demonstrates auto-instrumented OpenAI calls:
     - GENERATION spans created automatically
     - Token usage captured automatically
@@ -173,24 +173,21 @@ async def summarize_with_llm(service_b_response: dict) -> dict:
         # Get prompt from Basalt API
         prompt_cm = await basalt_client.prompts.get(
             slug="joke-analyzer",
-            variables={
-                "analysis": str(service_b_response.get("analysis", {})),
-                "ticket_id": service_b_response.get("ticket_id", "unknown")
-            }
+            variables={"analysis": str(service_b_response.get("analysis", {})), "ticket_id": service_b_response.get("ticket_id", "unknown")},
         )
 
         async with prompt_cm as prompt:
             logger.info(f"Retrieved prompt: {prompt.slug} v{prompt.version}")
-            
+
             # Auto-instrumented OpenAI call - GENERATION span created automatically
             response = await openai_client.chat.completions.create(
                 model=OPENAI_MODEL,
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant that summarizes support ticket analyses."},
-                    {"role": "user", "content": f"Summarize this analysis in 2-3 sentences: {service_b_response}"}
+                    {"role": "user", "content": f"Summarize this analysis in 2-3 sentences: {service_b_response}"},
                 ],
                 temperature=0.7,
-                max_tokens=150
+                max_tokens=150,
             )
 
             return {
@@ -198,7 +195,7 @@ async def summarize_with_llm(service_b_response: dict) -> dict:
                 "model": OPENAI_MODEL,
                 "tokens_used": response.usage.total_tokens,
                 "prompt_slug": prompt.slug,
-                "prompt_version": prompt.version
+                "prompt_version": prompt.version,
             }
 
     except Exception as e:
@@ -212,14 +209,19 @@ async def process_support_request():
     Main endpoint for processing support requests.
 
     This demonstrates:
-    1. start_observe with feature_slug="support-ticket"
-    2. HTTP call to Service B (auto-instrumented via httpx)
-    3. Distributed tracing (trace context propagated via HTTP headers)
-    4. Proper input/output tracking
+    1. Get prompt BEFORE start_observe (tests feature_slug propagation fix)
+    2. start_observe with feature_slug="support-ticket"
+    3. HTTP call to Service B (auto-instrumented via httpx)
+    4. Distributed tracing (trace context propagated via HTTP headers)
+    5. Proper input/output tracking
     """
-    async with async_start_observe(
-        name="process_support_request", feature_slug="support-ticket"
-    ) as root_span:
+    # Get prompt BEFORE start_observe - this tests that feature_slug propagates
+    # correctly to the prompt request span even without an active trace context
+    pre_prompt_cm = await basalt_client.prompts.get(slug="joke-analyzer", variables={"request_type": "support_ticket_processing"})
+    async with pre_prompt_cm as pre_prompt:
+        logger.info(f"Pre-trace prompt retrieved: {pre_prompt.slug}")
+
+    async with async_start_observe(name="process_support_request", feature_slug="support-ticket") as root_span:
         # Set input for observability
         request_data = {"request_type": "support_ticket_processing", "source": "service-a"}
         root_span.set_input(request_data)

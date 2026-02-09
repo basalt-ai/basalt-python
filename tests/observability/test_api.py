@@ -1,8 +1,11 @@
 # File: tests/test_api.py
+import json
+
 import pytest
 
 from basalt.observability import ObserveKind, SpanHandle
 from basalt.observability.api import Observe, StartObserve
+from basalt.observability import semconv
 
 
 def test_get_config_for_kind_generation():
@@ -123,11 +126,20 @@ def test_observe_as_decorator():
 
 
 def test_observe_as_context_manager():
-    """Test Observe when used as a context manager."""
+    """Test Observe when used as a context manager with start_observe."""
 
-    with Observe(name="test_context_manager", kind=ObserveKind.EVENT) as span:
-        assert isinstance(span, SpanHandle)
-        span.set_attribute("test_key", "test_value")
+    from .utils import get_exporter
+
+    exporter = get_exporter()
+    exporter.clear()
+
+    with StartObserve(name="test_root", feature_slug="test"):
+        with Observe(name="test_context_manager", kind=ObserveKind.EVENT) as span:
+            assert isinstance(span, SpanHandle)
+            span.set_attribute("test_key", "test_value")
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) > 0
 
 
 def test_invalid_observe_kind():
@@ -150,10 +162,7 @@ def test_observe_handles_exception():
 
 
 def test_observe_static_metadata():
-    """Test adding static metadata using Observe."""
-    import json
-
-    from basalt.observability import semconv
+    """Test Observe with static metadata (requires start_observe)."""
 
     from .utils import get_exporter
 
@@ -162,8 +171,9 @@ def test_observe_static_metadata():
 
     metadata = {"key1": "value1", "key2": "value2"}
 
-    with Observe(name="test_static_metadata", kind=ObserveKind.SPAN, metadata=metadata) as span:
-        assert span is not None
+    with StartObserve(name="test_root", feature_slug="test"):
+        with Observe(name="test_static_metadata", kind=ObserveKind.SPAN, metadata=metadata) as span:
+            assert span is not None
 
     # Verify metadata was set as aggregated JSON at basalt.metadata
     spans = exporter.get_finished_spans()
@@ -243,7 +253,8 @@ async def test_start_observe_decorator_async_function(setup_tracing):
 
 
 def test_get_root_span():
-    """Test retrieving the root span using Observe.root_span()."""
+    """Test Observe._root_span() returns the root span handle when called within start_observe."""
+
     from .utils import get_exporter
 
     exporter = get_exporter()
@@ -257,7 +268,9 @@ def test_get_root_span():
         root_span = Observe._root_span()
         return True
 
-    result = root_function()
+    # Call within start_observe context
+    with StartObserve(name="test_root", feature_slug="test"):
+        result = root_function()
     assert result is True
     assert root_span is not None
 
@@ -409,14 +422,16 @@ def test_observe_with_prompt_parameter_decorator():
     def generate_text():
         return "Generated response"
 
-    result = generate_text()
+    with StartObserve(name="test_root", feature_slug="test"):
+        result = generate_text()
     assert result == "Generated response"
 
     # Verify span attributes contain prompt metadata
     spans = exporter.get_finished_spans()
     assert len(spans) > 0
 
-    span = spans[-1]
+    span = next((s for s in spans if s.name == "test_with_prompt"), None)
+    assert span is not None
     assert span.attributes.get("basalt.prompt.slug") == "test-prompt"
     assert span.attributes.get("basalt.prompt.version") == "1.0.0"
     assert span.attributes.get("basalt.prompt.model.provider") == "openai"
@@ -476,16 +491,16 @@ def test_observe_with_prompt_parameter_context_manager():
         variables={"test": "value"},
     )
 
-    with Observe(
-        kind=ObserveKind.GENERATION, name="test_context_with_prompt", prompt=mock_prompt
-    ) as span:
-        pass
+    with StartObserve(name="test_root", feature_slug="test"):
+        with Observe(kind=ObserveKind.GENERATION, name="test_context_with_prompt", prompt=mock_prompt) as span:
+            pass
 
     # Verify span attributes contain prompt metadata
     spans = exporter.get_finished_spans()
     assert len(spans) > 0
 
-    span = spans[-1]
+    span = next((s for s in spans if s.name == "test_context_with_prompt"), None)
+    assert span is not None
     assert span.attributes.get("basalt.prompt.slug") == "context-prompt"
     assert span.attributes.get("basalt.prompt.version") == "2.0.0"
     assert span.attributes.get("basalt.prompt.model.provider") == "anthropic"
@@ -549,14 +564,16 @@ def test_observe_prompt_without_variables():
     def generate_text():
         return "Response"
 
-    result = generate_text()
+    with StartObserve(name="test_root", feature_slug="test"):
+        result = generate_text()
     assert result == "Response"
 
     # Verify span attributes contain prompt metadata but no variables
     spans = exporter.get_finished_spans()
     assert len(spans) > 0
 
-    span = spans[-1]
+    span = next((s for s in spans if s.name == "test_no_vars"), None)
+    assert span is not None
     assert span.attributes.get("basalt.prompt.slug") == "no-vars-prompt"
     assert span.attributes.get("basalt.prompt.version") == "1.0.0"
     assert "basalt.prompt.variables" not in span.attributes
