@@ -20,6 +20,7 @@ from .context_managers import (
     EventSpanHandle,
     FunctionSpanHandle,
     LLMSpanHandle,
+    NoOpSpanHandle,
     RetrievalSpanHandle,
     SpanHandle,
     StartSpanHandle,
@@ -117,9 +118,7 @@ def _resolve_kind_str(kind: ObserveKind | str) -> str:
     kind_str = str(kind).lower()
     valid_kinds = {k.value for k in ObserveKind}
     if kind_str not in valid_kinds:
-        raise ValueError(
-            f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}"
-        )
+        raise ValueError(f"Invalid kind '{kind_str}'. Must be one of: {', '.join(sorted(valid_kinds))}")
     return kind_str
 
 
@@ -255,9 +254,7 @@ class StartObserve(ContextDecorator):
                 **kwargs: object,
             ) -> object:
                 bound = resolve_bound_arguments(func, args, kwargs)
-                user_identity, org_identity = resolve_identity_payload(
-                    self.identity_resolver, bound
-                )
+                user_identity, org_identity = resolve_identity_payload(self.identity_resolver, bound)
                 pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
 
                 span_name = self.name
@@ -337,8 +334,7 @@ class Observe(ContextDecorator):
         # Validate name is provided and non-empty
         if not name or not isinstance(name, str) or not name.strip():
             raise ValueError(
-                "name is required and must be a non-empty string. "
-                "Please provide a descriptive name for this span (e.g., 'llm_generation', 'vector_search')."
+                "name is required and must be a non-empty string. Please provide a descriptive name for this span (e.g., 'llm_generation', 'vector_search')."
             )
 
         self.name = name.strip()
@@ -349,24 +345,21 @@ class Observe(ContextDecorator):
         self.output_resolver = output
         self.variables_resolver = variables
         self.prompt = prompt
-        self._span_handle: SpanHandle | None = None
+        self._span_handle: SpanHandle | NoOpSpanHandle | None = None
         self._ctx_manager = None
 
     @staticmethod
     def _get_config_for_kind(kind_str: str):
         return _get_observe_config_for_kind(kind_str)
 
-    def __enter__(self) -> SpanHandle:
+    def __enter__(self) -> SpanHandle | NoOpSpanHandle:
         span_name = self.name
 
         kind_str = _resolve_kind_str(self.kind)
 
         # Reject ROOT kind
         if kind_str == ObserveKind.ROOT.value:
-            raise ValueError(
-                f"Cannot use kind='{ObserveKind.ROOT.value}' with Observe. "
-                f"Use StartObserve (start_observe) for root spans."
-            )
+            raise ValueError(f"Cannot use kind='{ObserveKind.ROOT.value}' with Observe. Use StartObserve (start_observe) for root spans.")
 
         handle_cls, tracer_name, _, _ = self._get_config_for_kind(kind_str)
 
@@ -387,21 +380,23 @@ class Observe(ContextDecorator):
             if self.prompt.variables:
                 prompt_attrs["basalt.prompt.variables"] = json.dumps(self.prompt.variables)
 
-        # Check for root span
+        # Check for root span - if no root span, return a no-op handle
+        # This ensures observe() is ignored unless start_observe has been called first
         from opentelemetry import context as otel_context
+        from .context_managers import NoOpSpanHandle
 
         if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.warning(
-                "Observe used without a preceding start_observe. This may lead to missing trace context."
-            )
+            # No root span exists - return a no-op handle
+            self._ctx_manager = NoOpSpanHandle()
+            self._span_handle = self._ctx_manager.__enter__()
+            return self._span_handle
 
         # Inherit feature_slug from parent context if available
         from .trace_context import FEATURE_SLUG_CONTEXT_KEY
 
         current_feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY)
+        if not isinstance(current_feature_slug, str):
+            current_feature_slug = None
 
         self._ctx_manager = _with_span_handle(
             name=span_name,
@@ -437,18 +432,13 @@ class Observe(ContextDecorator):
 
         # Reject ROOT kind
         if kind_str == ObserveKind.ROOT.value:
-            raise ValueError(
-                f"Cannot use kind='{ObserveKind.ROOT.value}' with Observe. "
-                f"Use StartObserve (start_observe) for root spans."
-            )
+            raise ValueError(f"Cannot use kind='{ObserveKind.ROOT.value}' with Observe. Use StartObserve (start_observe) for root spans.")
 
         handle_cls, tracer_name, default_input, default_vars = self._get_config_for_kind(kind_str)
 
         # Use defaults if not provided
         input_resolver = self.input_resolver if self.input_resolver is not None else default_input
-        variables_resolver = (
-            self.variables_resolver if self.variables_resolver is not None else default_vars
-        )
+        variables_resolver = self.variables_resolver if self.variables_resolver is not None else default_vars
 
         # Process prompt parameter if provided
         prompt_metadata = {}
@@ -486,22 +476,11 @@ class Observe(ContextDecorator):
             list[Any] | None,
         ]:
             computed_metadata_raw = resolve_attributes(self._metadata, args, kwargs)
-            computed_metadata = (
-                computed_metadata_raw if isinstance(computed_metadata_raw, Mapping) else None
-            )
+            computed_metadata = computed_metadata_raw if isinstance(computed_metadata_raw, Mapping) else None
             bound = resolve_bound_arguments(func, args, kwargs)
             input_payload = resolve_payload_from_bound(input_resolver, bound)
             variables_payload = resolve_variables_payload(variables_resolver, bound)
             pre_evaluators = resolve_evaluators_payload(self.evaluators, bound)
-
-            # Check for root span
-            if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.warning(
-                    "Observe used without a preceding start_observe. This may lead to missing trace context."
-                )
 
             return computed_metadata, bound, input_payload, variables_payload, pre_evaluators
 
@@ -521,18 +500,17 @@ class Observe(ContextDecorator):
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            computed_metadata, bound, input_payload, variables_payload, pre_evaluators = (
-                prepare_call_data(args, kwargs)
-            )
+            # Early exit: if no root span exists, just call the function (no-op)
+            if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
+                return func(*args, **kwargs)
 
+            computed_metadata, bound, input_payload, variables_payload, pre_evaluators = prepare_call_data(args, kwargs)
             # Inherit feature_slug from parent context if available
-
-            from opentelemetry import context as otel_context
-
             from .trace_context import FEATURE_SLUG_CONTEXT_KEY
- 
 
             current_feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY)
+            if not isinstance(current_feature_slug, str):
+                current_feature_slug = None
 
             with _with_span_handle(
                 name=self.name,
@@ -574,12 +552,18 @@ class Observe(ContextDecorator):
                 *args: object,
                 **kwargs: object,
             ) -> object:
-                computed_metadata, bound, input_payload, variables_payload, pre_evaluators = (
-                    prepare_call_data(args, kwargs)
-                )
+                # Early exit: if no root span exists, just call the function (no-op)
+                if not otel_context.get_value(ROOT_SPAN_CONTEXT_KEY):
+                    return await func(*args, **kwargs)
+
+                computed_metadata, bound, input_payload, variables_payload, pre_evaluators = prepare_call_data(args, kwargs)
 
                 # Inherit feature_slug from parent context if available
+                from .trace_context import FEATURE_SLUG_CONTEXT_KEY
+
                 current_feature_slug = otel_context.get_value(FEATURE_SLUG_CONTEXT_KEY)
+                if not isinstance(current_feature_slug, str):
+                    current_feature_slug = None
 
                 with _with_span_handle(
                     name=self.name,
@@ -620,9 +604,7 @@ class Observe(ContextDecorator):
     # Static Domain Methods
 
     @staticmethod
-    def _identify(
-        user: str | dict[str, Any] | None = None, organization: str | dict[str, Any] | None = None
-    ) -> None:
+    def _identify(user: str | dict[str, Any] | None = None, organization: str | dict[str, Any] | None = None) -> None:
         """Set the user and/or organization identity for the current context."""
         if user:
             if isinstance(user, str):
@@ -634,9 +616,7 @@ class Observe(ContextDecorator):
             if isinstance(organization, str):
                 _set_trace_organization(organization_id=organization)
             elif isinstance(organization, dict):
-                _set_trace_organization(
-                    organization_id=organization.get("id", "unknown"), name=organization.get("name")
-                )
+                _set_trace_organization(organization_id=organization.get("id", "unknown"), name=organization.get("name"))
 
     @staticmethod
     def _root_span() -> StartSpanHandle | None:
@@ -892,10 +872,7 @@ class Observe(ContextDecorator):
                 import logging
 
                 logger = logging.getLogger(__name__)
-                logger.warning(
-                    "_set_evaluation_config() can only be called on root spans (StartSpanHandle). "
-                    "This call will be ignored."
-                )
+                logger.warning("_set_evaluation_config() can only be called on root spans (StartSpanHandle). This call will be ignored.")
                 return
             handle.set_evaluation_config(config)
 
@@ -1060,8 +1037,7 @@ class AsyncStartObserve:
         # Validate name is provided and non-empty
         if not name or not isinstance(name, str) or not name.strip():
             raise ValueError(
-                "name is required and must be a non-empty string. "
-                "Please provide a descriptive name for this span (e.g., 'async_workflow', 'async_operation')."
+                "name is required and must be a non-empty string. Please provide a descriptive name for this span (e.g., 'async_workflow', 'async_operation')."
             )
 
         self.name = name.strip()
@@ -1151,8 +1127,7 @@ class AsyncObserve:
         # Validate name is provided and non-empty
         if not name or not isinstance(name, str) or not name.strip():
             raise ValueError(
-                "name is required and must be a non-empty string. "
-                "Please provide a descriptive name for this span (e.g., 'async_operation', 'async_fetch')."
+                "name is required and must be a non-empty string. Please provide a descriptive name for this span (e.g., 'async_operation', 'async_fetch')."
             )
 
         self.name = name.strip()
@@ -1177,10 +1152,7 @@ class AsyncObserve:
 
         # Reject ROOT kind
         if kind_str == ObserveKind.ROOT.value:
-            raise ValueError(
-                f"Cannot use kind='{ObserveKind.ROOT.value}' with AsyncObserve. "
-                f"Use AsyncStartObserve (async_start_observe) for root spans."
-            )
+            raise ValueError(f"Cannot use kind='{ObserveKind.ROOT.value}' with AsyncObserve. Use AsyncStartObserve (async_start_observe) for root spans.")
 
         handle_cls, tracer_name, _, _ = self._get_config_for_kind(kind_str)
 
@@ -1213,9 +1185,7 @@ class AsyncObserve:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning(
-                "AsyncObserve used without a preceding async_start_observe. This may lead to missing trace context."
-            )
+            logger.warning("AsyncObserve used without a preceding async_start_observe. This may lead to missing trace context.")
 
         self._ctx_manager = _async_with_span_handle(
             name=span_name,

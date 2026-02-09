@@ -43,6 +43,80 @@ ROOT_PARENT_SPAN_CONTEXT_KEY: Final[str] = "basalt.context.root_parent_span"
 logger = logging.getLogger(__name__)
 
 
+class NoOpSpanHandle:
+    """No-op span handle that does nothing.
+
+    Used when observe() is called without a preceding start_observe.
+    This prevents creating Basalt spans when not in a trace context.
+    """
+
+    def set_attribute(self, key: str, value: str | int | float | bool | None) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_metadata(self, metadata: Mapping[str, Any] | None) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_prompt(self, prompt: Any) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_input(self, payload: JSONValue) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_output(self, payload: JSONValue) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_io(
+        self,
+        *,
+        input_payload: JSONValue | None = None,
+        output_payload: JSONValue | None = None,
+        variables: Mapping[str, Any] | None = None,
+    ) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def add_evaluator(self, evaluator_slug: str) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def add_evaluators(self, *evaluators: Sequence[str]) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_identity(self, identity: Mapping[str, Any] | None = None) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_model(self, model: str) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_response_model(self, model: str) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def set_operation_name(self, operation: str) -> None:
+        """No-op: does nothing."""
+        pass
+
+    def __enter__(self):
+        """No-op: does nothing."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """No-op: does nothing."""
+        pass
+
+
 @dataclass(slots=True, frozen=True)
 class EvaluationConfig:
     """
@@ -232,9 +306,7 @@ class SpanHandle:
     ) -> None:
         self._span = span
         self._io_payload: dict[str, Any] = {"input": None, "output": None, "variables": None}
-        self._parent_span = (
-            parent_span if parent_span and parent_span.get_span_context().is_valid else None
-        )
+        self._parent_span = parent_span if parent_span and parent_span.get_span_context().is_valid else None
         self._evaluators: dict[str, EvaluatorAttachment] = {}
         self._evaluator_config: EvaluationConfig | None = None
         self._hydrate_existing_evaluators()
@@ -350,9 +422,7 @@ class SpanHandle:
             if trace_content_enabled():
                 _set_serialized_attribute(self._span, semconv.BasaltSpan.VARIABLES, dict(variables))
                 if self._parent_span:
-                    _set_serialized_attribute(
-                        self._parent_span, semconv.BasaltSpan.VARIABLES, dict(variables)
-                    )
+                    _set_serialized_attribute(self._parent_span, semconv.BasaltSpan.VARIABLES, dict(variables))
 
     def _io_snapshot(self) -> dict[str, Any]:
         """Return a shallow copy of the tracked IO payload."""
@@ -510,9 +580,7 @@ class StartSpanHandle(SpanHandle):
         """
         if isinstance(config, EvaluationConfig):
             self._evaluator_config = config
-            _set_serialized_attribute(
-                self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict()
-            )
+            _set_serialized_attribute(self._span, semconv.BasaltSpan.EVALUATION_CONFIG, config.to_dict())
         elif isinstance(config, Mapping):
             config_dict = dict(config)
             self._evaluator_config = EvaluationConfig(**config_dict)
@@ -703,9 +771,7 @@ def _with_span_handle(
     defaults = _current_trace_defaults()
 
     parent_span = trace.get_current_span()
-    if parent_span and (
-        not parent_span.get_span_context().is_valid or not parent_span.is_recording()
-    ):
+    if parent_span and (not parent_span.get_span_context().is_valid or not parent_span.is_recording()):
         parent_span = None
 
     # Prepare context tokens for user/org propagation
@@ -805,9 +871,7 @@ def _with_span_handle(
                 root_span_token = attach(set_value(ROOT_SPAN_CONTEXT_KEY, span))
                 # Also store the parent span (if any) for trace-level helpers
                 if parent_span is not None:
-                    root_parent_span_token = attach(
-                        set_value(ROOT_PARENT_SPAN_CONTEXT_KEY, parent_span)
-                    )
+                    root_parent_span_token = attach(set_value(ROOT_PARENT_SPAN_CONTEXT_KEY, parent_span))
                 # Set basalt.root attribute
                 span.set_attribute("basalt.root", True)
             elif in_basalt_trace:

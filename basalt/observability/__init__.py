@@ -19,6 +19,7 @@ from .context_managers import (
     EventSpanHandle,
     FunctionSpanHandle,
     LLMSpanHandle,
+    NoOpSpanHandle,
     RetrievalSpanHandle,
     SpanHandle,
     StartSpanHandle,
@@ -70,6 +71,7 @@ __all__ = [
     "ToolSpanHandle",
     "FunctionSpanHandle",
     "EventSpanHandle",
+    "NoOpSpanHandle",
 ]
 
 _instrumentation = InstrumentationManager()
