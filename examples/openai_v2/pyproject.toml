@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "basalt-openai-v2-example"
+version = "0.1.0"
+description = "OpenAI v2 example demonstrating responses.parse() with Basalt observability"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.hatch.envs.default]
+detached = true
+dependencies = [
+    "openai>=1.60.0",
+    "pydantic>=2.0.0",
+    "opentelemetry-exporter-otlp-proto-grpc~=1.39.1",
+    "opentelemetry-sdk~=1.39.1",
+]
+
+[tool.hatch.envs.default.scripts]
+run = "python openai_v2_example.py"
