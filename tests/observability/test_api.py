@@ -650,3 +650,21 @@ def test_start_observe_name_strips_whitespace():
     """Test that StartObserve strips leading/trailing whitespace from name."""
     obs = StartObserve(feature_slug="test_feature", name="  test_name  ")
     assert obs.name == "test_name"
+
+
+def test_observe_set_latency():
+    """Test that Observe.set_latency sets gen_ai.latency attribute on the span."""
+
+    from .utils import get_exporter
+
+    exporter = get_exporter()
+    exporter.clear()
+
+    with StartObserve(name="test_root", feature_slug="test"):
+        with Observe(name="test_latency", kind=ObserveKind.GENERATION):
+            Observe.set_latency(1250.5)
+
+    spans = exporter.get_finished_spans()
+    test_span = next((s for s in spans if s.name == "test_latency"), None)
+    assert test_span is not None
+    assert test_span.attributes.get(semconv.GenAI.LATENCY) == 1250.5

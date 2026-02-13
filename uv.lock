@@ -181,6 +181,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "mistralai", marker = "extra == 'dev'" },
+    { name = "openai", specifier = ">=2.15.0" },
     { name = "openai", marker = "extra == 'dev'" },
     { name = "opentelemetry-api", specifier = "~=1.39.1" },
     { name = "opentelemetry-exporter-otlp", specifier = "~=1.39.1" },

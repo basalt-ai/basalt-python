@@ -224,6 +224,14 @@ class GenAI:
     Required: Recommended
     """
 
+    LATENCY: Final[str] = "gen_ai.latency"
+    """
+    The latency of the GenAI operation in milliseconds.
+    Type: float
+    Required: Recommended
+    Examples: 125.5, 1200.0, 3500.75
+    """
+
 
 # ============================================================================
 # Standard OpenTelemetry HTTP Semantic Conventions

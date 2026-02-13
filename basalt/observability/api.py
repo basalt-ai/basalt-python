@@ -1009,6 +1009,17 @@ class Observe(ContextDecorator):
         if handle:
             handle.set_finish_reasons(reasons)
 
+    @staticmethod
+    def set_latency(duration_ms: float) -> None:
+        """Set the GenAI operation latency in milliseconds.
+
+        Args:
+            duration_ms: The latency/duration of the GenAI operation in milliseconds.
+        """
+        handle = get_current_span_handle()
+        if handle:
+            handle.set_latency(duration_ms)
+
 
 class AsyncStartObserve:
     """

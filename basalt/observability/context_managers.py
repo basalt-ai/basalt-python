@@ -560,6 +560,10 @@ class SpanHandle:
         """Set the finish reasons array for the GenAI response."""
         _set_serialized_attribute(self._span, semconv.GenAI.RESPONSE_FINISH_REASONS, list(reasons))
 
+    def set_latency(self, duration_ms: float) -> None:
+        """Set the GenAI operation latency in milliseconds."""
+        self.set_attribute(semconv.GenAI.LATENCY, duration_ms)
+
 
 class StartSpanHandle(SpanHandle):
     """
