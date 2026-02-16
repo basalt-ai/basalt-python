@@ -369,6 +369,53 @@ def test_trace_set_output_falls_back_to_current_span_when_no_root():
     assert semconv.BasaltSpan.OUTPUT in manual_span.attributes
 
 
+def test_trace_set_metadata_prefers_parent_span_over_root():
+    """trace_set_metadata should target the parent span when a Basalt root span exists."""
+    from opentelemetry import trace
+
+    from basalt.observability import semconv
+
+    from .utils import get_exporter
+
+    exporter = get_exporter()
+    exporter.clear()
+
+    tracer = trace.get_tracer("test.trace_set_metadata_prefers_parent_span_over_root")
+
+    with tracer.start_as_current_span("http_span"):
+        with StartObserve(name="root_span", feature_slug="test_feature"):
+            Observe.trace_set_metadata({"foo": "bar"})
+
+    spans = exporter.get_finished_spans()
+    http_span = next(s for s in spans if s.name == "http_span")
+    root_span = next(s for s in spans if s.name == "root_span")
+
+    assert semconv.BasaltSpan.METADATA in http_span.attributes
+    assert semconv.BasaltSpan.METADATA not in root_span.attributes
+
+
+def test_trace_set_metadata_falls_back_to_current_span_when_no_root():
+    """trace_set_metadata should fall back to the current span when no Basalt root exists."""
+    from opentelemetry import trace
+
+    from basalt.observability import semconv
+
+    from .utils import get_exporter
+
+    exporter = get_exporter()
+    exporter.clear()
+
+    tracer = trace.get_tracer("test.trace_set_metadata_falls_back_to_current_span_when_no_root")
+
+    with tracer.start_as_current_span("manual_span"):
+        Observe.trace_set_metadata({"foo": "bar"})
+
+    spans = exporter.get_finished_spans()
+    manual_span = next(s for s in spans if s.name == "manual_span")
+
+    assert semconv.BasaltSpan.METADATA in manual_span.attributes
+
+
 def test_observe_with_prompt_parameter_decorator():
     """Test Observe decorator with a Prompt object."""
     from dataclasses import dataclass

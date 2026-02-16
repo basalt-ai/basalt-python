@@ -689,6 +689,17 @@ class Observe(ContextDecorator):
             handle.set_output(data)
 
     @staticmethod
+    def trace_set_metadata(data: dict[str, Any]) -> None:
+        """Set metadata on the first span of the current trace.
+
+        Prefer the parent of the Basalt root span (e.g., HTTP server span),
+        then the Basalt root span itself, and finally the current span.
+        """
+        handle = Observe._trace_target_handle()
+        if handle:
+            handle.set_metadata(data)
+
+    @staticmethod
     def evaluate(evaluator: Sequence[str]) -> None:
         """Attach an evaluator to the current span."""
         handle = get_current_span_handle()
