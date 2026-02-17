@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "basalt-openai-experiment-example"
+version = "0.1.0"
+description = "OpenAI experiment example demonstrating Basalt experiment API with traces in a loop"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.hatch.envs.default]
+detached = true
+dependencies = [
+    "openai==2.15.0",
+    "opentelemetry-exporter-otlp-proto-grpc~=1.39.1",
+]
+
+[tool.hatch.envs.default.scripts]
+run = "python openai_experiment_example.py"
