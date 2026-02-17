@@ -65,6 +65,35 @@ def _resolve_experiment_id(experiment: str | Experiment | None) -> str | None:
     return None
 
 
+def _build_experiment_payload(
+    experiment: str | Experiment | dict[str, Any] | None,
+) -> dict[str, Any] | str | None:
+    """Build a rich experiment payload dict for OTel context propagation.
+
+    Returns a dict with ``id``, ``name``, and ``feature_slug`` when the
+    source carries those fields, a plain string when only an ID is
+    available, or ``None`` when no experiment is set.
+    """
+    if experiment is None:
+        return None
+    if isinstance(experiment, str):
+        return experiment
+    if isinstance(experiment, dict):
+        return experiment
+    # Duck-typed Experiment dataclass (avoids circular import)
+    exp_id = getattr(experiment, "id", None)
+    if not isinstance(exp_id, str) or not exp_id:
+        return None
+    payload: dict[str, Any] = {"id": exp_id}
+    exp_name = getattr(experiment, "name", None)
+    if isinstance(exp_name, str) and exp_name:
+        payload["name"] = exp_name
+    exp_slug = getattr(experiment, "feature_slug", None)
+    if isinstance(exp_slug, str) and exp_slug:
+        payload["feature_slug"] = exp_slug
+    return payload
+
+
 def _get_observe_config_for_kind(
     kind_str: str,
 ) -> tuple[type[SpanHandle], str, Callable[[Any], Any] | None, Callable[[Any], Any] | None]:
@@ -170,7 +199,10 @@ class StartObserve(ContextDecorator):
         user_identity, org_identity = resolve_identity_payload(self.identity_resolver, None)
 
         # Initialize context manager
-        experiment_id = _resolve_experiment_id(self.experiment)
+        # Build a rich experiment payload (dict) so that child spans can
+        # inherit the full experiment metadata (id, name, feature_slug)
+        # via OTel context propagation.
+        experiment_payload = _build_experiment_payload(self.experiment)
         self._ctx_manager = _with_span_handle(
             name=span_name,
             attributes=None,
@@ -183,7 +215,7 @@ class StartObserve(ContextDecorator):
             feature_slug=self.feature_slug,
             metadata=self._metadata,
             evaluate_config=self.evaluate_config,
-            experiment=experiment_id,
+            experiment=experiment_payload,
         )
         span = self._ctx_manager.__enter__()
         # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls
@@ -1079,6 +1111,7 @@ class AsyncStartObserve:
         user_identity, org_identity = resolve_identity_payload(self.identity_resolver, None)
 
         # Initialize async context manager
+        experiment_payload = _build_experiment_payload(self.experiment)
         self._ctx_manager = _async_with_span_handle(
             name=span_name,
             attributes=None,
@@ -1091,7 +1124,7 @@ class AsyncStartObserve:
             feature_slug=self.feature_slug,
             metadata=self._metadata,
             evaluate_config=self.evaluate_config,
-            experiment=self.experiment,
+            experiment=experiment_payload,
         )
         span = await self._ctx_manager.__aenter__()
         # Type assertion: we know this is StartSpanHandle since we passed it as handle_cls

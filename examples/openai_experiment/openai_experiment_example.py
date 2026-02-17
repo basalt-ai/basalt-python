@@ -5,10 +5,11 @@ This example demonstrates:
 1. Creating a Basalt Experiment upfront via the Experiments API
 2. Running multiple OpenAI calls in a loop, each producing a separate trace
 3. Attaching every trace to the same experiment for grouped analysis
-4. Re-initializing the Basalt client in each iteration (each client creates a trace)
 
-Uses the "support-ticket" feature from the Gemini example and asks OpenAI
-to analyse customer support tickets.
+Each call to ``start_observe()`` creates a new root span (and therefore a new
+trace) because there is no active parent span between loop iterations.  There
+is no need to recreate the Basalt client — trace boundaries are determined by
+the OpenTelemetry context, not by the client instance.
 
 Usage:
     1. Copy .envrc.example to .envrc and fill in your API keys
@@ -41,39 +42,25 @@ SUPPORT_TICKETS = [
 
 def build_basalt_client() -> Basalt:
     """
-    Initialize a fresh Basalt client with telemetry configuration.
+    Initialize the Basalt client with telemetry configuration.
 
-    Each call returns a new client instance.  The underlying OpenTelemetry
-    TracerProvider is a singleton, so subsequent clients reuse the same
-    provider — only the first call installs exporters and processors.
+    Only one client should be created for the entire process lifetime.
+    The underlying OpenTelemetry TracerProvider is a global singleton —
+    calling ``shutdown()`` on a client permanently kills the provider,
+    so it must only be called once when the process is exiting.
     """
     basalt_key = os.getenv("BASALT_API_KEY")
     if not basalt_key:
         logging.warning("BASALT_API_KEY not found. Using placeholder.")
         basalt_key = "test-key"
 
-    otlp_endpoint = os.getenv("BASALT_OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-
-    exporter = OTLPSpanExporter(
-        endpoint=otlp_endpoint,
-        headers={"authorization": f"Bearer {basalt_key}"},
-        insecure=True,
-        timeout=10,
-    )
-
     telemetry = TelemetryConfig(
         service_name="openai-experiment-demo",
-        exporter=exporter,
         enabled_providers=["openai"],
     )
 
     return Basalt(
         api_key=basalt_key,
-        observability_metadata={
-            "env": "development",
-            "provider": "openai",
-            "example": "experiment-loop",
-        },
         telemetry_config=telemetry,
     )
 
@@ -103,15 +90,17 @@ def run_single_ticket(
     ticket: str,
     experiment,
     openai_client: OpenAI | None,
-    basalt_client: Basalt,
 ) -> str:
     """
     Analyse a single support ticket inside an observed span
     that is attached to the given experiment.
+
+    Each call creates a new root span (and therefore a separate trace)
+    because there is no active parent span when this function is invoked.
     """
     with start_observe(
         name="support_ticket_analysis",
-        feature_slug="support-ticket",
+        feature_slug="test_feature",
         experiment=experiment,
         identity=Identity(
             organization={"id": "123", "name": "Demo Corp"},
@@ -162,22 +151,23 @@ def main():
     logging.info("=" * 60)
 
     # ------------------------------------------------------------------
-    # Step 1: Create the experiment using an initial Basalt client
+    # Step 1: Create a single Basalt client for the entire process
+    # ------------------------------------------------------------------
+    basalt_client = build_basalt_client()
+
+    # ------------------------------------------------------------------
+    # Step 2: Create the experiment
     # ------------------------------------------------------------------
     logging.info("Creating experiment...")
-    init_client = build_basalt_client()
 
-    experiment = init_client.experiments.create_sync(
-        feature_slug="support-ticket",
+    experiment = basalt_client.experiments.create_sync(
+        feature_slug="test_feature",
         name="Support Ticket Analysis Experiment",
     )
     logging.info(f"Experiment created: id={experiment.id}, name={experiment.name}")
 
-    # Shut down the initial client — the experiment object is all we need
-    init_client.shutdown()
-
     # ------------------------------------------------------------------
-    # Step 2: Loop over tickets, creating a new Basalt client per iteration
+    # Step 3: Loop over tickets — each start_observe() creates a new trace
     # ------------------------------------------------------------------
     openai_api_key = os.getenv("OPENAI_API_KEY")
     openai_client: OpenAI | None = None
@@ -191,27 +181,26 @@ def main():
         logging.info(f"--- Ticket {i}/{len(SUPPORT_TICKETS)} ---")
         logging.info(f"Ticket: {ticket[:60]}...")
 
-        # Build a fresh Basalt client for this iteration
-        basalt_client = build_basalt_client()
-
         try:
             result = run_single_ticket(
                 ticket=ticket,
                 experiment=experiment,
                 openai_client=openai_client,
-                basalt_client=basalt_client,
             )
             logging.info(f"Result: {result[:80]}...")
         except Exception as e:
             logging.error(f"Ticket analysis failed: {e}")
-        finally:
-            # Flush traces before moving to the next iteration
-            basalt_client.shutdown()
 
     logging.info("")
     logging.info("=" * 60)
     logging.info("All tickets processed. Traces attached to experiment: %s", experiment.id)
     logging.info("=" * 60)
+
+    # ------------------------------------------------------------------
+    # Step 4: Shutdown ONCE at the very end — flushes all pending traces
+    # ------------------------------------------------------------------
+    logging.info("Flushing telemetry...")
+    basalt_client.shutdown()
 
 
 if __name__ == "__main__":

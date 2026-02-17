@@ -24,8 +24,23 @@ class Basalt:
     """
     Main client for the Basalt SDK.
 
-    This client provides access to the Basalt API services including prompts and datasets,
-    with built-in tracing support via OpenTelemetry.
+    This client provides access to the Basalt API services including prompts,
+    datasets, and experiments, with built-in tracing support via OpenTelemetry.
+
+    Lifecycle:
+        Create **one** ``Basalt`` instance per process and reuse it for the
+        entire application lifetime.  The client itself holds no trace state —
+        trace boundaries are determined by ``start_observe()`` calls, not by
+        client instances.  Call :meth:`shutdown` **once** when the process is
+        about to exit.
+
+        .. warning::
+
+            ``shutdown()`` permanently destroys the global OpenTelemetry
+            ``TracerProvider``.  Creating a new ``Basalt`` client after
+            ``shutdown()`` will silently produce dead traces that are never
+            exported.  Do **not** call ``shutdown()`` between iterations of a
+            loop or between requests — only at process exit.
 
     Example:
         ```python
@@ -42,6 +57,11 @@ class Basalt:
 
         # Or use client-level parameters for simple cases
         basalt = Basalt(api_key="your-api-key", enabled_instruments=["openai", "anthropic"])
+
+        # ... use basalt throughout your application ...
+
+        # Only at process exit:
+        basalt.shutdown()
         ```
     """
 
@@ -157,8 +177,38 @@ class Basalt:
 
     def shutdown(self) -> None:
         """
-        Shutdown the client and flush any pending telemetry data.
+        Flush pending telemetry data and shut down the client.
 
-        This ensures all spans are exported before the application exits.
+        This method calls ``force_flush()`` followed by ``shutdown()`` on the
+        global OpenTelemetry ``TracerProvider``, ensuring all buffered spans
+        are exported before the process exits.
+
+        .. warning::
+
+            **This operation is irreversible.**  The global ``TracerProvider``
+            is permanently shut down — its ``BatchSpanProcessor`` worker
+            threads are terminated and cannot be restarted.  Any ``Basalt``
+            client created after this call will silently attach to the dead
+            provider and produce traces that are never exported.
+
+            Call this method **exactly once**, at process exit.  Do **not**
+            call it between loop iterations, between HTTP requests, or before
+            creating another ``Basalt`` client.
+
+        Example — script::
+
+            basalt = Basalt(api_key="...")
+            try:
+                run_my_workflow()
+            finally:
+                basalt.shutdown()
+
+        Example — web server::
+
+            # At startup
+            basalt = Basalt(api_key="...")
+
+            # At teardown (e.g., FastAPI lifespan, Flask teardown_appcontext)
+            basalt.shutdown()
         """
         self._instrumentation.shutdown()

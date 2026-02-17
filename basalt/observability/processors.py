@@ -67,9 +67,7 @@ def _set_default_metadata(span: Span, defaults: _TraceContextConfig) -> None:
     # Only attach experiments to root spans (spans without a parent)
     # We check both span.parent (SpanContext) and our own internal tracking if needed
     parent_ctx = span.parent
-    is_root_span = parent_ctx is None or (
-        hasattr(parent_ctx, "is_valid") and not parent_ctx.is_valid
-    )
+    is_root_span = parent_ctx is None or (hasattr(parent_ctx, "is_valid") and not parent_ctx.is_valid)
 
     experiment = defaults.experiment if isinstance(defaults.experiment, TraceExperiment) else None
     if experiment and is_root_span:
@@ -118,6 +116,50 @@ def _apply_feature_slug_from_context(span: Span, parent_context: Context | None 
         logger.debug(f"Set feature_slug={feature_slug} on span={span.name}")
 
 
+def _apply_experiment_attrs(span: Any, experiment: str | dict | None) -> None:
+    """Apply experiment attributes to a span from a string ID or dict payload.
+
+    Supports two formats:
+    - ``str``: sets only ``basalt.experiment.id``
+    - ``dict``: sets ``id``, and optionally ``name`` and ``feature_slug``
+
+    Accepts both SDK ``Span`` and API-level ``Span`` to allow calls from
+    processors (SDK Span) and context managers (API Span).
+    """
+    if not span.is_recording() or experiment is None:
+        return
+
+    if isinstance(experiment, str):
+        span.set_attribute(semconv.BasaltExperiment.ID, experiment)
+    elif isinstance(experiment, dict):
+        exp_id = experiment.get("id")
+        if isinstance(exp_id, str) and exp_id:
+            span.set_attribute(semconv.BasaltExperiment.ID, exp_id)
+        exp_name = experiment.get("name")
+        if isinstance(exp_name, str) and exp_name:
+            span.set_attribute(semconv.BasaltExperiment.NAME, exp_name)
+        exp_slug = experiment.get("feature_slug")
+        if isinstance(exp_slug, str) and exp_slug:
+            span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, exp_slug)
+
+
+def _apply_experiment_from_context(span: Span, parent_context: Context | None = None) -> None:
+    """Apply experiment from OpenTelemetry context to the span."""
+    if not span.is_recording():
+        return
+
+    from .trace_context import EXPERIMENT_CONTEXT_KEY
+
+    raw = otel_context.get_value(EXPERIMENT_CONTEXT_KEY, parent_context)
+    if raw is None:
+        return
+    # Narrow to the types _apply_experiment_attrs expects
+    experiment: str | dict | None = raw if isinstance(raw, (str, dict)) else None
+    if experiment is not None:
+        _apply_experiment_attrs(span, experiment)
+        logger.debug("Set experiment on span=%s", getattr(span, "name", "?"))
+
+
 class BasaltContextProcessor(SpanProcessor):
     """Apply Basalt trace defaults to every started span."""
 
@@ -130,6 +172,8 @@ class BasaltContextProcessor(SpanProcessor):
         _apply_user_org_from_context(span, parent_context)
         # Apply feature_slug from OpenTelemetry context (enables propagation to child spans)
         _apply_feature_slug_from_context(span, parent_context)
+        # Apply experiment from OpenTelemetry context (enables propagation to child spans)
+        _apply_experiment_from_context(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
         return
@@ -312,7 +356,7 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         in_basalt_trace = False
         if parent_context is not None:
             in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY, parent_context) is not None
-        
+
         if not in_basalt_trace:
             # Also check current context as fallback
             in_basalt_trace = otel_context.get_value(ROOT_SPAN_CONTEXT_KEY) is not None
@@ -323,6 +367,9 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
 
             # Propagate feature_slug to ALL spans within a basalt trace
             _apply_feature_slug_from_context(span, parent_context)
+
+            # Propagate experiment to ALL spans within a basalt trace
+            _apply_experiment_from_context(span, parent_context)
 
             # Do not set basalt.span.kind for unknown scopes.
             # Known auto-instrumentation scopes set the kind in Section B.
@@ -348,19 +395,13 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
         # Read and apply input
         input_payload = otel_context.get_value(PENDING_INJECT_INPUT_KEY, ctx)
         if input_payload is not None:
-            serialized = (
-                json.dumps(input_payload) if not isinstance(input_payload, str) else input_payload
-            )
+            serialized = json.dumps(input_payload) if not isinstance(input_payload, str) else input_payload
             span.set_attribute(semconv.BasaltSpan.INPUT, serialized)
 
         # Read and apply output
         output_payload = otel_context.get_value(PENDING_INJECT_OUTPUT_KEY, ctx)
         if output_payload is not None:
-            serialized = (
-                json.dumps(output_payload)
-                if not isinstance(output_payload, str)
-                else output_payload
-            )
+            serialized = json.dumps(output_payload) if not isinstance(output_payload, str) else output_payload
             span.set_attribute(semconv.BasaltSpan.OUTPUT, serialized)
 
         # Read and apply variables
@@ -392,9 +433,7 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
                     continue
                 if isinstance(value, (str, int, float)):
                     safe_value = value
-                elif isinstance(value, (list, tuple)) and all(
-                    isinstance(item, (str, int, float)) for item in value
-                ):
+                elif isinstance(value, (list, tuple)) and all(isinstance(item, (str, int, float)) for item in value):
                     safe_value = list(value)
                 else:
                     safe_value = json.dumps(value)
@@ -411,10 +450,7 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
                     import logging
 
                     logger = logging.getLogger(__name__)
-                    logger.debug(
-                        f"✓ Injecting prompt context from ContextVar for span '{scope.name}': "
-                        f"slug='{prompt_ctx['slug']}'"
-                    )
+                    logger.debug(f"✓ Injecting prompt context from ContextVar for span '{scope.name}': slug='{prompt_ctx['slug']}'")
                     from .utils import apply_prompt_context_attributes
 
                     apply_prompt_context_attributes(span, prompt_ctx)
@@ -422,9 +458,7 @@ class BasaltAutoInstrumentationProcessor(SpanProcessor):
                     import logging
 
                     logger = logging.getLogger(__name__)
-                    logger.debug(
-                        f"✗ No prompt context found in ContextVar for auto-instrumented span '{scope.name}'"
-                    )
+                    logger.debug(f"✗ No prompt context found in ContextVar for auto-instrumented span '{scope.name}'")
             except (ImportError, LookupError) as e:
                 import logging
 

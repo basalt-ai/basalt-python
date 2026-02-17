@@ -130,9 +130,7 @@ def create_tracer_provider(
 
     # Add a span processor for each exporter
     for exp in exporters:
-        processor_cls = (
-            SimpleSpanProcessor if isinstance(exp, ConsoleSpanExporter) else BatchSpanProcessor
-        )
+        processor_cls = SimpleSpanProcessor if isinstance(exp, ConsoleSpanExporter) else BatchSpanProcessor
         provider.add_span_processor(processor_cls(exp))
 
     return provider
@@ -217,7 +215,6 @@ class InstrumentationManager:
 
         # Combine user-provided exporters with environment-built exporter
         user_exporters = effective_config.exporter
-        env_exporter = self._build_exporter_from_env()
 
         # Normalize user_exporters to list
         if user_exporters is None:
@@ -227,9 +224,11 @@ class InstrumentationManager:
         else:
             exporters_list = [user_exporters]
 
-        # Add environment exporter ONLY if no user exporters were provided
-        if user_exporters is None and env_exporter is not None:
-            exporters_list.append(env_exporter)
+        # Build environment exporter ONLY if no user exporters were provided
+        if user_exporters is None:
+            env_exporter = self._build_exporter_from_env()
+            if env_exporter is not None:
+                exporters_list.append(env_exporter)
 
         # Pass to setup_tracing (will handle None/empty list → ConsoleSpanExporter)
         final_exporter = exporters_list if exporters_list else None
@@ -296,8 +295,7 @@ class InstrumentationManager:
             return exporter
         except Exception as exc:
             warnings.warn(
-                f"Failed to create OTLP exporter for endpoint '{endpoint}': {exc}. "
-                "Falling back to ConsoleSpanExporter.",
+                f"Failed to create OTLP exporter for endpoint '{endpoint}': {exc}. Falling back to ConsoleSpanExporter.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -412,10 +410,7 @@ class InstrumentationManager:
                 if instrumentor_cls:
                     module_name = "opentelemetry.instrumentation.google_genai"
             if not instrumentor_cls:
-                logger.debug(
-                    f"Provider '{provider_key}' instrumentor not available. "
-                    f"Install with: pip install {module_name.replace('.', '-')}"
-                )
+                logger.debug(f"Provider '{provider_key}' instrumentor not available. Install with: pip install {module_name.replace('.', '-')}")
                 continue
 
             # Instrument the provider
@@ -468,9 +463,7 @@ class InstrumentationManager:
         # - TRACELOOP_TRACE_CONTENT: Used by most OpenLLMetry instrumentors
         # - OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: Used by Google GenAI instrumentor
         os.environ["TRACELOOP_TRACE_CONTENT"] = "true" if config.trace_content else "false"
-        os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = (
-            "true" if config.trace_content else "false"
-        )
+        os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "true" if config.trace_content else "false"
 
         # Instrument providers directly without using Traceloop.init()
         self._instrument_providers(config)
@@ -488,10 +481,7 @@ class InstrumentationManager:
         ]
 
         provider_type = type(provider).__name__
-        logger.info(
-            f"Installing {len(processors)} Basalt span processors on {provider_type}: "
-            f"{', '.join(type(p).__name__ for p in processors)}"
-        )
+        logger.info(f"Installing {len(processors)} Basalt span processors on {provider_type}: {', '.join(type(p).__name__ for p in processors)}")
 
         for processor in processors:
             provider.add_span_processor(processor)

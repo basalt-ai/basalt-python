@@ -17,6 +17,7 @@ USER_CONTEXT_KEY: Final[str] = "basalt.context.user"
 ORGANIZATION_CONTEXT_KEY: Final[str] = "basalt.context.organization"
 FEATURE_SLUG_CONTEXT_KEY: Final[str] = "basalt.context.feature_slug"
 SHOULD_EVALUATE_CONTEXT_KEY: Final[str] = "basalt.context.should_evaluate"
+EXPERIMENT_CONTEXT_KEY: Final[str] = "basalt.context.experiment"
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,9 +58,7 @@ class _TraceContextConfig:
         """Return a defensive copy of the configuration."""
         return _TraceContextConfig(
             experiment=self.experiment,
-            observe_metadata=dict(self.observe_metadata)
-            if self.observe_metadata is not None
-            else {},
+            observe_metadata=dict(self.observe_metadata) if self.observe_metadata is not None else {},
             sample_rate=self.sample_rate,
         )
 
@@ -161,9 +160,7 @@ def apply_trace_defaults(span: Span, defaults: _TraceContextConfig | None = None
         if context.experiment.name:
             span.set_attribute(semconv.BasaltExperiment.NAME, context.experiment.name)
         if context.experiment.feature_slug:
-            span.set_attribute(
-                semconv.BasaltExperiment.FEATURE_SLUG, context.experiment.feature_slug
-            )
+            span.set_attribute(semconv.BasaltExperiment.FEATURE_SLUG, context.experiment.feature_slug)
 
     if context.observe_metadata:
         for key, value in context.observe_metadata.items():
@@ -180,9 +177,7 @@ def get_context_organization() -> TraceIdentity | None:
     return cast(TraceIdentity | None, otel_context.get_value(ORGANIZATION_CONTEXT_KEY))
 
 
-def apply_user_from_context(
-    span: Span, user: TraceIdentity | Mapping[str, Any] | None = None
-) -> None:
+def apply_user_from_context(span: Span, user: TraceIdentity | Mapping[str, Any] | None = None) -> None:
     """
     Apply user identity to a span from the provided value or OpenTelemetry context.
 
@@ -201,9 +196,7 @@ def apply_user_from_context(
             span.set_attribute(semconv.BasaltUser.NAME, user_identity.name)
 
 
-def apply_organization_from_context(
-    span: Span, organization: TraceIdentity | Mapping[str, Any] | None = None
-) -> None:
+def apply_organization_from_context(span: Span, organization: TraceIdentity | Mapping[str, Any] | None = None) -> None:
     """
     Apply organization identity to a span from the provided value or OpenTelemetry context.
 

@@ -799,6 +799,11 @@ def _with_span_handle(
 
         tokens.append(attach(set_value(FEATURE_SLUG_CONTEXT_KEY, feature_slug)))
 
+    if experiment is not None:
+        from .trace_context import EXPERIMENT_CONTEXT_KEY
+
+        tokens.append(attach(set_value(EXPERIMENT_CONTEXT_KEY, experiment)))
+
     # Determine if this should be treated as a Basalt root span
     # A span is a Basalt root if:
     # 1. There's no parent span at all (true root), OR
@@ -830,6 +835,12 @@ def _with_span_handle(
             # Also propagate feature_slug to parent if available
             if feature_slug is not None:
                 parent_span.set_attribute(semconv.BasaltSpan.FEATURE_SLUG, feature_slug)
+
+            # Also propagate experiment to parent if available
+            if experiment is not None:
+                from .processors import _apply_experiment_attrs
+
+                _apply_experiment_attrs(parent_span, experiment)
     else:
         # Parent exists and either:
         # - We're already in a Basalt trace, OR
@@ -962,7 +973,7 @@ async def _async_with_span_handle(
     feature_slug: str | None = None,
     metadata: Mapping[str, Any] | None = None,
     evaluate_config: EvaluationConfig | None = None,
-    experiment: str | Experiment | None = None,
+    experiment: str | dict[str, Any] | Experiment | None = None,
 ) -> AsyncGenerator[SpanHandle, None]:
     """Async version of _with_span_handle.
 
@@ -971,14 +982,12 @@ async def _async_with_span_handle(
     The async support is primarily for use with async with statements.
     """
     # Coerce Experiment to str or dict if needed
-    experiment_arg = experiment
-    if experiment is not None and not isinstance(experiment, (str, dict)):
-        # Prefer id if available, else fallback to str
-        experiment_arg = getattr(experiment, "id", str(experiment))
-
-    # Ensure experiment_arg is str, dict, or None
-    if experiment_arg is not None and not isinstance(experiment_arg, (str, dict)):
-        experiment_arg = getattr(experiment_arg, "id", str(experiment_arg))
+    experiment_arg: str | dict[str, Any] | None = None
+    if experiment is not None:
+        if isinstance(experiment, (str, dict)):
+            experiment_arg = experiment
+        else:
+            experiment_arg = getattr(experiment, "id", str(experiment))
 
     with _with_span_handle(
         name=name,

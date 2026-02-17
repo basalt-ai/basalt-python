@@ -15,6 +15,7 @@ detached = true
 dependencies = [
     "openai==2.15.0",
     "opentelemetry-exporter-otlp-proto-grpc~=1.39.1",
+    "opentelemetry-instrumentation-openai~=0.52.1",
 ]
 
 [tool.hatch.envs.default.scripts]
