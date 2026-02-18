@@ -17,23 +17,23 @@ The SDK includes optional OpenTelemetry instrumentation packages for various LLM
 #### LLM Provider Instrumentations
 
 ```bash
-# Individual providers (10 available)
+# Individual providers (7 available)
 pip install basalt-sdk[openai]
 pip install basalt-sdk[anthropic]
 pip install basalt-sdk[google-generativeai]  # Google Gemini
 pip install basalt-sdk[bedrock]
 pip install basalt-sdk[vertex-ai]
+pip install basalt-sdk[mistralai]
 pip install basalt-sdk[ollama]
-...
 
 # Multiple providers
 pip install basalt-sdk[openai,anthropic]
 
-# All LLM providers (10 providers)
+# All LLM providers
 pip install basalt-sdk[llm-all]
 ```
 
-**Note:** The NEW Google GenAI SDK instrumentation is not yet available on PyPI. Use `google-generativeai` for Gemini for now.
+**Note:** The NEW Google GenAI SDK instrumentation (`google-genai`) is not yet available on PyPI. Use `google-generativeai` for the existing Gemini SDK.
 
 #### Vector Database Instrumentations
 
@@ -107,7 +107,7 @@ basalt = Basalt(
 basalt.shutdown()
 ```
 
-See `examples/telemetry_example.py` for a more complete walkthrough covering decorators, context managers, and custom exporters.
+See `examples/async_observe_example.py` for a more complete walkthrough covering decorators, context managers, and observability patterns.
 
 ### Telemetry & Observability
 
@@ -158,23 +158,26 @@ def generate_summary(model: str, prompt: str) -> dict:
 
 **Supported environment variables:**
 
-| Variable | Description |
-| --- | --- |
-| `BASALT_API_KEY` | API key for authentication (can also be passed to `Basalt()` constructor). |
-| `BASALT_TELEMETRY_ENABLED` | Master switch to enable/disable telemetry (default: `true`). |
-| `BASALT_SERVICE_NAME` | Overrides the OTEL `service.name`. |
-| `BASALT_ENVIRONMENT` | Sets `deployment.environment`. |
-| `BASALT_OTEL_EXPORTER_OTLP_ENDPOINT` | Custom OTLP HTTP endpoint for traces. Overrides the default Basalt OTEL collector endpoint. |
-| `BASALT_BUILD` | SDK build mode - set to `development` for local OTEL collector testing (default: `production`). |
-| `TRACELOOP_TRACE_CONTENT` | Controls whether prompts/completions are logged. **Note:** Set automatically by `TelemetryConfig.trace_content` - you typically don't need to set this manually. |
-| `BASALT_ENABLED_INSTRUMENTS` | Comma-separated list of instruments to enable (e.g., `openai,anthropic`). |
-| `BASALT_DISABLED_INSTRUMENTS` | Comma-separated list of instruments to disable (e.g., `langchain,llamaindex`). |
+| Variable                                             | Description                                                                                                                                                      |
+|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `BASALT_API_KEY`                                     | API key for authentication (can also be passed to `Basalt()` constructor).                                                                                       |
+| `BASALT_API_URL`                                     | Override the Basalt API base URL (default: `https://api.getbasalt.ai` or `http://localhost:3001` in development).                                                |
+| `BASALT_TELEMETRY_ENABLED`                           | Master switch to enable/disable telemetry (default: `true`).                                                                                                     |
+| `BASALT_SERVICE_NAME`                                | Overrides the OTEL `service.name`.                                                                                                                               |
+| `BASALT_ENVIRONMENT`                                 | Sets `deployment.environment`.                                                                                                                                   |
+| `BASALT_OTEL_EXPORTER_OTLP_ENDPOINT`                 | Custom OTLP endpoint for traces. Overrides the default Basalt OTEL collector endpoint.                                                                           |
+| `BASALT_BUILD`                                       | SDK build mode - set to `development` for local OTEL collector testing (default: `production`).                                                                  |
+| `BASALT_SAMPLE_RATE`                                 | Global default sampling rate for trace-level evaluation (0.0-1.0, default: 0.0).                                                                                 |
+| `TRACELOOP_TRACE_CONTENT`                            | Controls whether prompts/completions are logged. **Note:** Set automatically by `TelemetryConfig.trace_content` - you typically don't need to set this manually. |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Controls message content capture for Google GenAI instrumentation. Set automatically by `TelemetryConfig.trace_content`.                                         |
+| `BASALT_ENABLED_INSTRUMENTS`                         | Comma-separated list of instruments to enable (e.g., `openai,anthropic`).                                                                                        |
+| `BASALT_DISABLED_INSTRUMENTS`                        | Comma-separated list of instruments to disable (e.g., `langchain,llamaindex`).                                                                                   |
 
 **Default OTLP Exporter:**
 
 By default, the SDK automatically sends traces to Basalt's OTEL collector:
-- **Production**: `https://otel.getbasalt.ai/v1/traces`
-- **Development**: `http://localhost:4318/v1/traces` (when `BASALT_BUILD=development`)
+- **Production**: `https://grpc.otel.getbasalt.ai` (gRPC)
+- **Development**: `http://127.0.0.1:4317` (gRPC, when `BASALT_BUILD=development`)
 
 You can override this by:
 1. Providing a custom `exporter` in `TelemetryConfig`
@@ -186,8 +189,7 @@ You can override this by:
 The Prompt SDK allows you to interact with your Basalt prompts using an exception-based API for clear error handling.
 
 For a complete working example, check out:
-- [Prompt API Example](./examples/prompt_api_example.py) - Detailed examples with error handling
-- [Prompt SDK Demo Notebook](./examples/prompt_sdk_demo.ipynb) - Interactive notebook
+- [Prompt SDK Demo Notebook](./examples/prompt_sdk_demo.ipynb) - Interactive notebook with examples
 
 ### Available Methods
 
@@ -309,7 +311,7 @@ Your Basalt instance exposes a `prompts` property for interacting with your Basa
   asyncio.run(generate())
   ```
 
-See the [Prompts guide](./docs/03-prompts.md#observability-with-context-managers) for complete details.
+See the [Basalt documentation](https://docs.getbasalt.ai/introduction) for complete details.
 
 - **Describe a Prompt**
 
@@ -328,7 +330,7 @@ See the [Prompts guide](./docs/03-prompts.md#observability-with-context-managers
 
 - **Async Operations**
 
-  All methods have async variants using `_async` suffix:
+  All methods have async variants (no suffix) and sync variants with `_sync` suffix:
 
   ```python
   import asyncio
@@ -338,13 +340,13 @@ See the [Prompts guide](./docs/03-prompts.md#observability-with-context-managers
       
       try:
           # List prompts asynchronously
-          prompts = await basalt.prompts.list_async()
+          prompts = await basalt.prompts.list()
           
           # Get a specific prompt asynchronously
-          prompt = await basalt.prompts.get_async('prompt-slug')
+          prompt = await basalt.prompts.get('prompt-slug')
           
           # Describe a prompt asynchronously
-          description = await basalt.prompts.describe_async('prompt-slug')
+          description = await basalt.prompts.describe('prompt-slug')
           
       finally:
           basalt.shutdown()
@@ -357,8 +359,8 @@ See the [Prompts guide](./docs/03-prompts.md#observability-with-context-managers
 The Dataset SDK allows you to interact with your Basalt datasets using an exception-based API for clear error handling.
 
 For a complete working example, check out:
-- [Dataset API Example](./examples/dataset_api_example.py) - Detailed examples with error handling
-- [Dataset SDK Demo Notebook](./examples/dataset_sdk_demo.ipynb) - Interactive notebook
+- [Dataset API Example](./examples/dataset/dataset_api_example.py) - Detailed examples with error handling
+- [Dataset SDK Demo Notebook](./examples/dataset/dataset_sdk_demo.ipynb) - Interactive notebook
 
 ### Available Methods
 
@@ -410,7 +412,7 @@ Your Basalt instance exposes a `datasets` property for interacting with your Bas
 
 - **Async Operations**
 
-  All methods have async variants using `_async` suffix:
+  All methods have async variants (no suffix) and sync variants with `_sync` suffix:
 
   ```python
   import asyncio
@@ -420,10 +422,10 @@ Your Basalt instance exposes a `datasets` property for interacting with your Bas
       
       try:
           # List datasets asynchronously
-          datasets = await basalt.datasets.list_async()
+          datasets = await basalt.datasets.list()
           
           # Get a specific dataset asynchronously
-          dataset = await basalt.datasets.get_async('dataset-slug')
+          dataset = await basalt.datasets.get('dataset-slug')
           
       finally:
           basalt.shutdown()
@@ -439,9 +441,13 @@ The SDK uses exception-based error handling for clarity and pythonic patterns:
 from basalt import Basalt
 from basalt.types.exceptions import (
     BasaltAPIError,      # Base exception for all API errors
-    NotFoundError,       # Resource not found (404)
+    BadRequestError,     # Invalid request (400)
     UnauthorizedError,   # Authentication failed (401)
+    ForbiddenError,      # Permission denied (403)
+    NotFoundError,       # Resource not found (404)
     NetworkError,        # Network/connection errors
+    FileUploadError,     # File upload to S3 failed
+    FileValidationError, # File validation failed before upload
 )
 
 basalt = Basalt(api_key="your-api-key")
@@ -453,6 +459,8 @@ except NotFoundError:
     print("Prompt doesn't exist")
 except UnauthorizedError:
     print("Check your API key")
+except ForbiddenError:
+    print("You don't have permission to access this resource")
 except NetworkError:
     print("Network connection failed")
 except BasaltAPIError as e:

@@ -175,7 +175,6 @@ basalt-python/
 │   ├── client.py
 │   └── ...
 ├── tests/               # Test suite
-├── docs/                # Documentation
 ├── examples/            # Example scripts
 ├── pyproject.toml       # Project metadata and configuration
 ├── uv.lock              # Locked dependencies
