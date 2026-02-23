@@ -63,6 +63,10 @@ mistralai = [
     "opentelemetry-instrumentation-mistralai~=0.52.1",
 ]
 
+ollama = [
+    "opentelemetry-instrumentation-ollama~=0.52.1",
+]
+
 
 # Vector Database Instrumentations
 chromadb = [
@@ -89,7 +93,7 @@ llamaindex = [
 
 # Convenience groups
 llm-all = [
-    "basalt_sdk[openai,anthropic,google-generativeai,bedrock,vertex-ai,mistralai]",
+    "basalt_sdk[openai,anthropic,google-generativeai,bedrock,vertex-ai,mistralai,ollama]",
 ]
 vector-all = [
     "basalt_sdk[chromadb,pinecone,qdrant]",
@@ -104,29 +108,25 @@ all = [
 # Development dependencies
 dev = [
     # Build tools
-    "setuptools",
-    "wheel",
-    "twine",
-    # Test dependencies
-    "parameterized",
-    "requests", # Often included for testing API clients
-    # Modern tooling
+    "setuptools>=65.0.0",
+    "wheel>=0.40.0",
+    "twine>=5.0.0",
+    # Code quality tools
     "black>=26.1.0",
-    "ruff",
-    "pytest",
-    "pytest-cov",
-    "pytest-asyncio",
-    "coverage",
-    "mistralai",
-
-    "google-genai",
+    "ruff>=0.14.0",
+    "mypy>=1.8.0",
+    # Test dependencies
+    "pytest>=9.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.23.0",
+    "parameterized>=0.8.0",
+    "requests>=2.31.0",
+    "coverage>=7.0.0",
+    # For testing integrations
     "anthropic",
     "openai",
-    "opentelemetry-instrumentation-anthropic",
-    "opentelemetry-instrumentation-google-generativeai",
-    "opentelemetry-instrumentation-google-genai",
-    "opentelemetry-instrumentation-openai",
-    "opentelemetry-instrumentation-vertexai",
+    "mistralai",
+    "google-genai",
 ]
 
 
