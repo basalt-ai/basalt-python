@@ -68,16 +68,11 @@ class ExperimentsClient(BaseServiceClient):
             "name": name,
         }
 
-        response = await self._request_async(
-            "create",
-            method="POST",
+        response = await self._http_client.fetch(
             url=url,
+            method="POST",
             body=body,
             headers=self._get_headers(),
-            span_attributes={
-                "basalt.experiment.feature_slug": feature_slug,
-                "basalt.experiment.name": name,
-            },
         )
 
         if response is None:
@@ -113,16 +108,11 @@ class ExperimentsClient(BaseServiceClient):
             "name": name,
         }
 
-        response = self._request_sync(
-            "create",
-            method="POST",
+        response = self._http_client.fetch_sync(
             url=url,
+            method="POST",
             body=body,
             headers=self._get_headers(),
-            span_attributes={
-                "basalt.experiment.feature_slug": feature_slug,
-                "basalt.experiment.name": name,
-            },
         )
 
         if response is None:
