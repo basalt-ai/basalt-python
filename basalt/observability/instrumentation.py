@@ -287,10 +287,16 @@ class InstrumentationManager:
         if not endpoint:
             return None
 
+        # Allow explicit protocol override via standard OTel env var or Basalt-specific one.
+        # Values: "grpc" or "http/protobuf" (also accepts "http").
+        protocol = os.getenv("BASALT_OTEL_EXPORTER_OTLP_PROTOCOL") or os.getenv(
+            "OTEL_EXPORTER_OTLP_PROTOCOL"
+        )
+
         headers = self._build_exporter_headers()
 
         try:
-            exporter = self._create_otlp_exporter(endpoint, headers=headers)
+            exporter = self._create_otlp_exporter(endpoint, headers=headers, protocol=protocol)
             logger.info("Basalt: Using OTLP exporter with endpoint: %s", endpoint)
             return exporter
         except Exception as exc:
@@ -313,8 +319,15 @@ class InstrumentationManager:
         endpoint: str,
         *,
         headers: dict[str, str] | None,
+        protocol: str | None = None,
     ) -> SpanExporter:
-        if self._should_use_http_exporter(endpoint):
+        # Explicit protocol overrides heuristic
+        if protocol:
+            use_http = protocol.lower() in {"http/protobuf", "http"}
+        else:
+            use_http = self._should_use_http_exporter(endpoint)
+
+        if use_http:
             exporter = OTLPHTTPSpanExporter(endpoint=endpoint, headers=headers)
             # Wrap HTTP exporter to suppress connection errors during export
             return ResilientSpanExporter(exporter)
