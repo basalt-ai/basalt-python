@@ -24,9 +24,9 @@ dependencies = [
     "opentelemetry-instrumentation~=0.59b0",
     "opentelemetry-instrumentation-httpx~=0.59b0",
     "opentelemetry-semantic-conventions~=0.59b0",
-    "opentelemetry-api~=1.39.1",
-    "opentelemetry-sdk~=1.39.1",
-    "opentelemetry-exporter-otlp~=1.39.1",
+    "opentelemetry-api~=1.40.0",
+    "opentelemetry-sdk~=1.40.0",
+    "opentelemetry-exporter-otlp~=1.40.0",
     "wrapt~=1.17.3",
     "httpx>=0.28.1",
     "typing_extensions>=4.10.0",
@@ -40,51 +40,51 @@ Homepage = "https://github.com/basalt-ai/basalt-python"
 [project.optional-dependencies]
 # LLM Provider Instrumentations
 openai = [
-    "opentelemetry-instrumentation-openai~=0.52.1",
+    "opentelemetry-instrumentation-openai~=0.53.0",
 ]
 anthropic = [
-    "opentelemetry-instrumentation-anthropic~=0.52.1",
+    "opentelemetry-instrumentation-anthropic~=0.53.0",
 ]
 google-generativeai = [
-    "opentelemetry-instrumentation-google-generativeai~=0.52.1",
+    "opentelemetry-instrumentation-google-generativeai~=0.53.0",
 ]
 # google-genai = [
 #     "opentelemetry-instrumentation-google-genai~=0.5b0",
 # ]
 
 bedrock = [
-    "opentelemetry-instrumentation-bedrock~=0.52.1",
+    "opentelemetry-instrumentation-bedrock~=0.53.0",
 ]
 vertex-ai = [
-    "opentelemetry-instrumentation-vertexai~=0.52.1",
+    "opentelemetry-instrumentation-vertexai~=0.53.0",
 ]
 
 mistralai = [
-    "opentelemetry-instrumentation-mistralai~=0.52.1",
+    "opentelemetry-instrumentation-mistralai~=0.53.0",
 ]
 
 ollama = [
-    "opentelemetry-instrumentation-ollama~=0.52.1",
+    "opentelemetry-instrumentation-ollama~=0.53.0",
 ]
 
 
 # Vector Database Instrumentations
 chromadb = [
-    "opentelemetry-instrumentation-chromadb~=0.52.1",
+    "opentelemetry-instrumentation-chromadb~=0.53.0",
 ]
 pinecone = [
-    "opentelemetry-instrumentation-pinecone~=0.52.1",
+    "opentelemetry-instrumentation-pinecone~=0.53.0",
 ]
 qdrant = [
-    "opentelemetry-instrumentation-qdrant~=0.52.1",
+    "opentelemetry-instrumentation-qdrant~=0.53.0",
 ]
 
 # Framework Instrumentations
 langchain = [
-    "opentelemetry-instrumentation-langchain~=0.52.1",
+    "opentelemetry-instrumentation-langchain~=0.53.0",
 ]
 llamaindex = [
-    "opentelemetry-instrumentation-llamaindex~=0.52.1",
+    "opentelemetry-instrumentation-llamaindex~=0.53.0",
 ]
 
 # Mising Framework Instrumentation
