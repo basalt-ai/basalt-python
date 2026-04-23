@@ -95,7 +95,7 @@ jobs:
       run: hatch publish --no-prompt
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+      uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
       with:
         tag_name: ${{ steps.get_version.outputs.TAG }}
         name: Release ${{ steps.get_version.outputs.VERSION }}
