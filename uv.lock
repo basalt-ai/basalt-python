@@ -870,7 +870,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -2245,15 +2245,15 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-semantic-conventions-ai"
-version = "0.4.14"
+version = "0.4.16"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-sdk" },
     { name = "opentelemetry-semantic-conventions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/33/f77151a8c9bf93094074533ea751305e9f3fec1a4197b0f218d09cb8dce2/opentelemetry_semantic_conventions_ai-0.4.14.tar.gz", hash = "sha256:0495774011933010db7dbfa5111a2fa649edeedef922e39c898154c81eae89d8", size = 18418, upload-time = "2026-02-22T20:25:34.42Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/44/fda3c60e77548224ffd86b62aab5a58534e1d32f74d2ccd50ef58aade8d3/opentelemetry_semantic_conventions_ai-0.4.16.tar.gz", hash = "sha256:572eb878d8b81e50f1e53d2a5c1b441e7d34918ee01c846ff62485204d660c22", size = 19071, upload-time = "2026-03-19T15:29:35.357Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/d5/cdc62ce0f7357cd91682bb1e31d7a68a3c0da5abdbd8c69ffa9aec555f1b/opentelemetry_semantic_conventions_ai-0.4.14-py3-none-any.whl", hash = "sha256:218e0bf656b1d459c5bc608e2a30272b7ab0a4a5b69c1bd5b659c3918f4ad144", size = 5824, upload-time = "2026-02-22T20:25:33.307Z" },
+    { url = "https://files.pythonhosted.org/packages/db/98/e8bf804f2351603b508abaa624096ba279f1d62c3104e7020b45ae938d54/opentelemetry_semantic_conventions_ai-0.4.16-py3-none-any.whl", hash = "sha256:d5ddd0df387b969da82e3e0a8b7415e91d2fc7ce13de7efc2690a7939932b2e0", size = 6495, upload-time = "2026-03-19T15:29:33.974Z" },
 ]
 
 [[package]]
@@ -2896,11 +2896,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "82.0.0"
+version = "84.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/82/f3/748f4d6f65d1756b9ae577f329c951cda23fb900e4de9f70900ced962085/setuptools-82.0.0.tar.gz", hash = "sha256:22e0a2d69474c6ae4feb01951cb69d515ed23728cf96d05513d36e42b62b37cb", size = 1144893, upload-time = "2026-02-08T15:08:40.206Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz", hash = "sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73", size = 1168449, upload-time = "2026-08-08T18:27:58.365Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/c6/76dc613121b793286a3f91621d7b75a2b493e0390ddca50f11993eadf192/setuptools-82.0.0-py3-none-any.whl", hash = "sha256:70b18734b607bd1da571d097d236cfcfacaf01de45717d59e6e04b96877532e0", size = 1003468, upload-time = "2026-02-08T15:08:38.723Z" },
+    { url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl", hash = "sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670", size = 818216, upload-time = "2026-08-08T18:27:56.719Z" },
 ]
 
 [[package]]
